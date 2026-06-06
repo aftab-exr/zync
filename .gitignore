@@ -1,0 +1,21 @@
+# Dependency directories
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Environment Variables (CRITICAL SECURITY)
+.env
+.env.local
+server/.env
+server/config/.env
+client/.env
+client/.env.local
+
+# Build outputs
+dist/
+build/
+client/dist/
+
+# OS generated files
+.DS_Store
+Thumbs.db

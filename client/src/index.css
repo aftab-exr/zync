@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Zync Dark Theme (V1) */
+  --bg-base: #0D0D0F;
+  --bg-surface: #141417;
+  --border: #2A2A30;
+  --text-primary: #F0F0F3;
+  --text-secondary: #8A8A96;
+  --accent: #4F8EF7;
+  --accent-hover: #6BA3FF;
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: 'DM Sans', sans-serif;
+  margin: 0;
+  height: 100vh;
+  overflow: hidden; /* App-like feel */
+}
+
+h1, h2, h3, .font-display {
+  font-family: 'Syne', sans-serif;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}

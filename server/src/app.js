@@ -1,0 +1,25 @@
+import express from "express";
+import cors from "cors";
+import cookieparser from "cookie-parser";
+import helmet from "helmet";
+import apiResponse from "./utils/apiResponse.js";
+import userRoutes from "./routes/user.route.js";
+import conversationRoutes from "./routes/conversation.routes.js";
+
+const app = express();
+
+app.use(helmet());
+app.use(express.json());
+app.use(cors({ origin: process.env.CLIENT_ORIGIN, credentials: true }));
+app.use(cookieparser());
+
+// ROUTES
+app.use("/api/v1/users",userRoutes);
+app.use("/api/v1/conversations",conversationRoutes);
+
+// Health Checking Endpoint
+app.get("/health",(req,res)=>{
+    res.status(200).json(new apiResponse(200,"Enterprise Engine Humming",{}))
+})
+
+export default app;
