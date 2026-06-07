@@ -35,13 +35,10 @@ function App() {
           <Route path="/setup-profile" element={<SetupProfile />} />
         </Route>
         
-        {/* 🛡️ PROTECTED ROUTES: Only accessible if authenticated AND profile complete */}
+        {/* 🛡️ PROTECTED ROUTES */}
         <Route element={<AuthGuard />}>
-          <Route path="/inbox" element={<Inbox />} />
-          {/* Future V2 routes like /groups and /settings will go inside this block */}
-
-          {/* Dynamic Conversation Route */}
-          <Route path="/inbox/:conversationId" element={<Inbox />} />
+          {/* ⚡ OPTIMIZATION: The '?' makes the ID optional. The Inbox will NEVER unmount, keeping the Socket permanently stable. */}
+          <Route path="/inbox/:conversationId?" element={<Inbox />} />
         </Route>
         
       </Routes>

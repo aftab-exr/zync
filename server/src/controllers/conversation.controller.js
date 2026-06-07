@@ -39,31 +39,27 @@ export const getUserConversations = async (req, res) => {
 
         const conversations = await Conversation.find({
             type: 'dm',
-            dmParticipants: currentUserId, // MongoDB automatically checks if the ID exists in the array
-            deletedAt: null
+            dmParticipants: currentUserId
         })
         .populate({
             path: 'dmParticipants',
-            select: 'username displayName avatarUrl status.online status.lastSeen' 
+            // ⚡ FIX: Ensure 'status' is explicitly selected
+            select: 'username displayName avatarUrl status' 
         })
-        .sort({ lastMessageAt: -1 }); // Newest conversations at the top
+        .sort({ lastMessageAt: -1 })
+        // ⚡ CRITICAL: .lean() converts Mongoose docs to POJOs (Plain Old JavaScript Objects)
+        // This ensures nested fields like status.online are actually sent to the frontend.
+        .lean(); 
 
-        // Format the payload to easily isolate the "other person" for the UI
         const formattedConversations = conversations.map(conv => {
             const otherUser = conv.dmParticipants.find(
                 p => p._id.toString() !== currentUserId.toString()
             );
-
-            return {
-                _id: conv._id,
-                lastMessageAt: conv.lastMessageAt,
-                otherUser
-            };
+            return { _id: conv._id, lastMessageAt: conv.lastMessageAt, otherUser };
         });
 
         res.status(200).json({ success: true, data: formattedConversations });
     } catch (error) {
-        console.error("📋 Fetch Conversations Error:", error.message);
-        res.status(500).json({ success: false, error: "Failed to fetch conversations" });
+        res.status(500).json({ success: false, error: error.message });
     }
 };

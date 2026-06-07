@@ -65,25 +65,20 @@ export const initializeSocket = (httpServer) => {
 
         socket.join(userId);
 
-        // Mark user as online in MongoDB
-        await User.findByIdAndUpdate(userId, { "status.online": true });
+        // ⚡ FIX 3: Use strict $set to safely update the nested field
+        await User.findByIdAndUpdate(userId, { $set: { "status.online": true } });
         
-        // Broadcast presence to others (V2 Feature placeholder)
         socket.broadcast.emit("presence:update", { userId, online: true });
 
-        // --- Core Messaging Events will go here ---
-
-        // Handle Disconnection
         socket.on("disconnect", async () => {
             console.log(`🔴 User disconnected: ${socket.user.username}`);
+            // ⚡ FIX 4: Use strict $set here as well
             await User.findByIdAndUpdate(userId, { 
-                "status.online": false, 
-                "status.lastSeen": new Date() 
+                $set: { "status.online": false, "status.lastSeen": new Date() } 
             });
             socket.broadcast.emit("presence:update", { userId, online: false, lastSeen: new Date() });
         });
     });
-
     return io;
 };
 
