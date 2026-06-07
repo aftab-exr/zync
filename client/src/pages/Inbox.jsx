@@ -16,9 +16,15 @@ export default function Inbox() {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
   // Global Brains (Zustand)
-  const { connect, disconnect, isConnected } = useSocketStore();
+  const { connect, disconnect, isConnected, socket } = useSocketStore();
   const { user, logout } = useAuthStore();
-  const { conversations, fetchConversations, isFetchingConversations } = useChatStore();
+  const { 
+    conversations, 
+    fetchConversations, 
+    isFetchingConversations,
+    subscribeToPresence,      // <-- Extract this
+    unsubscribeFromPresence   // <-- Extract this
+  } = useChatStore();
 
   // Lifecycle: Connect Sockets
   useEffect(() => {
@@ -30,7 +36,15 @@ export default function Inbox() {
   useEffect(() => {
     fetchConversations();
   }, [fetchConversations]);
-
+  // Lifecycle: Global Presence Listener (Waits for socket connection)
+  useEffect(() => {
+    if (!socket) return;
+    
+    subscribeToPresence();
+    
+    return () => unsubscribeFromPresence();
+  }, [socket, subscribeToPresence, unsubscribeFromPresence]);
+  
   // Algorithm: Secure Session Termination
   const handleLogout = async () => {
     disconnect(); // Sever the real-time WebSocket connection
