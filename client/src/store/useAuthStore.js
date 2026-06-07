@@ -7,7 +7,7 @@ const api = axios.create({
     baseURL: "http:localhost:4000/api/v1"
 });
 
-export const useAuthStore = create((set, get) => ({
+export const useAuthStore = create((set) => ({
     user: null,
     isAuthenticated: false,
     isCheckingAuth: true,

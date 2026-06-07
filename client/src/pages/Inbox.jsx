@@ -1,37 +1,52 @@
-import { useChatStore } from '../store/useChatStore';
-import { useNavigate, useParams } from 'react-router-dom';
-import ChatPane from '../components/ChatPane'; 
 import { useState, useEffect } from 'react';
-import { Search, Bell, MessageSquare, Plus } from 'lucide-react';
+import { Search, Bell, MessageSquare, Plus, LogOut } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useSocketStore } from '../store/useSocketStore';
 import { useAuthStore } from '../store/useAuthStore';
+import { useChatStore } from '../store/useChatStore';
 import NewMessageModal from '../components/NewMessageModal';
+import ChatPane from '../components/ChatPane';
 
 export default function Inbox() {
   const navigate = useNavigate();
   const { conversationId } = useParams();
+  
+  // UI State
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
-  const { connect, disconnect, isConnected } = useSocketStore();
-  const user = useAuthStore((state) => state.user);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
+  // Global Brains (Zustand)
+  const { connect, disconnect, isConnected } = useSocketStore();
+  const { user, logout } = useAuthStore();
   const { conversations, fetchConversations, isFetchingConversations } = useChatStore();
 
-  // Initialize the real-time engine when the Inbox mounts
+  // Lifecycle: Connect Sockets
   useEffect(() => {
     connect();
-    return () => disconnect(); // Cleanup and close socket on unmount
+    return () => disconnect();
   }, [connect, disconnect]);
+
+  // Lifecycle: Hydrate Sidebar
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
+
+  // Algorithm: Secure Session Termination
+  const handleLogout = async () => {
+    disconnect(); // Sever the real-time WebSocket connection
+    await logout(); // Destroy Firebase session & wipe Zustand memory bank
+    // The <AuthGuard /> will instantly intercept the state change and route to /login
+  };
 
   return (
     <div className="flex flex-col h-screen w-full bg-[var(--bg-base)] text-[var(--text-primary)]">
       
       {/* TOPBAR */}
-      <header className="h-12 border-b flex items-center justify-between px-6 z-50 sticky top-0 bg-[var(--bg-base)]" style={{ borderColor: 'var(--border)' }}>
+      <header className="h-12 border-b flex items-center justify-between px-6 z-40 sticky top-0 bg-[var(--bg-base)]" style={{ borderColor: 'var(--border)' }}>
         <div className="flex items-center gap-8">
           <h1 className="text-lg font-display font-bold">⚡ Zync</h1>
           
-          {/* Search Bar */}
-          <div className="relative group">
+          <div className="relative group hidden sm:block">
             <Search className="w-4 h-4 absolute left-3 top-1.5 text-[var(--text-secondary)]" />
             <input 
               type="text" 
@@ -47,18 +62,51 @@ export default function Inbox() {
             <Bell className="w-5 h-5" />
           </button>
           
-          {/* Avatar Dropdown Placeholder */}
-          <div className="w-8 h-8 rounded-full bg-[var(--border)] border-2 border-[var(--border-active)] overflow-hidden flex items-center justify-center font-display font-bold text-xs">
-            {user?.displayName?.charAt(0).toUpperCase() || 'Z'}
+          {/* Avatar & Profile Dropdown */}
+          <div className="relative">
+            <button 
+              onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+              className="w-8 h-8 rounded-full bg-[var(--border)] border-2 border-[var(--border-active)] overflow-hidden flex items-center justify-center font-display font-bold text-xs text-white hover:brightness-110 transition-all focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+            >
+              {user?.displayName?.charAt(0).toUpperCase() || 'Z'}
+            </button>
+
+            {/* Dropdown Menu Overlay */}
+            {isProfileMenuOpen && (
+              <>
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setIsProfileMenuOpen(false)}
+                ></div>
+                
+                <div 
+                  className="absolute right-0 mt-2 w-48 bg-[var(--bg-surface)] border rounded-xl shadow-2xl py-1.5 z-50 overflow-hidden" 
+                  style={{ borderColor: 'var(--border)' }}
+                >
+                  <div className="px-4 py-2 border-b mb-1" style={{ borderColor: 'var(--border)' }}>
+                    <p className="text-sm font-medium text-white truncate">{user?.displayName}</p>
+                    <p className="text-xs text-[var(--text-secondary)] font-mono truncate">@{user?.username}</p>
+                  </div>
+                  
+                  <button 
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-400 hover:bg-[rgba(229,72,77,0.1)] transition-colors text-left"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Sign out
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </header>
 
       {/* MAIN LAYOUT */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
         
         {/* SIDEBAR (Conversation List) */}
-        <aside className="w-[280px] border-r flex flex-col bg-[var(--bg-base)] z-10" style={{ borderColor: 'var(--border)' }}>
+        <aside className="w-[280px] border-r flex flex-col bg-[var(--bg-base)] z-10 hidden md:flex" style={{ borderColor: 'var(--border)' }}>
           <div className="p-4">
             <button 
               onClick={() => setIsSearchModalOpen(true)}
@@ -71,7 +119,6 @@ export default function Inbox() {
           </div>
           
           <div className="flex-1 overflow-y-auto px-2 mt-2 space-y-1">
-
             {isFetchingConversations && conversations.length === 0 && (
               <div className="flex justify-center mt-10">
                 <div className="w-5 h-5 border-2 border-[var(--text-secondary)] border-t-[var(--accent)] rounded-full animate-spin"></div>
@@ -86,7 +133,7 @@ export default function Inbox() {
 
             {conversations.map((conv) => {
               const isActive = conversationId === conv._id;
-
+              
               return (
                 <button
                   key={conv._id}
@@ -99,12 +146,11 @@ export default function Inbox() {
                     <div className="w-10 h-10 rounded-full bg-[var(--border)] flex items-center justify-center font-display font-bold text-sm text-white">
                       {conv.otherUser.displayName.charAt(0).toUpperCase()}
                     </div>
-                    {/* Online Indicator Badge */}
                     {conv.otherUser.status?.online && (
                       <div className="absolute bottom-0 right-0 w-3 h-3 bg-[var(--success)] border-2 border-[var(--bg-base)] rounded-full"></div>
                     )}
                   </div>
-
+                  
                   <div className="flex-1 overflow-hidden">
                     <div className="flex items-center justify-between">
                       <h4 className="text-sm font-medium text-white truncate">{conv.otherUser.displayName}</h4>
@@ -120,26 +166,26 @@ export default function Inbox() {
         </aside>
 
         {/* MAIN PANE (Dynamic Switcher) */}
-     {conversationId ? (
-       <ChatPane conversationId={conversationId} />
-     ) : (
-       <main className="flex-1 flex flex-col items-center justify-center bg-[var(--bg-base)]">
-         <div className="flex flex-col items-center text-center max-w-[240px]">
-           <MessageSquare className="w-12 h-12 text-[var(--text-secondary)] mb-6 opacity-50" />
-           <h2 className="text-md font-semibold mb-2">Select a conversation</h2>
-           <p className="text-sm text-[var(--text-secondary)]">or start a new one from the sidebar.</p>
-
-           <div className="mt-8 flex items-center gap-2 text-xs font-mono text-[var(--text-secondary)]">
-             <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-[var(--success)]' : 'bg-[var(--warning)] animate-pulse'}`} />
-             {isConnected ? 'Socket Connected' : 'Reconnecting...'}
-           </div>
-         </div>
-       </main>
-     )}
-        
+        {conversationId ? (
+          <ChatPane conversationId={conversationId} />
+        ) : (
+          <main className="flex-1 flex flex-col items-center justify-center bg-[var(--bg-base)]">
+            <div className="flex flex-col items-center text-center max-w-[240px]">
+              <MessageSquare className="w-12 h-12 text-[var(--text-secondary)] mb-6 opacity-50" />
+              <h2 className="text-md font-semibold mb-2">Select a conversation</h2>
+              <p className="text-sm text-[var(--text-secondary)]">or start a new one from the sidebar.</p>
+              
+              {/* Connectivity Status Indicator */}
+              <div className="mt-8 flex items-center gap-2 text-xs font-mono text-[var(--text-secondary)]">
+                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-[var(--success)]' : 'bg-[var(--warning)] animate-pulse'}`} />
+                {isConnected ? 'Socket Connected' : 'Reconnecting...'}
+              </div>
+            </div>
+          </main>
+        )}
       </div>
 
-      {/* Global Modals */}
+      {/* Modals */}
       <NewMessageModal 
         isOpen={isSearchModalOpen} 
         onClose={() => setIsSearchModalOpen(false)} 

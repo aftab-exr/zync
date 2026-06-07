@@ -45,7 +45,7 @@ export const useMessageStore = create((set, get) => ({
     socket.on("newMessage", (newMessage) => {
       // Security Check: Only append if the incoming message belongs to the room we are actively looking at
       if (newMessage.conversationId === currentConversationId) {
-        set({ messages: [...get().messages, newMessage] });
+        set((state) => ({ messages: [...state.messages, newMessage] }));
       }
     });
   },

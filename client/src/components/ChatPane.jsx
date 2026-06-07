@@ -3,6 +3,7 @@ import { Send, MoreVertical, Phone, Video, Loader2 } from 'lucide-react';
 import { useMessageStore } from '../store/useMessageStore';
 import { useChatStore } from '../store/useChatStore';
 import { useAuthStore } from '../store/useAuthStore';
+import { useSocketStore } from '../store/useSocketStore';
 
 export default function ChatPane({ conversationId }) {
   const [text, setText] = useState('');
@@ -12,20 +13,28 @@ export default function ChatPane({ conversationId }) {
   const { user } = useAuthStore();
   const { conversations } = useChatStore();
   const { messages, fetchMessages, sendMessage, subscribeToMessages, unsubscribeFromMessages, isFetching } = useMessageStore();
+  const { socket } = useSocketStore();
 
   // Extract the specific conversation we are looking at to get the receiver's ID
   const activeConversation = conversations.find(c => c._id === conversationId);
   const otherUser = activeConversation?.otherUser;
 
   // Component Lifecycle: Fetch & Subscribe
+  // Lifecycle 1: Data Fetching (Runs immediately)
   useEffect(() => {
     if (!conversationId) return;
-    
     fetchMessages(conversationId);
+  }, [conversationId, fetchMessages]);
+
+  // Lifecycle 2: Real-Time Subscription (Waits for the socket connection)
+  useEffect(() => {
+    // If we have no chat selected OR the socket handshake isn't finished, wait.
+    if (!conversationId || !socket) return;
+    
     subscribeToMessages(conversationId);
     
     return () => unsubscribeFromMessages();
-  }, [conversationId, fetchMessages, subscribeToMessages, unsubscribeFromMessages]);
+  }, [conversationId, socket, subscribeToMessages, unsubscribeFromMessages]); // React re-runs this the exact moment `socket` connects
 
   // Auto-Scroll Algorithm
   useEffect(() => {

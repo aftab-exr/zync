@@ -4,19 +4,20 @@ import { Search, X, Loader2, UserPlus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { auth } from '../lib/firebase';
+import { useChatStore } from '../store/useChatStore'; // ⚡ NEW: Import the Chat Store
 
 export default function NewMessageModal({ isOpen, onClose }) {
   const navigate = useNavigate();
+  const { fetchConversations } = useChatStore(); // ⚡ NEW: Extract the fetch function
+  
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
 
-  // Algorithm: Network Debounce (Protects your MongoDB Sandbox)
- // Algorithm: Network Debounce & State Synchronization
- useEffect(() => {
+  // Network Debounce & State Synchronization
+  useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
-      // Move the clear logic INSIDE the async timeout
       if (query.trim().length < 2) {
         setResults([]);
         setIsSearching(false);
@@ -46,7 +47,7 @@ export default function NewMessageModal({ isOpen, onClose }) {
     try {
       const token = await auth.currentUser.getIdToken();
       
-      // Fire the DM Deduplication route
+      // 1. Create or fetch the DM from MongoDB
       const res = await axios.post('http://localhost:4000/api/v1/conversations', 
         { targetUserId },
         { headers: { Authorization: `Bearer ${token}` } }
@@ -54,7 +55,10 @@ export default function NewMessageModal({ isOpen, onClose }) {
 
       const conversationId = res.data.data._id;
       
-      // Close modal and route to the new chat
+      // 2. ⚡ HYDRATE THE STATE: Force the sidebar to update so ChatPane knows about it
+      await fetchConversations();
+
+      // 3. Close modal and route to the new chat
       onClose();
       setQuery('');
       navigate(`/inbox/${conversationId}`);
@@ -120,7 +124,7 @@ export default function NewMessageModal({ isOpen, onClose }) {
                   className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-[var(--bg-base)] transition-colors text-left group"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[var(--border)] flex items-center justify-center font-display font-bold text-sm">
+                    <div className="w-10 h-10 rounded-full bg-[var(--border)] flex items-center justify-center font-display font-bold text-sm text-white">
                       {user.displayName.charAt(0).toUpperCase()}
                     </div>
                     <div>
@@ -129,8 +133,8 @@ export default function NewMessageModal({ isOpen, onClose }) {
                     </div>
                   </div>
                   <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="text-[var(--accent)] text-xs font-medium bg-[rgba(79,142,247,0.1)] px-3 py-1 rounded-full">
-                      Message
+                    <span className="text-[var(--accent)] text-xs font-medium bg-[rgba(79,142,247,0.1)] px-3 py-1 rounded-full flex items-center gap-1">
+                      {isCreating ? <Loader2 className="w-3 h-3 animate-spin" /> : "Message"}
                     </span>
                   </div>
                 </button>
