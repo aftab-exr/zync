@@ -8,6 +8,8 @@ server/node_modules/
 .env.local
 server/.env
 server/config/.env
+server/src/config/serviceAccountKey.json
+
 client/.env
 client/.env.local
 

@@ -5,17 +5,19 @@ import helmet from "helmet";
 import apiResponse from "./utils/apiResponse.js";
 import userRoutes from "./routes/user.route.js";
 import conversationRoutes from "./routes/conversation.routes.js";
+import messageRoutes from "./routes/message.routes.js";
 
 const app = express();
 
 app.use(helmet());
 app.use(express.json());
-app.use(cors({ origin: process.env.CLIENT_ORIGIN, credentials: true }));
+app.use(cors({ origin: process.env.CLIENT_ORIGIN || "http://localhost:5173", credentials: true }));
 app.use(cookieparser());
 
 // ROUTES
 app.use("/api/v1/users",userRoutes);
 app.use("/api/v1/conversations",conversationRoutes);
+app.use("/api/v1/messages", messageRoutes);
 
 // Health Checking Endpoint
 app.get("/health",(req,res)=>{

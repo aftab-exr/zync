@@ -68,3 +68,8 @@ export const searchUsers = async (req, res) => {
         res.status(500).json({ success: false, error: "Search failed" });
     }
 };
+
+export const getMe = asyncHandler(async (req, res) => {
+    // If the middleware let them through, req.user is guaranteed to exist
+    return res.status(200).json(new apiResponse(200, "Profile fetched successfully", req.user));
+});

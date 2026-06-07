@@ -63,6 +63,8 @@ export const initializeSocket = (httpServer) => {
         const userId = socket.user._id.toString();
         console.log(`🟢 User connected: ${socket.user.username} (${socket.id})`);
 
+        socket.join(userId);
+
         // Mark user as online in MongoDB
         await User.findByIdAndUpdate(userId, { "status.online": true });
         

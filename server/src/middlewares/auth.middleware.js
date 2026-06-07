@@ -1,68 +1,47 @@
-import admin from "firebase-admin";
+import admin from "../config/firebase.js";
 import User from "../models/user.model.js";
-import apiResponse from "../utils/apiResponse.js";
-
-
-if (!admin.apps.length) {
-    admin.initializeApp({
-    })
-}
 
 const authenticateUser = async (req, res, next) => {
     try {
-        // Verify Header Presence & Structure...
         const authHeader = req.headers.authorization;
+        
         if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return res.status(401).json(new apiResponse(401, "Authentication token missing or malformed. Format must be 'Bearer <token>'.", {}));
+            return res.status(401).json({ success: false, error: "No token provided" });
         }
-        // Token...
+
         const token = authHeader.split(" ")[1];
-        // Devlopment Bypass
-        if(token === "DEV_TEST_TOKEN"){
-            req.authContext = {
-                uid: "firebase_mock_uid_123",
-                email: "test@zync.dev",
-                emailVerified: true
-            };
+
+        // 🚧 DEVELOPMENT BYPASS (For Postman)
+        if (token === "DEV_TEST_TOKEN") {
+            req.authContext = { uid: "firebase_mock_uid_123", email: "test@zync.dev" };
             req.user = await User.findOne({ firebaseUid: "firebase_mock_uid_123" });
             return next();
         }
 
-        // Verify Token...
-        const decodedToken = await admin.auth().verifyIdToken(token);
-        if (!decodedToken) {
-            return res.status(401).json(new apiResponse(401, "Invalid token payload.", {}));
-        }
-        // Database lookup & Hydration Strategy...
-        let user =await User.findOne({ firebaseUid: decodedToken.uid, deleteAt: null });
-        
-        req.authContext = {
-            uid: decodedToken.uid,
-            email: decodedToken.email,
-            emailVerified: decodedToken.email_verified,
-        };
+        // 🚀 REAL FIREBASE VERIFICATION (For React Frontend)
+        try {
+            const decodedToken = await admin.auth().verifyIdToken(token);
+            req.authContext = decodedToken; // Attach Firebase Identity
 
-        req.user = user || null;
-        next();
+            // Check if the user already has a Zync profile in MongoDB
+            req.user = await User.findOne({ firebaseUid: decodedToken.uid });
+
+            // 🛑 THE CATCH-22 FIX:
+            // If they have no Zync profile, block them UNLESS they are trying to create one via /setup
+            if (!req.user && !req.originalUrl.includes('/setup')) {
+                return res.status(401).json({ success: false, error: "Zync profile not found. Please complete setup." });
+            }
+
+            next();
+        } catch (firebaseErr) {
+            console.error("🔴 Firebase Token Error:", firebaseErr.message);
+            return res.status(401).json({ success: false, error: "Invalid or expired token" });
+        }
 
     } catch (error) {
-        console.error("🔒 Auth Middleware Exception:", error.message);
-
-        if(error.code === "auth/id-token-expired"){
-            return res.status(401).json(new apiResponse(401, "Authentication token expired.", {}));
-        }
-        if(error.code === "auth/id-token-revoked"){
-            return res.status(401).json(new apiResponse(401, "Authentication token revoked.", {}));
-        }
-        if(error.code === "auth/user-not-found"){
-            return res.status(401).json(new apiResponse(401, "User not found.", {}));
-        }
-        if(error.code === "auth/invalid-auth-uid"){
-            return res.status(401).json(new apiResponse(401, "Invalid authentication UID.", {}));
-        }
-
-        return res.status(401).json(new apiResponse(401,"Access denied. Token verification failed.",{}))
+        console.error("🔴 Auth Middleware Error:", error.message);
+        res.status(500).json({ success: false, error: "Internal Server Error" });
     }
-}
+};
 
 export default authenticateUser;

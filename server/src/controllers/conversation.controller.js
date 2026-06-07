@@ -32,3 +32,38 @@ export const createOrGetDM = async (req, res) => {
         res.status(500).json({ success: false, error: "Failed to initialize conversation." });
     }
 };
+
+export const getUserConversations = async (req, res) => {
+    try {
+        const currentUserId = req.user._id;
+
+        const conversations = await Conversation.find({
+            type: 'dm',
+            dmParticipants: currentUserId, // MongoDB automatically checks if the ID exists in the array
+            deletedAt: null
+        })
+        .populate({
+            path: 'dmParticipants',
+            select: 'username displayName avatarUrl status.online status.lastSeen' 
+        })
+        .sort({ lastMessageAt: -1 }); // Newest conversations at the top
+
+        // Format the payload to easily isolate the "other person" for the UI
+        const formattedConversations = conversations.map(conv => {
+            const otherUser = conv.dmParticipants.find(
+                p => p._id.toString() !== currentUserId.toString()
+            );
+
+            return {
+                _id: conv._id,
+                lastMessageAt: conv.lastMessageAt,
+                otherUser
+            };
+        });
+
+        res.status(200).json({ success: true, data: formattedConversations });
+    } catch (error) {
+        console.error("📋 Fetch Conversations Error:", error.message);
+        res.status(500).json({ success: false, error: "Failed to fetch conversations" });
+    }
+};

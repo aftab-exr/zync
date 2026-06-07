@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { signInWithPopup, signOut} from "firebase/auth";
+import { signInWithPopup, signOut, onAuthStateChanged} from "firebase/auth";
 import { auth, googleProvider} from "../lib/firebase";
 import axios from "axios";
 
@@ -12,6 +12,37 @@ export const useAuthStore = create((set, get) => ({
     isAuthenticated: false,
     isCheckingAuth: true,
     error: null,
+    
+    // Algorithm: The Application Boot Sequence
+    checkAuth: () => {
+        // Firebase actively monitors the IndexedDB session across reloads
+        onAuthStateChanged(auth, async (firebaseUser) => {
+        if (!firebaseUser) {
+            set({ user: null, isAuthenticated: false, isCheckingAuth: false });
+            return;
+        }
+
+        try {
+            const token = await firebaseUser.getIdToken();
+            
+            // Ask the backend for the Zync Profile
+            const res = await axios.get('http://localhost:4000/api/v1/users/me', {
+            headers: { Authorization: `Bearer ${token}` }
+            });
+            
+            // Profile exists! Hydrate the state.
+            set({ user: res.data.data, isAuthenticated: true, isCheckingAuth: false });
+            
+        } catch (error) {
+            // If 401, Firebase is valid but MongoDB profile is missing (Needs Setup)
+            if (error.response?.status === 401) {
+            set({ user: null, isAuthenticated: true, isCheckingAuth: false });
+            } else {
+            set({ user: null, isAuthenticated: false, isCheckingAuth: false });
+            }
+        }
+        });
+    },
 
     loginWithGoogle: async () => {
         try {
