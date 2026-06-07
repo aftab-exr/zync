@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import axios from 'axios';
+import { api } from '../lib/axios';
 import { auth } from '../lib/firebase';
 import { useSocketStore } from './useSocketStore'; // ⚡ NEW: Need socket access
 
@@ -11,7 +11,7 @@ export const useChatStore = create((set) => ({
     set({ isFetchingConversations: true });
     try {
       const token = await auth.currentUser.getIdToken();
-      const response = await axios.get('http://localhost:4000/api/v1/conversations', {
+      const response = await api.get('/conversations', {
         headers: { Authorization: `Bearer ${token}` }
       });
       

@@ -1,4 +1,3 @@
-const PORT = process.env.PORT|| 4000;
-console.log(PORT);
+const PORT = process.env.PORT || 4000;
 
-export {PORT};
+export { PORT };

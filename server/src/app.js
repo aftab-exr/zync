@@ -3,6 +3,8 @@ import cors from "cors";
 import cookieparser from "cookie-parser";
 import helmet from "helmet";
 import compression from "compression";
+import path from "path";
+import { fileURLToPath } from "url";
 import apiResponse from "./utils/apiResponse.js";
 import userRoutes from "./routes/user.route.js";
 import conversationRoutes from "./routes/conversation.routes.js";
@@ -26,5 +28,20 @@ app.use("/api/v1/messages", messageRoutes);
 app.get("/health",(req,res)=>{
     res.status(200).json(new apiResponse(200,"Enterprise Engine Humming",{}))
 })
+
+// 🚀 ALGORITHM: Unified Production Serving
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+if (process.env.NODE_ENV === "production") {
+    // 1. Serve the static React build files
+    app.use(express.static(path.join(__dirname, "../../client/dist")));
+
+    // 2. Catch-all route to hand over routing to React Router
+    // Use a RegExp route to avoid path-to-regexp string parsing issues in Express v5
+    app.get(/.*/, (req, res) => {
+        res.sendFile(path.resolve(__dirname, "../../client/dist", "index.html"));
+    });
+}
 
 export default app;

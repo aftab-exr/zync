@@ -1,11 +1,7 @@
 import { create } from "zustand";
 import { signInWithPopup, signOut, onAuthStateChanged} from "firebase/auth";
 import { auth, googleProvider} from "../lib/firebase";
-import axios from "axios";
-
-const api = axios.create({
-    baseURL: "http:localhost:4000/api/v1"
-});
+import { api } from "../lib/axios";
 
 export const useAuthStore = create((set) => ({
     user: null,
@@ -26,7 +22,7 @@ export const useAuthStore = create((set) => ({
             const token = await firebaseUser.getIdToken();
             
             // Ask the backend for the Zync Profile
-            const res = await axios.get('http://localhost:4000/api/v1/users/me', {
+            const res = await api.get('/users/me', {
             headers: { Authorization: `Bearer ${token}` }
             });
             

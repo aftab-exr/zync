@@ -25,12 +25,45 @@ const httpServer = http.createServer(app);
 initializeSocket(httpServer);
 
 // 5. Connect to DB and Start Listening
+// ... [Keep your top imports and setup] ...
+
 connectDB().then(() => {
-  // BUG FIX: Must use httpServer.listen, NOT app.listen
-  httpServer.listen(PORT, () => {
+  const server = httpServer.listen(PORT, () => {
     if (process.env.NODE_ENV !== 'production') {
-      console.log(`🚀 Zync Server running on port ${PORT}`);
+      console.log(`🚀 Zync Server v1.0.0 running on port ${PORT}`);
       console.log(`⚡ Real-Time Socket Engine Active`);
     }
+  });
+
+  // 🛡️ Graceful Shutdown Protocol
+  const exitHandler = (reason = 'shutdown', err) => {
+    if (err) {
+      console.error('Exit triggered by error:', err);
+    } else if (reason) {
+      console.log('Exit triggered by:', reason);
+    }
+
+    if (server) {
+      server.close(() => {
+        console.log('🛑 Server closed gracefully.');
+        // Exit with non-zero code for errors, zero for normal signals
+        const isError = reason === 'uncaughtException' || reason === 'unhandledRejection';
+        process.exit(isError ? 1 : 0);
+      });
+    } else {
+      const isError = reason === 'uncaughtException' || reason === 'unhandledRejection';
+      process.exit(isError ? 1 : 0);
+    }
+  };
+
+  process.on('SIGINT', () => exitHandler('SIGINT'));
+  process.on('SIGTERM', () => exitHandler('SIGTERM'));
+  process.on('uncaughtException', (error) => {
+    console.error('💥 Uncaught Exception:', error);
+    exitHandler('uncaughtException', error);
+  });
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
+    exitHandler('unhandledRejection', reason);
   });
 });

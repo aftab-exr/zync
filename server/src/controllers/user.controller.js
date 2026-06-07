@@ -39,7 +39,7 @@ export const setupProfile = asyncHandler(async (req, res, next) => {
         return res.status(201)
         .json( new apiResponse(201, "Profile Setup Successful.", newUser) );
     } catch (error) {
-        console.log("❌ Profile Setup Error:", error.message);
+        console.error("❌ Profile Setup Error:", error.message);
         res.status(500).json(new apiResponse(500, "Internal Server Error", {}));
     }
 })

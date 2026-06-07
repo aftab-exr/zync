@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import axios from 'axios';
+import { api } from '../lib/axios';
 import { auth } from '../lib/firebase';
 import { useSocketStore } from './useSocketStore';
 
@@ -11,7 +11,7 @@ export const useMessageStore = create((set, get) => ({
     set({ isFetching: true });
     try {
       const token = await auth.currentUser.getIdToken();
-      const res = await axios.get(`http://localhost:4000/api/v1/messages/${conversationId}`, {
+      const res = await api.get(`/messages/${conversationId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       set({ messages: res.data.data });
@@ -25,7 +25,7 @@ export const useMessageStore = create((set, get) => ({
   sendMessage: async (conversationId, text, receiverId) => {
     try {
       const token = await auth.currentUser.getIdToken();
-      const res = await axios.post(`http://localhost:4000/api/v1/messages/${conversationId}`, 
+      const res = await api.post(`/messages/${conversationId}`, 
         { text, receiverId },
         { headers: { Authorization: `Bearer ${token}` } }
       );

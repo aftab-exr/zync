@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { auth } from '../lib/firebase';
-import axios from 'axios';
+import { api } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
 
 export default function SetupProfile() {
@@ -25,7 +25,7 @@ export default function SetupProfile() {
       const token = await auth.currentUser.getIdToken();
 
       // 2. Fire the exact request you tested in Postman
-      const response = await axios.post('http://localhost:4000/api/v1/users/setup', 
+      const response = await api.post('/users/setup', 
         {
           username: formData.username,
           displayName: formData.displayName,

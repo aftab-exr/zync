@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, Loader2, UserPlus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { api } from '../lib/axios';
 import { auth } from '../lib/firebase';
 import { useChatStore } from '../store/useChatStore'; // ⚡ NEW: Import the Chat Store
 
@@ -25,9 +25,9 @@ export default function NewMessageModal({ isOpen, onClose }) {
       }
 
       setIsSearching(true);
-      try {
+        try {
         const token = await auth.currentUser.getIdToken();
-        const res = await axios.get(`http://localhost:4000/api/v1/users/search?q=${query}`, {
+        const res = await api.get(`/users/search?q=${query}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setResults(res.data.data);
@@ -48,7 +48,7 @@ export default function NewMessageModal({ isOpen, onClose }) {
       const token = await auth.currentUser.getIdToken();
       
       // 1. Create or fetch the DM from MongoDB
-      const res = await axios.post('http://localhost:4000/api/v1/conversations', 
+      const res = await api.post('/conversations', 
         { targetUserId },
         { headers: { Authorization: `Bearer ${token}` } }
       );
