@@ -11,6 +11,10 @@
   --text-secondary: #8A8A96;
   --accent: #4F8EF7;
   --accent-hover: #6BA3FF;
+  /* Status & active colors */
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --border-active: #3b3b41;
 }
 
 body {

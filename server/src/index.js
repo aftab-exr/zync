@@ -28,7 +28,9 @@ initializeSocket(httpServer);
 connectDB().then(() => {
   // BUG FIX: Must use httpServer.listen, NOT app.listen
   httpServer.listen(PORT, () => {
-    console.log(`🚀 Zync Server running on port ${PORT}`);
-    console.log(`⚡ Real-Time Socket Engine Active`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`🚀 Zync Server running on port ${PORT}`);
+      console.log(`⚡ Real-Time Socket Engine Active`);
+    }
   });
 });

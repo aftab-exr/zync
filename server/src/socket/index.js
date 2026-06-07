@@ -25,8 +25,12 @@ export const initializeSocket = (httpServer) => {
     pubClient.on("error", (err) => console.error("🔴 Redis PubClient Error:", err.message));
     subClient.on("error", (err) => console.error("🔴 Redis SubClient Error:", err.message));
     
-    pubClient.on("connect", () => console.log("🟢 Redis PubClient Connected"));
-    subClient.on("connect", () => console.log("🟢 Redis SubClient Connected"));
+    pubClient.on("connect", () => {
+        if (process.env.NODE_ENV !== 'production') console.log("🟢 Redis PubClient Connected");
+    });
+    subClient.on("connect", () => {
+        if (process.env.NODE_ENV !== 'production') console.log("🟢 Redis SubClient Connected");
+    });
     
     // Attach the Redis Adapter so messages broadcast across all server instances
     io.adapter(createAdapter(pubClient, subClient));
@@ -61,7 +65,7 @@ export const initializeSocket = (httpServer) => {
     // 4. Connection & Event Listeners
     io.on("connection", async (socket) => {
         const userId = socket.user._id.toString();
-        console.log(`🟢 User connected: ${socket.user.username} (${socket.id})`);
+        if (process.env.NODE_ENV !== 'production') console.log(`🟢 User connected: ${socket.user.username} (${socket.id})`);
 
         socket.join(userId);
 
@@ -71,7 +75,7 @@ export const initializeSocket = (httpServer) => {
         socket.broadcast.emit("presence:update", { userId, online: true });
 
         socket.on("disconnect", async () => {
-            console.log(`🔴 User disconnected: ${socket.user.username}`);
+            if (process.env.NODE_ENV !== 'production') console.log(`🔴 User disconnected: ${socket.user.username}`);
             // ⚡ FIX 4: Use strict $set here as well
             await User.findByIdAndUpdate(userId, { 
                 $set: { "status.online": false, "status.lastSeen": new Date() } 

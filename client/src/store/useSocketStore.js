@@ -24,12 +24,12 @@ export const useSocketStore = create((set, get) => ({
 
     // 4. Wire up the lifecycle events
     socket.on('connect', () => {
-      console.log('🟢 Socket connected to server:', socket.id);
+      if (import.meta.env.DEV) console.log('🟢 Socket connected to server:', socket.id);
       set({ isConnected: true });
     });
 
     socket.on('disconnect', () => {
-      console.log('🔴 Socket disconnected');
+      if (import.meta.env.DEV) console.log('🔴 Socket disconnected');
       set({ isConnected: false });
     });
 

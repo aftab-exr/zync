@@ -10,6 +10,8 @@ admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
 
-console.log("🔥 Firebase Admin Engine Initialized");
+if (process.env.NODE_ENV !== 'production') {
+  console.log("🔥 Firebase Admin Engine Initialized");
+}
 
 export default admin;
