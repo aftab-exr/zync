@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, MoreVertical, Phone, Video, Loader2 } from 'lucide-react';
+import { Send, MoreVertical, Phone, Video, Loader2, ChevronLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useMessageStore } from '../store/useMessageStore';
 import { useChatStore } from '../store/useChatStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSocketStore } from '../store/useSocketStore';
 
 export default function ChatPane({ conversationId }) {
+  const navigate = useNavigate();
   const [text, setText] = useState('');
   const messagesEndRef = useRef(null);
   
@@ -14,6 +16,11 @@ export default function ChatPane({ conversationId }) {
   const { conversations } = useChatStore();
   const { messages, fetchMessages, sendMessage, subscribeToMessages, unsubscribeFromMessages, isFetching } = useMessageStore();
   const { socket } = useSocketStore();
+
+  // Algorithm: Navigate back to sidebar on mobile
+  const handleBackToSidebar = () => {
+    navigate('/inbox');
+  };
 
   // Extract the specific conversation we are looking at to get the receiver's ID
   const activeConversation = conversations.find(c => c._id === conversationId);
@@ -60,6 +67,14 @@ export default function ChatPane({ conversationId }) {
       {/* Header */}
       <div className="h-12 border-b flex items-center justify-between px-6 bg-[var(--bg-surface)] z-10 sticky top-0" style={{ borderColor: 'var(--border)' }}>
         <div className="flex items-center gap-3">
+          {/* Back Button (Mobile Only) */}
+          <button
+            onClick={handleBackToSidebar}
+            className="block md:hidden p-1.5 hover:bg-[var(--bg-base)] rounded-md transition-colors text-[var(--text-secondary)] hover:text-white"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          
           <div className="w-8 h-8 rounded-full bg-[var(--border)] flex items-center justify-center font-display font-bold text-xs text-white relative">
             {otherUser.displayName.charAt(0).toUpperCase()}
             {otherUser.status?.online && (

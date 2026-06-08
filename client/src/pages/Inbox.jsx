@@ -120,7 +120,12 @@ export default function Inbox() {
       <div className="flex flex-1 overflow-hidden relative">
         
         {/* SIDEBAR (Conversation List) */}
-        <aside className="w-[280px] border-r flex flex-col bg-[var(--bg-base)] z-10 hidden md:flex" style={{ borderColor: 'var(--border)' }}>
+        {/* Mobile (< md): Hide if conversationId exists | Desktop (>= md): Always visible */}
+        <aside className={`border-r flex flex-col bg-[var(--bg-base)] z-10 transition-all duration-200 ${
+          conversationId 
+            ? 'hidden md:flex md:w-[280px]' 
+            : 'w-full md:w-[280px] flex'
+        }`} style={{ borderColor: 'var(--border)' }}>
           <div className="p-4">
             <button 
               onClick={() => setIsSearchModalOpen(true)}

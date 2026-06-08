@@ -14,7 +14,7 @@ export default function Login() {
       // Call signInWithPopup (via loginWithGoogle)
       // On success, AuthGuard will handle the page transition while spinner stays active
       await loginWithGoogle();
-    } catch (err) {
+    } catch {
       // Turn off spinner only if user cancels popup or an error occurs
       setIsLoading(false);
     }
