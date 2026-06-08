@@ -12,7 +12,31 @@ import messageRoutes from "./routes/message.routes.js";
 
 const app = express();
 
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        // ⚡ Allow the browser to run Firebase/Google authentication scripts
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://apis.google.com", "https://www.gstatic.com"],
+        scriptSrcElem: ["'self'", "'unsafe-inline'", "https://apis.google.com", "https://www.gstatic.com"],
+        // ⚡ Allow connection to your backend API, WebSockets, and Firebase Auth APIs
+        connectSrc: [
+          "'self'", 
+          "https://*.googleapis.com", 
+          "https://securetoken.googleapis.com",
+          "https://zync-znty.onrender.com",
+          "wss://zync-znty.onrender.com"
+        ],
+        // ⚡ Allow the internal Firebase authentication iframe helper to load
+        frameSrc: ["'self'", "https://*.firebaseapp.com", "https://identitytoolkit.googleapis.com"],
+        // ⚡ Allow user avatars from Google accounts to display
+        imgSrc: ["'self'", "data:", "https://*.googleusercontent.com"],
+        upgradeInsecureRequests: [],
+      },
+    },
+  })
+);
 // Enable gzip/brotli compression for responses (production-friendly)
 app.use(compression());
 app.use(express.json());
