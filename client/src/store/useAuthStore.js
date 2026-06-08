@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
+import { signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "firebase/auth";
 import { auth, googleProvider } from "../lib/firebase";
 import { api } from "../lib/axios";
 
@@ -11,6 +11,13 @@ export const useAuthStore = create((set) => ({
     
     // Algorithm: The Application Boot Sequence
     checkAuth: () => {
+        // ⚡ ENTERPRISE FIX: Handle redirect result from browser returning from Google Auth
+        getRedirectResult(auth).catch(err => {
+            if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+                console.error("Auth popup was closed or cancelled");
+            }
+        });
+
         onAuthStateChanged(auth, async (firebaseUser) => {
             if (!firebaseUser) {
                 set({ user: null, isAuthenticated: false, isCheckingAuth: false });
@@ -47,15 +54,31 @@ export const useAuthStore = create((set) => ({
         try {
             set({ error: null });
             
-            // ⚡ ENTERPRISE FIX: Secure Popup Flow (bypasses third-party cookie blockers)
-            await signInWithPopup(auth, googleProvider);
-            
-            // Note: Success - the Firebase auth state will trigger checkAuth listener,
-            // and AuthGuard will handle the redirect based on user profile status.
+            // ⚡ ENTERPRISE FIX: Hybrid Auth Flow - Try Popup First, Fallback to Redirect
+            // Step 1: Attempt popup (works on most browsers, bypasses third-party cookies)
+            try {
+                await signInWithPopup(auth, googleProvider);
+                // Success! Auth state listener will handle redirect
+                return;
+            } catch (popupError) {
+                // Step 2: If popup is blocked by privacy browser, fallback to redirect
+                if (popupError.code === 'auth/popup-closed-by-user' || 
+                    popupError.code === 'auth/cancelled-popup-request' ||
+                    popupError.code === 'auth/operation-not-supported-in-this-environment') {
+                    
+                    console.warn("Popup auth blocked, falling back to redirect flow:", popupError.code);
+                    // Fallback to redirect for strict privacy browsers (Safari, Brave, Firefox)
+                    await signInWithRedirect(auth, googleProvider);
+                    // Note: Browser will navigate away; no code below executes
+                    return;
+                }
+                // Re-throw unexpected errors
+                throw popupError;
+            }
         } catch (error) {
             console.error("Login failed:", error);
             set({ error: error.message });
-            throw error; // Propagate error to UI for proper error handling
+            throw error;
         } 
     },
 
