@@ -1,17 +1,21 @@
-// server/src/config/firebase.js
 import admin from "firebase-admin";
 import { createRequire } from "module";
 
-// In modern ES Modules, we use createRequire to cleanly load JSON files
-const require = createRequire(import.meta.url);
-const serviceAccount = require("./serviceAccountKey.json");
+let serviceAccount;
+
+if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+  // ☁️ CLOUD DEPLOYMENT: Read the JSON directly from Render's memory
+  serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+} else {
+  // 💻 LOCAL DEVELOPMENT: Read from the local, securely git-ignored file
+  const require = createRequire(import.meta.url);
+  serviceAccount = require("./serviceAccountKey.json");
+}
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
 
-if (process.env.NODE_ENV !== 'production') {
-  console.log("🔥 Firebase Admin Engine Initialized");
-}
+console.log("🔥 Firebase Admin Engine Initialized");
 
 export default admin;
