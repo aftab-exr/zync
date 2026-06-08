@@ -14,13 +14,14 @@ const app = express();
 
 app.use(
   helmet({
+    // ⚡ THE FIX: Allow the main window to receive tokens from the Firebase popup
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }, 
+    
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        // ⚡ Allow the browser to run Firebase/Google authentication scripts
         scriptSrc: ["'self'", "'unsafe-inline'", "https://apis.google.com", "https://www.gstatic.com"],
         scriptSrcElem: ["'self'", "'unsafe-inline'", "https://apis.google.com", "https://www.gstatic.com"],
-        // ⚡ Allow connection to your backend API, WebSockets, and Firebase Auth APIs
         connectSrc: [
           "'self'", 
           "https://*.googleapis.com", 
@@ -28,9 +29,7 @@ app.use(
           "https://zync-znty.onrender.com",
           "wss://zync-znty.onrender.com"
         ],
-        // ⚡ Allow the internal Firebase authentication iframe helper to load
         frameSrc: ["'self'", "https://*.firebaseapp.com", "https://identitytoolkit.googleapis.com"],
-        // ⚡ Allow user avatars from Google accounts to display
         imgSrc: ["'self'", "data:", "https://*.googleusercontent.com"],
         upgradeInsecureRequests: [],
       },
