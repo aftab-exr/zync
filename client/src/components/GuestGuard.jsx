@@ -1,19 +1,31 @@
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 
 export default function GuestGuard() {
   const { isAuthenticated, user } = useAuthStore();
+  const location = useLocation();
 
-  // If they authenticated but have no MongoDB profile -> Force them to Setup Profile
+  // 1. Firebase active, but no Zync Profile
   if (isAuthenticated && !user) {
+    // ⚡ ANTI-LOOP FIX: If they are already on the setup page, let them render it!
+    if (location.pathname === '/setup-profile') {
+      return <Outlet />;
+    }
+    // Otherwise, push them there.
     return <Navigate to="/setup-profile" replace />;
   }
   
-  // If they are fully authenticated with a profile -> Force them to Inbox
+  // 2. Fully authenticated & profile exists -> Force to Inbox
   if (isAuthenticated && user) {
     return <Navigate to="/inbox" replace />;
   }
 
-  // Otherwise, let them see the Login screen
+  // 3. Completely Logged out
+  // If a logged-out user tries to type /setup-profile manually, kick them to login
+  if (!isAuthenticated && location.pathname === '/setup-profile') {
+    return <Navigate to="/login" replace />;
+  }
+
+  // 4. Safe to show the Login page
   return <Outlet />;
 }
