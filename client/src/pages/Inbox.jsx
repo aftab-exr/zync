@@ -53,7 +53,7 @@ export default function Inbox() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-full bg-[var(--bg-base)] text-[var(--text-primary)]">
+    <div className="flex flex-col h-[100dvh] w-full bg-[var(--bg-base)] text-[var(--text-primary)]">
       
       {/* TOPBAR */}
       <header className="h-12 border-b flex items-center justify-between px-6 z-40 sticky top-0 bg-[var(--bg-base)]" style={{ borderColor: 'var(--border)' }}>
@@ -117,14 +117,14 @@ export default function Inbox() {
       </header>
 
       {/* MAIN LAYOUT */}
-      <div className="flex flex-1 overflow-hidden relative">
+      <div className="flex flex-1 overflow-hidden">
         
         {/* SIDEBAR (Conversation List) */}
-        {/* Mobile (< md): Hide if conversationId exists | Desktop (>= md): Always visible */}
-        <aside className={`border-r flex flex-col bg-[var(--bg-base)] z-10 transition-all duration-200 ${
+        {/* Mobile (< md): Strict Width Swap | Desktop (>= md): Fixed width w-80 */}
+        <aside className={`border-r flex flex-col bg-[var(--bg-base)] z-10 overflow-hidden ${
           conversationId 
-            ? 'hidden md:flex md:w-[280px]' 
-            : 'w-full md:w-[280px] flex'
+            ? 'hidden md:flex md:w-80' 
+            : 'w-full md:w-80 flex'
         }`} style={{ borderColor: 'var(--border)' }}>
           <div className="p-4">
             <button 
