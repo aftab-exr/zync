@@ -1,41 +1,26 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 
 export default function Login() {
-  const navigate = useNavigate();
-  const loginWithGoogle = useAuthStore((state) => state.loginWithGoogle);
+  const { loginWithGoogle, error } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
-  const [localError, setLocalError] = useState(null);
 
   // Algorithm: Handle the Auth State Machine
   const handleLogin = async () => {
     setIsLoading(true);
-    setLocalError(null);
+    // The browser will redirect to Google immediately after this call.
+    // The loading spinner will stay active until the page unloads, creating perfect UX.
+    await loginWithGoogle();
     
-    const result = await loginWithGoogle();
-    
-    setIsLoading(false);
-    
-    // Evaluate Guard Rules based on APPFLOW.md
-    if (result.step === 'setup-profile') {
-      navigate('/setup-profile');
-    } else if (result.step === 'inbox') {
-      navigate('/inbox');
-    } else {
-      setLocalError("Sign-in failed. Please try again.");
-    }
+    // If it fails instantly (network down), turn off the spinner.
+    if (error) setIsLoading(false);
   };
 
-  // Framer Motion Animation Variants
   const containerVariants = {
     hidden: { opacity: 0 },
-    visible: { 
-      opacity: 1, 
-      transition: { staggerChildren: 0.1, delayChildren: 0.2 } 
-    }
+    visible: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.2 } }
   };
 
   const itemVariants = {
@@ -45,9 +30,7 @@ export default function Login() {
 
   return (
     <div className="flex h-screen w-full">
-      
-      {/* LEFT PANE: Brand Identity (Desktop Only) */}
-      <div className="hidden lg:flex w-[45%] flex-col justify-center px-16 border-r" style={{ borderColor: 'var(--border)' }}>
+      <div className="hidden lg:flex w-[45%] flex-col justify-center px-16 border-r border-[var(--border)]">
         <motion.div variants={containerVariants} initial="hidden" animate="visible">
           <motion.h1 variants={itemVariants} className="text-5xl font-display text-white mb-4">
             ⚡ Zync
@@ -58,10 +41,8 @@ export default function Login() {
         </motion.div>
       </div>
 
-      {/* RIGHT PANE: Auth Form */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 relative">
-        <div className="w-full max-w-md bg-[var(--bg-surface)] p-10 rounded-2xl border" style={{ borderColor: 'var(--border)' }}>
-          
+        <div className="w-full max-w-md bg-[var(--bg-surface)] p-10 rounded-2xl border border-[var(--border)]">
           <h2 className="text-2xl font-display text-white mb-8 text-center">Welcome to Zync</h2>
           
           <button 
@@ -89,19 +70,16 @@ export default function Login() {
             )}
           </button>
 
-          {localError && (
-            <p className="mt-4 text-sm text-center text-red-400 font-medium">
-              {localError}
-            </p>
+          {error && (
+            <p className="mt-4 text-sm text-center text-red-400 font-medium">{error}</p>
           )}
 
-          <div className="mt-8 pt-6 border-t flex justify-between text-xs" style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
+          <div className="mt-8 pt-6 border-t border-[var(--border)] flex justify-between text-xs text-[var(--text-secondary)]">
             <span>Privacy Policy</span>
             <span>Terms of Service</span>
           </div>
         </div>
       </div>
-
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { signInWithPopup, signOut, onAuthStateChanged} from "firebase/auth";
-import { auth, googleProvider} from "../lib/firebase";
+import { signInWithRedirect, signOut, onAuthStateChanged } from "firebase/auth";
+import { auth, googleProvider } from "../lib/firebase";
 import { api } from "../lib/axios";
 
 export const useAuthStore = create((set) => ({
@@ -11,55 +11,53 @@ export const useAuthStore = create((set) => ({
     
     // Algorithm: The Application Boot Sequence
     checkAuth: () => {
-        // Firebase actively monitors the IndexedDB session across reloads
         onAuthStateChanged(auth, async (firebaseUser) => {
-        if (!firebaseUser) {
-            set({ user: null, isAuthenticated: false, isCheckingAuth: false });
-            return;
-        }
-
-        try {
-            const token = await firebaseUser.getIdToken();
-            
-            // Ask the backend for the Zync Profile
-            const res = await api.get('/users/me', {
-            headers: { Authorization: `Bearer ${token}` }
-            });
-            
-            // Profile exists! Hydrate the state.
-            set({ user: res.data.data, isAuthenticated: true, isCheckingAuth: false });
-            
-        } catch (error) {
-            // If 401, Firebase is valid but MongoDB profile is missing (Needs Setup)
-            if (error.response?.status === 401) {
-            set({ user: null, isAuthenticated: true, isCheckingAuth: false });
-            } else {
-            set({ user: null, isAuthenticated: false, isCheckingAuth: false });
+            if (!firebaseUser) {
+                set({ user: null, isAuthenticated: false, isCheckingAuth: false });
+                return;
             }
-        }
+
+            try {
+                const token = await firebaseUser.getIdToken();
+                
+                const res = await api.get('/users/me', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                
+                // ⚡ ENTERPRISE FIX: Intercept new users upon return from Google
+                if (res.data?.status === "REGISTRATION_REQUIRED") {
+                    set({ user: null, isAuthenticated: true, isCheckingAuth: false });
+                    return;
+                }
+                
+                // Profile exists! Hydrate the state.
+                set({ user: res.data.data, isAuthenticated: true, isCheckingAuth: false });
+                
+            } catch (error) {
+                if (error.response?.status === 401) {
+                    set({ user: null, isAuthenticated: true, isCheckingAuth: false });
+                } else {
+                    set({ user: null, isAuthenticated: false, isCheckingAuth: false });
+                }
+            }
         });
     },
 
     loginWithGoogle: async () => {
         try {
             set({ error: null });
-            const result = await signInWithPopup(auth, googleProvider);
-            const idToken = await result.user.getIdToken();
-            const response = await api.get('/users/me', {
-                headers: { Authorization: `Bearer ${idToken}` }
-            });
-            if (response.data.status === "REGISTRATION_REQUIRED") {
-                set({ isAuthenticated: true, user: null });
-                return { step: 'setup-profile', token: idToken };
-            }
-            set({ isAuthenticated: true, user: response.data.data });
-            return { step: 'inbox' };
+            
+            // ⚡ ENTERPRISE FIX: Secure Redirect Flow
+            await signInWithRedirect(auth, googleProvider);
+            
+            // Note: No code below this line will execute because the browser 
+            // navigates away from your site to Google's secure servers.
         } catch (error) {
             console.error("Login failed:", error);
             set({ error: error.message });
-            return { step: 'error' };
         } 
     },
+
     logout: async () => {
         await signOut(auth);
         set({ isAuthenticated: false, user: null });
