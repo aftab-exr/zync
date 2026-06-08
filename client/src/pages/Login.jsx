@@ -31,7 +31,7 @@ export default function Login() {
   };
 
   return (
-    <div className="flex h-screen w-full">
+    <div className="flex h-[100dvh] w-full">
       <div className="hidden lg:flex w-[45%] flex-col justify-center px-16 border-r border-[var(--border)]">
         <motion.div variants={containerVariants} initial="hidden" animate="visible">
           <motion.h1 variants={itemVariants} className="text-5xl font-display text-white mb-4">
@@ -43,14 +43,14 @@ export default function Login() {
         </motion.div>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center px-6 relative">
-        <div className="w-full max-w-md bg-[var(--bg-surface)] p-10 rounded-2xl border border-[var(--border)]">
-          <h2 className="text-2xl font-display text-white mb-8 text-center">Welcome to Zync</h2>
+      <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 relative">
+        <div className="w-full max-w-md bg-[var(--bg-surface)] p-6 sm:p-10 rounded-2xl border border-[var(--border)]">
+          <h2 className="text-xl sm:text-2xl font-display text-white mb-8 text-center">Welcome to Zync</h2>
           
           <button 
             onClick={handleLogin}
             disabled={isLoading}
-            className="w-full h-12 flex items-center justify-center gap-3 rounded-lg font-medium transition-all duration-150"
+            className="w-full h-12 flex items-center justify-center gap-3 rounded-lg font-medium transition-all duration-200 ease-in-out active:scale-95"
             style={{ 
               backgroundColor: isLoading ? 'var(--border)' : 'var(--accent)',
               color: isLoading ? 'var(--text-secondary)' : '#fff',

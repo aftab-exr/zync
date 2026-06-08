@@ -72,7 +72,7 @@ export default function Inbox() {
         </div>
 
         <div className="flex items-center gap-4">
-          <button className="text-[var(--text-secondary)] hover:text-white transition-colors">
+          <button className="text-[var(--text-secondary)] hover:text-white transition-all duration-200 ease-in-out p-2 hover:bg-[var(--bg-surface)] rounded-lg">
             <Bell className="w-5 h-5" />
           </button>
           
@@ -80,7 +80,7 @@ export default function Inbox() {
           <div className="relative">
             <button 
               onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-              className="w-8 h-8 rounded-full bg-[var(--border)] border-2 border-[var(--border-active)] overflow-hidden flex items-center justify-center font-display font-bold text-xs text-white hover:brightness-110 transition-all focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+              className="w-10 h-10 rounded-full bg-[var(--border)] border-2 border-[var(--border-active)] overflow-hidden flex items-center justify-center font-display font-bold text-xs text-white hover:brightness-110 transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
             >
               {user?.displayName?.charAt(0).toUpperCase() || 'Z'}
             </button>
@@ -104,7 +104,7 @@ export default function Inbox() {
                   
                   <button 
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-400 hover:bg-[rgba(229,72,77,0.1)] transition-colors text-left"
+                    className="w-full flex items-center gap-2 px-4 py-3 text-sm text-red-400 hover:bg-[rgba(229,72,77,0.1)] transition-all duration-200 ease-in-out text-left active:scale-95 min-h-[44px] items-center"
                   >
                     <LogOut className="w-4 h-4" />
                     Sign out
@@ -129,11 +129,12 @@ export default function Inbox() {
           <div className="p-4">
             <button 
               onClick={() => setIsSearchModalOpen(true)}
-              className="w-full flex items-center justify-center gap-2 h-9 rounded-md text-sm font-medium transition-colors hover:brightness-110 active:scale-[0.98]" 
+              className="w-full flex items-center justify-center gap-2 h-12 rounded-lg text-sm font-medium transition-all duration-200 ease-in-out hover:brightness-110 active:scale-95" 
               style={{ backgroundColor: 'var(--accent)', color: 'white' }}
             >
               <Plus className="w-4 h-4" />
-              New Message
+              <span className="hidden sm:inline">New Message</span>
+              <span className="sm:hidden">New</span>
             </button>
           </div>
           
@@ -157,11 +158,11 @@ export default function Inbox() {
                 <button
                   key={conv._id}
                   onClick={() => navigate(`/inbox/${conv._id}`)}
-                  className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-200 text-left ${
-                    isActive ? 'bg-[var(--bg-surface)] border-[var(--border)] shadow-sm' : 'hover:bg-[var(--bg-surface)] border-transparent'
+                  className={`w-full flex items-center gap-3 p-3 sm:p-4 rounded-lg transition-all duration-200 ease-in-out text-left min-h-[56px] sm:min-h-[48px] active:scale-95 ${
+                    isActive ? 'bg-[var(--bg-surface)] border-[var(--border)] shadow-sm' : 'hover:bg-[var(--bg-surface)] border-transparent hover:transition-colors'
                   } border`}
                 >
-                  <div className="relative">
+                  <div className="relative flex-shrink-0">
                     <div className="w-10 h-10 rounded-full bg-[var(--border)] flex items-center justify-center font-display font-bold text-sm text-white">
                       {conv.otherUser.displayName.charAt(0).toUpperCase()}
                     </div>

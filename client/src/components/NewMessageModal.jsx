@@ -92,10 +92,10 @@ export default function NewMessageModal({ isOpen, onClose }) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search users by name..."
-              className="flex-1 bg-transparent border-none outline-none text-white font-mono placeholder:text-[var(--text-secondary)]"
+              className="flex-1 bg-transparent border-none outline-none text-white font-mono placeholder:text-[var(--text-secondary)] text-sm"
             />
             {isSearching && <Loader2 className="w-4 h-4 animate-spin text-[var(--accent)]" />}
-            <button onClick={onClose} className="p-1 rounded-md hover:bg-[var(--bg-base)] text-[var(--text-secondary)] transition-colors">
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-[var(--bg-base)] text-[var(--text-secondary)] transition-all duration-200 ease-in-out active:scale-95">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -121,19 +121,19 @@ export default function NewMessageModal({ isOpen, onClose }) {
                   key={user._id}
                   onClick={() => startConversation(user._id)}
                   disabled={isCreating}
-                  className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-[var(--bg-base)] transition-colors text-left group"
+                  className="w-full flex items-center justify-between px-3 py-3 rounded-lg hover:bg-[var(--bg-base)] transition-all duration-200 ease-in-out text-left group min-h-[56px] active:scale-95 disabled:opacity-50"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[var(--border)] flex items-center justify-center font-display font-bold text-sm text-white">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="w-10 h-10 rounded-full bg-[var(--border)] flex items-center justify-center font-display font-bold text-sm text-white flex-shrink-0">
                       {user.displayName.charAt(0).toUpperCase()}
                     </div>
-                    <div>
-                      <h4 className="text-white text-sm font-medium">{user.displayName}</h4>
-                      <p className="text-[var(--text-secondary)] text-xs font-mono">@{user.username}</p>
+                    <div className="min-w-0">
+                      <h4 className="text-white text-sm font-medium truncate">{user.displayName}</h4>
+                      <p className="text-[var(--text-secondary)] text-xs font-mono truncate">@{user.username}</p>
                     </div>
                   </div>
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="text-[var(--accent)] text-xs font-medium bg-[rgba(79,142,247,0.1)] px-3 py-1 rounded-full flex items-center gap-1">
+                  <div className="opacity-0 group-hover:opacity-100 transition-all duration-200 ease-in-out flex-shrink-0 ml-2">
+                    <span className="text-[var(--accent)] text-xs font-medium bg-[rgba(79,142,247,0.1)] px-3 py-2 rounded-full flex items-center gap-1 whitespace-nowrap">
                       {isCreating ? <Loader2 className="w-3 h-3 animate-spin" /> : "Message"}
                     </span>
                   </div>

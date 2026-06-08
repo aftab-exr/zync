@@ -50,15 +50,15 @@ export default function SetupProfile() {
   };
 
   return (
-    <div className="flex h-screen w-full items-center justify-center p-6">
+    <div className="flex h-[100dvh] w-full items-center justify-center p-4 sm:p-6 bg-[var(--bg-base)]">
       <motion.div 
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
-        className="w-full max-w-md bg-[var(--bg-surface)] p-8 rounded-2xl border"
+        className="w-full max-w-md bg-[var(--bg-surface)] p-6 sm:p-8 rounded-2xl border"
         style={{ borderColor: 'var(--border)' }}
       >
-        <h2 className="text-2xl font-display text-white mb-2">Claim your identity</h2>
+        <h2 className="text-xl sm:text-2xl font-display text-white mb-2">Claim your identity</h2>
         <p className="text-sm text-[var(--text-secondary)] mb-8">
           Your username is unique. Choose wisely.
         </p>
@@ -75,7 +75,7 @@ export default function SetupProfile() {
               onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
               placeholder="e.g. Aaftab"
               maxLength={50}
-              className="w-full bg-[var(--bg-base)] border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[var(--accent)] transition-colors"
+              className="w-full bg-[var(--bg-base)] border rounded-lg px-4 py-3 sm:py-4 text-white focus:outline-none focus:border-[var(--accent)] transition-all duration-200 ease-in-out"
               style={{ borderColor: 'var(--border)' }}
             />
           </div>
@@ -86,17 +86,17 @@ export default function SetupProfile() {
               Username
             </label>
             <div className="relative">
-              <span className="absolute left-4 top-3 text-[var(--text-secondary)]">@</span>
+              <span className="absolute left-4 top-3 sm:top-4 text-[var(--text-secondary)]">@</span>
               <input
                 type="text"
                 value={formData.username}
                 onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase().replace(/\s/g, '') })}
                 placeholder="aaftab_dev"
                 maxLength={30}
-                className="w-full bg-[var(--bg-base)] border rounded-lg pl-9 pr-10 py-3 text-white focus:outline-none focus:border-[var(--accent)] transition-colors font-mono"
+                className="w-full bg-[var(--bg-base)] border rounded-lg pl-9 pr-10 py-3 sm:py-4 text-white focus:outline-none focus:border-[var(--accent)] transition-all duration-200 ease-in-out font-mono"
                 style={{ borderColor: 'var(--border)' }}
               />
-              <div className="absolute right-3 top-3">
+              <div className="absolute right-3 sm:right-4 top-3 sm:top-4">
                 {formData.username.length > 0 && (
                   isValidUsername 
                     ? <CheckCircle2 className="w-5 h-5 text-[var(--success)]" /> 
@@ -111,7 +111,7 @@ export default function SetupProfile() {
 
           {/* Error Banner */}
           {status.error && (
-            <div className="bg-[rgba(229,72,77,0.1)] text-[var(--error)] p-3 rounded-lg text-sm font-medium border border-[rgba(229,72,77,0.2)]">
+            <div className="bg-[rgba(229,72,77,0.1)] text-[var(--error)] p-3 sm:p-4 rounded-lg text-sm font-medium border border-[rgba(229,72,77,0.2)] transition-all duration-200 ease-in-out">
               {status.error}
             </div>
           )}
@@ -120,7 +120,7 @@ export default function SetupProfile() {
           <button 
             type="submit"
             disabled={status.loading || !isValidUsername || !formData.displayName}
-            className="w-full h-12 flex items-center justify-center rounded-lg font-medium transition-all duration-150 disabled:opacity-50"
+            className="w-full h-12 flex items-center justify-center rounded-lg font-medium transition-all duration-200 ease-in-out active:scale-95 disabled:opacity-50 disabled:active:scale-100"
             style={{ 
               backgroundColor: 'var(--accent)',
               color: '#fff',
