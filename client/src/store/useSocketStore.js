@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { io } from 'socket.io-client';
 import { auth } from '../lib/firebase.js';
 
-const SOCKET_URL = 'http://localhost:4000';
+const SOCKET_URL = import.meta.env.MODE === "development" ? "http://localhost:4000" : "/";
 
 export const useSocketStore = create((set, get) => ({
   socket: null,
