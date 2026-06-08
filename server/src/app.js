@@ -40,7 +40,12 @@ app.use(
 // Enable gzip/brotli compression for responses (production-friendly)
 app.use(compression());
 app.use(express.json());
-app.use(cors({ origin: process.env.CLIENT_ORIGIN || "http://localhost:5173", credentials: true }));
+
+const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+const PRODUCTION_ORIGIN = "https://zync-znty.onrender.com";
+const allowedOrigins = [CLIENT_ORIGIN, PRODUCTION_ORIGIN].filter(Boolean);
+
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(cookieparser());
 
 // ROUTES

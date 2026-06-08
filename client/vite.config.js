@@ -10,6 +10,19 @@ export default defineConfig({
     target: 'es2018',
     sourcemap: false,
     minify: 'esbuild',
-    brotliSize: true
+    brotliSize: true,
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('firebase')) return 'firebase';
+            if (id.includes('socket.io-client')) return 'socket';
+            if (id.includes('react') || id.includes('zustand') || id.includes('react-router-dom') || id.includes('framer-motion') || id.includes('lucide-react')) return 'vendor';
+            return 'vendor';
+          }
+        }
+      }
+    }
   }
 })

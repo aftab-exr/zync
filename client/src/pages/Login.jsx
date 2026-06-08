@@ -10,12 +10,14 @@ export default function Login() {
   // Algorithm: Handle the Auth State Machine
   const handleLogin = async () => {
     setIsLoading(true);
-    // The browser will redirect to Google immediately after this call.
-    // The loading spinner will stay active until the page unloads, creating perfect UX.
-    await loginWithGoogle();
-    
-    // If it fails instantly (network down), turn off the spinner.
-    if (error) setIsLoading(false);
+    try {
+      // Call signInWithPopup (via loginWithGoogle)
+      // On success, AuthGuard will handle the page transition while spinner stays active
+      await loginWithGoogle();
+    } catch (err) {
+      // Turn off spinner only if user cancels popup or an error occurs
+      setIsLoading(false);
+    }
   };
 
   const containerVariants = {

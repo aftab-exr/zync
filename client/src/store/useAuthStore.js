@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { signInWithRedirect, signOut, onAuthStateChanged } from "firebase/auth";
+import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 import { auth, googleProvider } from "../lib/firebase";
 import { api } from "../lib/axios";
 
@@ -47,14 +47,15 @@ export const useAuthStore = create((set) => ({
         try {
             set({ error: null });
             
-            // ⚡ ENTERPRISE FIX: Secure Redirect Flow
-            await signInWithRedirect(auth, googleProvider);
+            // ⚡ ENTERPRISE FIX: Secure Popup Flow (bypasses third-party cookie blockers)
+            await signInWithPopup(auth, googleProvider);
             
-            // Note: No code below this line will execute because the browser 
-            // navigates away from your site to Google's secure servers.
+            // Note: Success - the Firebase auth state will trigger checkAuth listener,
+            // and AuthGuard will handle the redirect based on user profile status.
         } catch (error) {
             console.error("Login failed:", error);
             set({ error: error.message });
+            throw error; // Propagate error to UI for proper error handling
         } 
     },
 

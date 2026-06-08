@@ -9,17 +9,39 @@ let io;
 
 export const initializeSocket = (httpServer) => {
     // 1. Initialize Socket.io with strict CORS
+    const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+    const PRODUCTION_ORIGIN = "https://zync-znty.onrender.com";
+    const socketOrigins = [CLIENT_ORIGIN, PRODUCTION_ORIGIN].filter(Boolean);
+
     io = new Server(httpServer, {
         cors: {
-            origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
+            origin: socketOrigins,
             credentials: true
         }
     });
 
-    // 2. Connect to Upstash Redis
+    // 2. Connect to Upstash Redis only when configured
     // Forcing family: 4 (IPv4) resolves DNS resolution timeouts on Node 20+
-    const pubClient = new Redis(process.env.REDIS_URL, { family: 4 });
-    const subClient = pubClient.duplicate();
+    let pubClient;
+    let subClient;
+    if (process.env.REDIS_URL) {
+        pubClient = new Redis(process.env.REDIS_URL, { family: 4 });
+        subClient = pubClient.duplicate();
+
+        pubClient.on("error", (err) => console.error("🔴 Redis PubClient Error:", err.message));
+        subClient.on("error", (err) => console.error("🔴 Redis SubClient Error:", err.message));
+
+        pubClient.on("connect", () => {
+            if (process.env.NODE_ENV !== 'production') console.log("🟢 Redis PubClient Connected");
+        });
+        subClient.on("connect", () => {
+            if (process.env.NODE_ENV !== 'production') console.log("🟢 Redis SubClient Connected");
+        });
+
+        io.adapter(createAdapter(pubClient, subClient));
+    } else {
+        console.warn("⚠️ REDIS_URL is not configured. Socket.io will run without a Redis adapter in single-instance mode.");
+    }
 
     // Catch errors so the server doesn't fatally crash
     pubClient.on("error", (err) => console.error("🔴 Redis PubClient Error:", err.message));
