@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { io } from 'socket.io-client';
 import { auth } from '../lib/firebase.js';
+import { useMessageStore } from './useMessageStore.js';
 
 const SOCKET_URL = import.meta.env.MODE === "development" ? "http://localhost:4000" : "/";
 
@@ -35,6 +36,15 @@ export const useSocketStore = create((set, get) => ({
 
     socket.on('connect_error', (err) => {
       console.error('❌ Socket connection error:', err.message);
+    });
+
+    // ⚡ Catch transient incoming server events and sync memory state
+    socket.on("user_typing", ({ conversationId }) => {
+      useMessageStore.getState().setTypingState(conversationId, true);
+    });
+
+    socket.on("user_stopped_typing", ({ conversationId }) => {
+      useMessageStore.getState().setTypingState(conversationId, false);
     });
 
     set({ socket });

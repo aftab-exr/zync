@@ -6,6 +6,19 @@ import { useSocketStore } from './useSocketStore';
 export const useMessageStore = create((set, get) => ({
   messages: [],
   isFetching: false,
+  
+  // ⚡ Map to track which conversation currently has an active typing user
+  typingConversations: {}, 
+
+  // ⚡ Functional state update to prevent race conditions
+  setTypingState: (conversationId, isTyping) => {
+    set((state) => ({
+      typingConversations: {
+        ...state.typingConversations,
+        [conversationId]: isTyping
+      }
+    }));
+  },
 
   fetchMessages: async (conversationId) => {
     set({ isFetching: true });
