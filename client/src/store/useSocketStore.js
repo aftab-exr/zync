@@ -13,17 +13,25 @@ export const useSocketStore = create((set, get) => ({
     // 1. Prevent duplicate connections
     if (get().socket?.connected) return;
 
-    // 2. Fetch the cryptographic JWT for the handshake
-    const currentUser = auth.currentUser;
-    if (!currentUser) return;
-    const token = await currentUser.getIdToken();
-
-    // 3. Initialize the Socket.io Client
+    // 2. Initialize the Socket.io Client with a DYNAMIC auth function
+    // This guarantees we never send an expired token on auto-reconnect
     const socket = io(SOCKET_URL, {
-      auth: { token }
+      auth: async (cb) => {
+        try {
+          const currentUser = auth.currentUser;
+          if (!currentUser) return cb({ token: null });
+          
+          // Firebase automatically refreshes the token if it is expired
+          const token = await currentUser.getIdToken(); 
+          cb({ token });
+        } catch (error) {
+          console.error('❌ Failed to fetch fresh socket token:', error);
+          cb({ token: null });
+        }
+      }
     });
 
-    // 4. Wire up the lifecycle events
+    // 3. Wire up the lifecycle events
     socket.on('connect', () => {
       if (import.meta.env.DEV) console.log('🟢 Socket connected to server:', socket.id);
       set({ isConnected: true });
