@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, MoreVertical, Phone, Video, Loader2, ChevronLeft } from 'lucide-react';
+import { Send, MoreVertical, Phone, Video, Loader2, ChevronLeft, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useMessageStore } from '../store/useMessageStore';
 import { useChatStore } from '../store/useChatStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSocketStore } from '../store/useSocketStore';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 export default function ChatPane({ conversationId }) {
   const navigate = useNavigate();
@@ -121,8 +123,13 @@ export default function ChatPane({ conversationId }) {
             )}
           </div>
           <div>
-            <h3 className="text-sm font-medium text-white leading-none">{otherUser.displayName}</h3>
-            <p className="text-[10px] text-[var(--success)] font-mono mt-1 leading-none opacity-80">Encrypted Session</p>
+            <div className="flex items-center gap-1.5">
+              <h3 className="text-sm font-medium text-white leading-none">{otherUser.displayName}</h3>
+              {otherUser.isAI && <Sparkles className="w-3.5 h-3.5 text-[var(--accent)]" />}
+            </div>
+            <p className="text-[10px] text-[var(--success)] font-mono mt-1 leading-none opacity-80">
+              {otherUser.isAI ? 'Quantum Processing Active' : 'Encrypted Session'}
+            </p>
           </div>
         </div>
         
@@ -152,13 +159,18 @@ export default function ChatPane({ conversationId }) {
               return (
                 <div key={msg._id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
                   <div 
-                    className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm ${
+                    className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm overflow-x-auto ${
                       isMine 
                         ? 'bg-[var(--accent)] text-white rounded-br-sm' 
                         : 'bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border)] rounded-bl-sm'
                     }`}
                   >
-                    {msg.text}
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      className="prose prose-sm dark:prose-invert max-w-none break-words"
+                    >
+                      {msg.text}
+                    </ReactMarkdown>
                   </div>
                 </div>
               );

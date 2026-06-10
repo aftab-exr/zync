@@ -19,12 +19,17 @@ export const processAIResponse = async (conversationId, userMessage, userId, aiU
             throw new Error("GROQ_API_KEY is missing from environment variables.");
         }
 
+        const humanUser = await User.findById(userId).lean();
+
         const response = await axios.post(
             "https://api.groq.com/openai/v1/chat/completions",
             {
                 model: "llama3-8b-8192", // Lightning-fast model for real-time chat
                 messages: [
-                    { role: "system", content: "You are Zync AI, an elite coding assistant and system companion. Keep your answers concise, technical, and helpful. Format code blocks clearly." },
+                    {
+                        role: "system",
+                        content: `You are Zync AI, an elite coding assistant integrated into the Zync Chat Engine. You are currently assisting ${humanUser.displayName} (@${humanUser.username}). Keep your answers concise, highly technical, and strictly use markdown formatting for code blocks.`,
+                    },
                     { role: "user", content: userMessage }
                 ],
                 temperature: 0.7,
