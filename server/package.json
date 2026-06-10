@@ -21,9 +21,10 @@
   "type": "module",
   "dependencies": {
     "@socket.io/redis-adapter": "^8.3.0",
+    "axios": "^1.17.0",
+    "compression": "^1.7.4",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
-    "compression": "^1.7.4",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "firebase-admin": "^13.10.0",
