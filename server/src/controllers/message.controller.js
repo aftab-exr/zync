@@ -1,6 +1,8 @@
 import Message from "../models/message.model.js";
 import Conversation from "../models/conversation.model.js";
+import User from "../models/user.model.js";
 import { getIO } from "../socket/index.js";
+import { processAIResponse } from "../services/ai.service.js";
 
 export const sendMessage = async (req, res) => {
     try {
@@ -21,10 +23,18 @@ export const sendMessage = async (req, res) => {
             lastMessageId: newMessage._id
         });
 
-        // 3. ⚡ REAL-TIME DELIVERY ⚡
-        // We fetch the Socket engine and emit ONLY to the receiver's private room
-        const io = getIO();
-        io.to(receiverId.toString()).emit("newMessage", newMessage);
+        // 3. ⚡ PHASE 7: The Intelligence Interceptor ⚡
+        const receiver = await User.findById(receiverId).lean(); // High-speed JSON conversion
+
+        if (receiver && receiver.isAI) {
+            // FIRE & FORGET: Do NOT 'await' this. Let it run in the background 
+            // so the human's HTTP POST resolves in < 50ms.
+            processAIResponse(conversationId, text, senderId, receiverId);
+        } else {
+            // Standard Human-to-Human real-time socket delivery
+            const io = getIO();
+            io.to(receiverId.toString()).emit("newMessage", newMessage);
+        }
 
         res.status(201).json({ success: true, data: newMessage });
     } catch (error) {

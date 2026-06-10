@@ -5,6 +5,7 @@ const userSchema = new Schema({
   firebaseUid: { type: String, required: true, unique: true, index: true },
   email: { type: String, required: true, unique: true, sparse: true },
   emailVerified: { type: Boolean, default: false },
+  isAI: { type: Boolean, default: false },
   provider: { type: String, enum: ['google', 'email'], default: 'google' },
 
   // --- Public Profile ---
@@ -13,7 +14,7 @@ const userSchema = new Schema({
     required: true, 
     unique: true, 
     lowercase: true,
-    match: [/^[a-z0-9_]+$/, 'Username can only contain alphanumeric characters and underscores'],
+    match: [/^[a-z0-9_]+$/, 'Username can only contain alphanumeric characters, hyphens, periods and underscores'],
     minlength: 3,
     maxlength: 30
   },
