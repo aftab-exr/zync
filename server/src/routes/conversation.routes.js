@@ -4,7 +4,7 @@ import { getConversations, createConversation, createGroupConversation } from ".
 
 const router = express.Router();
 
-router.use(requireAuth);
+router.use(authenticateUser);
 
 router.get("/", getConversations);
 router.post("/", createConversation);
