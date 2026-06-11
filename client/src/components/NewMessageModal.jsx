@@ -1,148 +1,192 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Search, X, Loader2, UserPlus } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { X, Search, Users, Check, Loader2 } from 'lucide-react';
+import { useChatStore } from '../store/useChatStore';
 import { api } from '../lib/axios';
 import { auth } from '../lib/firebase';
-import { useChatStore } from '../store/useChatStore'; // ⚡ NEW: Import the Chat Store
 
-export default function NewMessageModal({ isOpen, onClose }) {
-  const navigate = useNavigate();
-  const { fetchConversations } = useChatStore(); // ⚡ NEW: Extract the fetch function
-  
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState([]);
+export default function NewMessageModal({ onClose, onSelectConversation }) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
+  const [isGroupMode, setIsGroupMode] = useState(false);
+  const [groupName, setGroupName] = useState('');
+  const [selectedUsers, setSelectedUsers] = useState([]);
 
-  // Network Debounce & State Synchronization
+  const { createConversation, createGroup, isCreatingGroup } = useChatStore();
+
   useEffect(() => {
-    const delayDebounceFn = setTimeout(async () => {
-      if (query.trim().length < 2) {
-        setResults([]);
-        setIsSearching(false);
+    const searchUsers = async () => {
+      if (searchQuery.trim().length < 2) {
+        setSearchResults([]);
         return;
       }
-
       setIsSearching(true);
-        try {
-        const token = await auth.currentUser.getIdToken();
-        const res = await api.get(`/users/search?q=${query}`, {
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        const res = await api.get(`/users/search?q=${searchQuery}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        setResults(res.data.data);
+        setSearchResults(res.data.data);
       } catch (error) {
-        console.error("Search failed:", error);
+        console.error("Search failed", error);
       } finally {
         setIsSearching(false);
       }
-    }, 400);
+    };
 
+    const delayDebounceFn = setTimeout(() => searchUsers(), 300);
     return () => clearTimeout(delayDebounceFn);
-  }, [query]);
+  }, [searchQuery]);
 
-  // Algorithm: DM Initiation Handler
-  const startConversation = async (targetUserId) => {
-    setIsCreating(true);
-    try {
-      const token = await auth.currentUser.getIdToken();
-      
-      // 1. Create or fetch the DM from MongoDB
-      const res = await api.post('/conversations', 
-        { targetUserId },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      const conversationId = res.data.data._id;
-      
-      // 2. ⚡ HYDRATE THE STATE: Force the sidebar to update so ChatPane knows about it
-      await fetchConversations();
-
-      // 3. Close modal and route to the new chat
-      onClose();
-      setQuery('');
-      navigate(`/inbox/${conversationId}`);
-      
-    } catch (error) {
-      console.error("Failed to start conversation:", error);
-    } finally {
-      setIsCreating(false);
+  const handleUserClick = async (user) => {
+    if (isGroupMode) {
+      if (selectedUsers.find(u => u._id === user._id)) {
+        setSelectedUsers(selectedUsers.filter(u => u._id !== user._id));
+      } else {
+        setSelectedUsers([...selectedUsers, user]);
+      }
+    } else {
+      const conversation = await createConversation(user._id);
+      if (conversation) {
+        onSelectConversation(conversation._id);
+        onClose();
+      }
     }
   };
 
-  if (!isOpen) return null;
+  const handleCreateGroup = async () => {
+    if (!groupName.trim() || selectedUsers.length === 0) return;
+    
+    const participantIds = selectedUsers.map(u => u._id);
+    const newGroup = await createGroup(groupName, participantIds);
+    
+    if (newGroup) {
+      onSelectConversation(newGroup._id);
+      onClose();
+    }
+  };
 
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          transition={{ duration: 0.2, ease: "easeOut" }}
-          className="w-full max-w-lg bg-[var(--bg-surface)] border rounded-xl shadow-2xl overflow-hidden flex flex-col"
-          style={{ borderColor: 'var(--border)', maxHeight: '80vh' }}
-        >
-          {/* Header & Input */}
-          <div className="p-4 border-b flex items-center gap-3 relative" style={{ borderColor: 'var(--border)' }}>
-            <Search className="w-5 h-5 text-[var(--text-secondary)]" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="w-full max-w-md bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl shadow-2xl flex flex-col max-h-[85vh] animate-fade-in">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-[var(--border)]">
+          <h2 className="text-lg font-display font-bold text-white">
+            {isGroupMode ? 'Create Group' : 'New Message'}
+          </h2>
+          <button onClick={onClose} className="p-2 rounded-lg text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-base)] transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Group Toggle & Name Input */}
+        <div className="p-4 border-b border-[var(--border)] space-y-4">
+          <button 
+            onClick={() => setIsGroupMode(!isGroupMode)}
+            className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-[var(--bg-base)] text-[var(--text-primary)] transition-colors"
+          >
+            <div className="w-10 h-10 rounded-full bg-[var(--accent-dim)] text-[var(--accent)] flex items-center justify-center">
+              <Users className="w-5 h-5" />
+            </div>
+            <div className="text-left flex-1">
+              <h3 className="text-sm font-medium">New Group</h3>
+              <p className="text-xs text-[var(--text-secondary)]">Create a conversation with multiple people</p>
+            </div>
+            {isGroupMode && <Check className="w-5 h-5 text-[var(--accent)]" />}
+          </button>
+
+          {isGroupMode && (
+            <div className="animate-fade-in">
+              <input
+                type="text"
+                placeholder="Group Name"
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
+                className="w-full bg-[var(--bg-base)] border border-[var(--border)] text-white text-sm rounded-xl p-3 focus:outline-none focus:border-[var(--accent)] transition-colors"
+              />
+              
+              {/* Selected Users Pills */}
+              {selectedUsers.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {selectedUsers.map(u => (
+                    <div key={u._id} className="flex items-center gap-1.5 bg-[var(--bg-raised)] border border-[var(--border)] px-3 py-1.5 rounded-full text-xs text-white">
+                      {u.displayName}
+                      <X className="w-3 h-3 cursor-pointer text-[var(--text-secondary)] hover:text-white" onClick={() => handleUserClick(u)} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
             <input
-              autoFocus
               type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search users by name..."
-              className="flex-1 bg-transparent border-none outline-none text-white font-mono placeholder:text-[var(--text-secondary)] text-sm"
+              placeholder="Search users by username..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-[var(--bg-base)] text-white text-sm rounded-xl pl-10 pr-4 py-3 border border-[var(--border)] focus:outline-none focus:border-[var(--border-active)] transition-colors"
             />
-            {isSearching && <Loader2 className="w-4 h-4 animate-spin text-[var(--accent)]" />}
-            <button onClick={onClose} className="p-2 rounded-lg hover:bg-[var(--bg-base)] text-[var(--text-secondary)] transition-all duration-200 ease-in-out active:scale-95">
-              <X className="w-5 h-5" />
+          </div>
+        </div>
+
+        {/* Results List */}
+        <div className="flex-1 overflow-y-auto p-2 min-h-[250px]">
+          {isSearching ? (
+             <div className="flex justify-center p-8"><Loader2 className="w-5 h-5 animate-spin text-[var(--accent)]" /></div>
+          ) : searchResults.length > 0 ? (
+            <div className="space-y-1">
+              {searchResults.map((user) => {
+                const isSelected = selectedUsers.some(u => u._id === user._id);
+                return (
+                  <button
+                    key={user._id}
+                    onClick={() => handleUserClick(user)}
+                    className="flex items-center justify-between w-full p-3 rounded-xl hover:bg-[var(--bg-base)] transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-[var(--border)] flex items-center justify-center font-bold text-sm text-white">
+                        {user.displayName.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="text-left">
+                        <h4 className="text-sm font-medium text-white">{user.displayName}</h4>
+                        <p className="text-xs text-[var(--text-secondary)]">@{user.username}</p>
+                      </div>
+                    </div>
+                    {isGroupMode && (
+                      <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${isSelected ? 'bg-[var(--accent)] border-[var(--accent)]' : 'border-[var(--text-secondary)]'}`}>
+                        {isSelected && <Check className="w-3 h-3 text-white" />}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-[var(--text-secondary)] p-8 text-center">
+              <Users className="w-8 h-8 mb-3 opacity-50" />
+              <p className="text-sm">Search for users to start a conversation</p>
+            </div>
+          )}
+        </div>
+
+        {/* Group Create Footer */}
+        {isGroupMode && (
+          <div className="p-4 border-t border-[var(--border)] bg-[var(--bg-base)] rounded-b-2xl">
+            <button
+              onClick={handleCreateGroup}
+              disabled={!groupName.trim() || selectedUsers.length === 0 || isCreatingGroup}
+              className="w-full flex items-center justify-center py-3 rounded-xl bg-[var(--accent)] text-white font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              {isCreatingGroup ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Group'}
             </button>
           </div>
+        )}
 
-          {/* Results Area */}
-          <div className="flex-1 overflow-y-auto p-2 min-h-[200px]">
-            {query.length < 2 && (
-              <div className="h-full flex flex-col items-center justify-center text-center text-[var(--text-secondary)] text-sm py-10">
-                <UserPlus className="w-8 h-8 mb-3 opacity-50" />
-                <p>Type at least 2 characters to search.</p>
-              </div>
-            )}
-
-            {query.length >= 2 && results.length === 0 && !isSearching && (
-              <div className="text-center text-[var(--text-secondary)] text-sm py-10">
-                No users found matching "{query}"
-              </div>
-            )}
-
-            <div className="space-y-1">
-              {results.map((user) => (
-                <button
-                  key={user._id}
-                  onClick={() => startConversation(user._id)}
-                  disabled={isCreating}
-                  className="w-full flex items-center justify-between px-3 py-3 rounded-lg hover:bg-[var(--bg-base)] transition-all duration-200 ease-in-out text-left group min-h-[56px] active:scale-95 disabled:opacity-50"
-                >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="w-10 h-10 rounded-full bg-[var(--border)] flex items-center justify-center font-display font-bold text-sm text-white flex-shrink-0">
-                      {user.displayName.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <h4 className="text-white text-sm font-medium truncate">{user.displayName}</h4>
-                      <p className="text-[var(--text-secondary)] text-xs font-mono truncate">@{user.username}</p>
-                    </div>
-                  </div>
-                  <div className="opacity-0 group-hover:opacity-100 transition-all duration-200 ease-in-out flex-shrink-0 ml-2">
-                    <span className="text-[var(--accent)] text-xs font-medium bg-[rgba(79,142,247,0.1)] px-3 py-2 rounded-full flex items-center gap-1 whitespace-nowrap">
-                      {isCreating ? <Loader2 className="w-3 h-3 animate-spin" /> : "Message"}
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </motion.div>
       </div>
-    </AnimatePresence>
+    </div>
   );
 }

@@ -32,10 +32,11 @@ export default function Inbox() {
     return () => disconnect();
   }, [connect, disconnect]);
 
-  // Lifecycle: Hydrate Sidebar
+  // Lifecycle: Hydrate Sidebar (wait for auth so we can resolve otherUser)
   useEffect(() => {
+    if (!user?._id) return;
     fetchConversations();
-  }, [fetchConversations]);
+  }, [fetchConversations, user?._id]);
   // Lifecycle: Global Presence Listener (Waits for socket connection)
   useEffect(() => {
     if (!socket) return;
@@ -152,8 +153,16 @@ export default function Inbox() {
             )}
 
             {conversations.map((conv) => {
+              if (!conv.otherUser) return null;
+
               const isActive = conversationId === conv._id;
-              
+              const displayName = conv.isGroup
+                ? conv.groupName || 'Group Chat'
+                : conv.otherUser.displayName;
+              const subtitle = conv.isGroup
+                ? `${conv.participants?.length ?? 0} members`
+                : `@${conv.otherUser.username}`;
+
               return (
                 <button
                   key={conv._id}
@@ -164,19 +173,19 @@ export default function Inbox() {
                 >
                   <div className="relative flex-shrink-0">
                     <div className="w-10 h-10 rounded-full bg-[var(--border)] flex items-center justify-center font-display font-bold text-sm text-white">
-                      {conv.otherUser.displayName.charAt(0).toUpperCase()}
+                      {displayName.charAt(0).toUpperCase()}
                     </div>
-                    {conv.otherUser.status?.online && (
+                    {!conv.isGroup && conv.otherUser.status?.online && (
                       <div className="absolute bottom-0 right-0 w-3 h-3 bg-[var(--success)] border-2 border-[var(--bg-base)] rounded-full"></div>
                     )}
                   </div>
                   
                   <div className="flex-1 overflow-hidden">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-medium text-white truncate">{conv.otherUser.displayName}</h4>
+                      <h4 className="text-sm font-medium text-white truncate">{displayName}</h4>
                     </div>
                     <p className="text-xs text-[var(--text-secondary)] font-mono truncate mt-0.5">
-                      @{conv.otherUser.username}
+                      {subtitle}
                     </p>
                   </div>
                 </button>
@@ -205,11 +214,12 @@ export default function Inbox() {
         )}
       </div>
 
-      {/* Modals */}
-      <NewMessageModal 
-        isOpen={isSearchModalOpen} 
-        onClose={() => setIsSearchModalOpen(false)} 
-      />
+      {isSearchModalOpen && (
+        <NewMessageModal
+          onClose={() => setIsSearchModalOpen(false)}
+          onSelectConversation={(id) => navigate(`/inbox/${id}`)}
+        />
+      )}
       
     </div>
   );

@@ -81,7 +81,11 @@ export default function ChatPane({ conversationId }) {
 
   // Extract the specific conversation we are looking at to get the receiver's ID
   const activeConversation = conversations.find(c => c._id === conversationId);
+  const isGroup = activeConversation?.isGroup;
   const otherUser = activeConversation?.otherUser;
+  const headerName = isGroup
+    ? activeConversation?.groupName || 'Group Chat'
+    : otherUser?.displayName;
 
   // Component Lifecycle: Fetch & Subscribe
   useEffect(() => {
@@ -152,7 +156,7 @@ export default function ChatPane({ conversationId }) {
   };
 
   // Safety fallback if data hasn't hydrated yet
-  if (!otherUser) return <div className="flex-1 bg-[var(--bg-base)]"></div>;
+  if (!otherUser || !headerName) return <div className="flex-1 bg-[var(--bg-base)]"></div>;
 
   return (
     <div className="flex-1 flex flex-col bg-[var(--bg-base)] overflow-hidden">
@@ -169,18 +173,22 @@ export default function ChatPane({ conversationId }) {
           </button>
           
           <div className="w-8 h-8 rounded-full bg-[var(--border)] flex items-center justify-center font-display font-bold text-xs text-white relative">
-            {otherUser.displayName.charAt(0).toUpperCase()}
-            {otherUser.status?.online && (
+            {headerName.charAt(0).toUpperCase()}
+            {!isGroup && otherUser.status?.online && (
               <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[var(--success)] border-2 border-[var(--bg-surface)] rounded-full"></div>
             )}
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <h3 className="text-sm font-medium text-white leading-none">{otherUser.displayName}</h3>
-              {otherUser.isAI && <Sparkles className="w-3.5 h-3.5 text-[var(--accent)]" />}
+              <h3 className="text-sm font-medium text-white leading-none">{headerName}</h3>
+              {!isGroup && otherUser.isAI && <Sparkles className="w-3.5 h-3.5 text-[var(--accent)]" />}
             </div>
             <p className="text-[10px] text-[var(--success)] font-mono mt-1 leading-none opacity-80">
-              {otherUser.isAI ? 'Quantum Processing Active' : 'Encrypted Session'}
+              {isGroup
+                ? `${activeConversation.participants?.length ?? 0} members`
+                : otherUser.isAI
+                  ? 'Quantum Processing Active'
+                  : 'Encrypted Session'}
             </p>
           </div>
         </div>
@@ -253,7 +261,7 @@ export default function ChatPane({ conversationId }) {
             type="text"
             value={text}
             onChange={handleInputChange}
-            placeholder={`Message @${otherUser.username}...`}
+            placeholder={isGroup ? 'Message group...' : `Message @${otherUser.username}...`}
             className="flex-1 bg-transparent border-none outline-none text-sm text-white placeholder:text-[var(--text-secondary)]"
             autoComplete="off"
           />
