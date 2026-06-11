@@ -1,17 +1,23 @@
-import mongoose from 'mongoose';
+import mongoose, { Schema } from "mongoose";
 
-const conversationSchema = new mongoose.Schema({
-  type: { type: String, enum: ['dm', 'group'], default: 'dm' },
-  
-  dmParticipants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  
-  lastMessageAt: { type: Date, default: Date.now },
-  lastMessageId: { type: mongoose.Schema.Types.ObjectId, ref: 'Message' },
-  
-  deletedAt: { type: Date, default: null }
-}, { timestamps: true });
+const conversationSchema = new Schema({
+    // V1: 1-on-1 / V2: Multiplayer Array
+    participants: [{
+        type: Schema.Types.ObjectId,
+        ref: "User"
+    }],
+    lastMessageAt: { type: Date, default: Date.now },
+    lastMessageId: { type: Schema.Types.ObjectId, ref: "Message" },
 
-conversationSchema.index({ dmParticipants: 1 });
-conversationSchema.index({ lastMessageAt: -1 }); 
+    // ⚡ PHASE 2.3: Group Chat Infrastructure
+    isGroup: { type: Boolean, default: false },
+    groupName: { type: String, trim: true },
+    groupAvatar: { type: String, default: "" },
+    groupAdmins: [{ type: Schema.Types.ObjectId, ref: "User" }],
+    communityId: { type: Schema.Types.ObjectId, ref: "Community", default: null } // Reserved for V3
+}, {
+    timestamps: true
+});
 
-export default mongoose.model('Conversation', conversationSchema);
+const Conversation = mongoose.model("Conversation", conversationSchema);
+export default Conversation;

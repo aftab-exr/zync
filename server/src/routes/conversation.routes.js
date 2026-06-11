@@ -1,13 +1,13 @@
-import { Router } from "express";
-import authenticateUser from "../middlewares/auth.middleware.js";
-import { createOrGetDM, getUserConversations } from "../controllers/conversation.controller.js";
+import express from "express";
+import { requireAuth } from "../middlewares/auth.middleware.js";
+import { getConversations, createConversation, createGroupConversation } from "../controllers/conversation.controller.js";
 
-const router = Router();
+const router = express.Router();
 
-// Retrieve all active conversations for the sidebar
-router.get("/", authenticateUser, getUserConversations);
+router.use(requireAuth);
 
-// Create or fetch a specific DM thread
-router.post("/", authenticateUser, createOrGetDM);
+router.get("/", getConversations);
+router.post("/", createConversation);
+router.post("/group", createGroupConversation); // ⚡ Phase 2.3 Group Route
 
 export default router;
