@@ -1,5 +1,5 @@
 import express from "express";
-import { requireAuth } from "../middlewares/auth.middleware.js";
+import authenticateUser from "../middlewares/auth.middleware.js";
 import { getConversations, createConversation, createGroupConversation } from "../controllers/conversation.controller.js";
 
 const router = express.Router();
