@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, MoreVertical, Phone, Video, Loader2, ChevronLeft, Sparkles } from 'lucide-react';
+import { Send, MoreVertical, Phone, Video, Loader2, ChevronLeft, Sparkles, Copy, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useMessageStore } from '../store/useMessageStore';
 import { useChatStore } from '../store/useChatStore';
@@ -7,6 +7,58 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useSocketStore } from '../store/useSocketStore';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+
+function CodeBlock({ inline, className, children, ...props }) {
+  const [copied, setCopied] = useState(false);
+  const match = /language-(\w+)/.exec(className || '');
+  const language = match ? match[1] : 'text';
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(String(children).replace(/\n$/, ''));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (inline) {
+    return (
+      <code className={className} {...props}>
+        {children}
+      </code>
+    );
+  }
+
+  return (
+    <div className="my-2 rounded-lg overflow-hidden border border-[var(--border)]">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-[#0d0d0d] border-b border-[var(--border)]">
+        <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-secondary)]">
+          {language}
+        </span>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="flex items-center gap-1.5 text-[10px] font-mono text-[var(--text-secondary)] hover:text-white transition-colors"
+        >
+          {copied ? (
+            <>
+              <Check className="w-3 h-3 text-[var(--success)]" />
+              <span className="text-[var(--success)]">Copied!</span>
+            </>
+          ) : (
+            <>
+              <Copy className="w-3 h-3" />
+              <span>Copy</span>
+            </>
+          )}
+        </button>
+      </div>
+      <pre className="overflow-x-auto p-3 bg-[#1a1a1a] m-0">
+        <code className={`${className || ''} text-xs font-mono text-[var(--text-primary)]`} {...props}>
+          {children}
+        </code>
+      </pre>
+    </div>
+  );
+}
 
 export default function ChatPane({ conversationId }) {
   const navigate = useNavigate();
@@ -167,6 +219,7 @@ export default function ChatPane({ conversationId }) {
                   >
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
+                      components={{ code: CodeBlock }}
                       className="prose prose-sm dark:prose-invert max-w-none break-words"
                     >
                       {msg.text}
