@@ -24,7 +24,7 @@ export const processAIResponse = async (conversationId, userMessage, userId, aiU
         const response = await axios.post(
             "https://api.groq.com/openai/v1/chat/completions",
             {
-                model: "llama3-8b-8192", // Lightning-fast model for real-time chat
+                model: "llama-3.3-70b-versatile", // Lightning-fast model for real-time chat
                 messages: [
                     {
                         role: "system",
