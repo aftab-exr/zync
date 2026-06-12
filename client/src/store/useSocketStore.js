@@ -2,36 +2,33 @@ import { create } from 'zustand';
 import { io } from 'socket.io-client';
 import { auth } from '../lib/firebase.js';
 import { useMessageStore } from './useMessageStore.js';
+import { useChatStore } from './useChatStore.js';
+import { sameId } from '../lib/conversation.js';
 
-const SOCKET_URL = import.meta.env.MODE === "development" ? "http://localhost:4000" : "/";
+const SOCKET_URL = import.meta.env.MODE === 'development' ? 'http://localhost:4000' : '/';
 
 export const useSocketStore = create((set, get) => ({
   socket: null,
   isConnected: false,
+  onlineUsers: [],
 
   connect: async () => {
-    // 1. Prevent duplicate connections
     if (get().socket?.connected) return;
 
-    // 2. Initialize the Socket.io Client with a DYNAMIC auth function
-    // This guarantees we never send an expired token on auto-reconnect
     const socket = io(SOCKET_URL, {
       auth: async (cb) => {
         try {
           const currentUser = auth.currentUser;
           if (!currentUser) return cb({ token: null });
-          
-          // Firebase automatically refreshes the token if it is expired
-          const token = await currentUser.getIdToken(); 
+          const token = await currentUser.getIdToken();
           cb({ token });
         } catch (error) {
-          console.error('❌ Failed to fetch fresh socket token:', error);
+          console.error('Failed to fetch socket token:', error);
           cb({ token: null });
         }
-      }
+      },
     });
 
-    // 3. Wire up the lifecycle events
     socket.on('connect', () => {
       if (import.meta.env.DEV) console.log('🟢 Socket connected to server:', socket.id);
       set({ isConnected: true });
@@ -43,16 +40,39 @@ export const useSocketStore = create((set, get) => ({
     });
 
     socket.on('connect_error', (err) => {
-      console.error('❌ Socket connection error:', err.message);
+      console.error('Socket connection error:', err.message);
     });
 
-    // ⚡ Catch transient incoming server events and sync memory state
-    socket.on("user_typing", ({ conversationId }) => {
+    socket.on('presence:update', ({ userId, online }) => {
+      const id = userId?.toString();
+      if (!id) return;
+
+      set((state) => {
+        const next = new Set(state.onlineUsers.map(String));
+        if (online) next.add(id);
+        else next.delete(id);
+        return { onlineUsers: Array.from(next) };
+      });
+    });
+
+    socket.on('user_typing', ({ conversationId }) => {
       useMessageStore.getState().setTypingState(conversationId, true);
     });
 
-    socket.on("user_stopped_typing", ({ conversationId }) => {
+    socket.on('user_stopped_typing', ({ conversationId }) => {
       useMessageStore.getState().setTypingState(conversationId, false);
+    });
+
+    socket.on('newMessage', (newMessage) => {
+      useChatStore.getState().updateConversationLastMessage(newMessage.conversationId, newMessage);
+
+      const selectedConversation = useChatStore.getState().selectedConversation;
+      if (selectedConversation && sameId(selectedConversation._id, newMessage.conversationId)) {
+        useMessageStore.setState((state) => {
+          const exists = state.messages.some((m) => sameId(m._id, newMessage._id));
+          return exists ? state : { messages: [...state.messages, newMessage] };
+        });
+      }
     });
 
     set({ socket });
@@ -61,8 +81,12 @@ export const useSocketStore = create((set, get) => ({
   disconnect: () => {
     const { socket } = get();
     if (socket) {
+      socket.off('presence:update');
+      socket.off('user_typing');
+      socket.off('user_stopped_typing');
+      socket.off('newMessage');
       socket.disconnect();
-      set({ socket: null, isConnected: false });
+      set({ socket: null, isConnected: false, onlineUsers: [] });
     }
-  }
+  },
 }));

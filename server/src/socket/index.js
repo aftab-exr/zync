@@ -43,22 +43,6 @@ export const initializeSocket = (httpServer) => {
         console.warn("⚠️ REDIS_URL is not configured. Socket.io will run without a Redis adapter in single-instance mode.");
     }
 
-    // Catch errors so the server doesn't fatally crash
-    if (pubClient && subClient) {
-        pubClient.on("error", (err) => console.error("🔴 Redis PubClient Error:", err.message));
-        subClient.on("error", (err) => console.error("🔴 Redis SubClient Error:", err.message));
-        
-        pubClient.on("connect", () => {
-            if (process.env.NODE_ENV !== 'production') console.log("🟢 Redis PubClient Connected");
-        });
-        subClient.on("connect", () => {
-            if (process.env.NODE_ENV !== 'production') console.log("🟢 Redis SubClient Connected");
-        });
-        
-        // Attach the Redis Adapter so messages broadcast across all server instances
-        io.adapter(createAdapter(pubClient, subClient));
-    }
-
     // 3. The Authentication Handshake (Zero-Trust Socket)
     io.use(async (socket, next) => {
         try {

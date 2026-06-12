@@ -1,10 +1,16 @@
+import mongoose from "mongoose";
 import Conversation from "../models/conversation.model.js";
 import User from "../models/user.model.js";
+import Message from "../models/message.model.js"; // Force registration of Message model for populating lastMessageId
 
 // Fetch all conversations for the logged-in user
 export const getConversations = async (req, res) => {
     try {
-        const userId = req.user._id;
+        const userId = req.user?._id;
+        if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({ success: false, error: "Invalid user session or ID" });
+        }
+
         const conversations = await Conversation.find({
             participants: { $in: [userId] }
         })
@@ -23,7 +29,25 @@ export const getConversations = async (req, res) => {
 export const createConversation = async (req, res) => {
     try {
         const { receiverId } = req.body;
-        const senderId = req.user._id;
+        const senderId = req.user?._id;
+
+        if (!senderId || !mongoose.Types.ObjectId.isValid(senderId)) {
+            return res.status(400).json({ success: false, error: "Invalid sender session" });
+        }
+
+        if (!receiverId || !mongoose.Types.ObjectId.isValid(receiverId)) {
+            return res.status(400).json({ success: false, error: "Invalid receiver ID format" });
+        }
+
+        if (senderId.toString() === receiverId.toString()) {
+            return res.status(400).json({ success: false, error: "Cannot create conversation with yourself" });
+        }
+
+        // Verify receiver user exists and is not deleted
+        const receiver = await User.findOne({ _id: receiverId, deletedAt: null });
+        if (!receiver) {
+            return res.status(404).json({ success: false, error: "Receiver user not found or has been deleted" });
+        }
 
         // Check if 1-on-1 conversation already exists
         let conversation = await Conversation.findOne({
@@ -52,18 +76,48 @@ export const createConversation = async (req, res) => {
 export const createGroupConversation = async (req, res) => {
     try {
         const { name, participantIds } = req.body;
-        const creatorId = req.user._id;
+        const creatorId = req.user?._id;
 
-        if (!name || !participantIds || participantIds.length < 1) {
+        if (!creatorId || !mongoose.Types.ObjectId.isValid(creatorId)) {
+            return res.status(400).json({ success: false, error: "Invalid creator session" });
+        }
+
+        if (!name || typeof name !== "string" || !name.trim()) {
+            return res.status(400).json({ success: false, error: "Group name is required." });
+        }
+
+        const trimmedName = name.trim();
+        if (trimmedName.length > 50) {
+            return res.status(400).json({ success: false, error: "Group name must be 50 characters or less." });
+        }
+
+        if (!participantIds || !Array.isArray(participantIds) || participantIds.length < 1) {
             return res.status(400).json({ success: false, error: "Group name and at least 1 other member required." });
         }
 
+        // Validate each participant ID format
+        for (const pId of participantIds) {
+            if (!pId || !mongoose.Types.ObjectId.isValid(pId)) {
+                return res.status(400).json({ success: false, error: `Invalid participant ID format: ${pId}` });
+            }
+        }
+
         // Combine the creator and the selected friends, ensuring no duplicates
-        const allParticipants = [...new Set([...participantIds, creatorId.toString()])];
+        const allParticipants = [...new Set([...participantIds.map(id => id.toString()), creatorId.toString()])];
+
+        // Verify all participants exist and are not soft-deleted
+        const existingUsersCount = await User.countDocuments({
+            _id: { $in: allParticipants },
+            deletedAt: null
+        });
+
+        if (existingUsersCount !== allParticipants.length) {
+            return res.status(400).json({ success: false, error: "One or more participants are invalid or have deleted accounts" });
+        }
 
         const newGroup = await Conversation.create({
             isGroup: true,
-            groupName: name,
+            groupName: trimmedName,
             participants: allParticipants,
             groupAdmins: [creatorId]
         });

@@ -2,70 +2,98 @@ import { create } from 'zustand';
 import { api } from '../lib/axios';
 import { auth } from '../lib/firebase';
 import { useSocketStore } from './useSocketStore';
+import { useChatStore } from './useChatStore';
+import { sameId } from '../lib/conversation';
+
+let messageHandler = null;
 
 export const useMessageStore = create((set, get) => ({
   messages: [],
   isFetching: false,
-  
-  // ⚡ Map to track which conversation currently has an active typing user
-  typingConversations: {}, 
+  typingConversations: {},
 
-  // ⚡ Functional state update to prevent race conditions
   setTypingState: (conversationId, isTyping) => {
     set((state) => ({
       typingConversations: {
         ...state.typingConversations,
-        [conversationId]: isTyping
-      }
+        [conversationId]: isTyping,
+      },
     }));
   },
 
   fetchMessages: async (conversationId) => {
-    set({ isFetching: true });
+    if (!conversationId) return;
+
+    set({ isFetching: true, messages: [] });
     try {
-      const token = await auth.currentUser.getIdToken();
+      const token = await auth.currentUser?.getIdToken();
       const res = await api.get(`/messages/${conversationId}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       set({ messages: res.data.data });
     } catch (error) {
-      console.error("Failed to fetch messages:", error);
+      console.error('Failed to fetch messages:', error);
     } finally {
       set({ isFetching: false });
     }
   },
 
+  getMessages: async (conversationId) => {
+    return get().fetchMessages(conversationId);
+  },
+
   sendMessage: async (conversationId, text, receiverId) => {
+    if (!conversationId || !text?.trim()) return;
+
     try {
-      const token = await auth.currentUser.getIdToken();
-      const res = await api.post(`/messages/${conversationId}`, 
-        { text, receiverId },
+      const token = await auth.currentUser?.getIdToken();
+      const res = await api.post(
+        `/messages/${conversationId}`,
+        { text: text.trim(), receiverId },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      
-      // Optimistically append the message to the UI instantly
-      set({ messages: [...get().messages, res.data.data] });
+
+      const incoming = res.data.data;
+      set((state) => {
+        const exists = state.messages.some((m) => sameId(m._id, incoming._id));
+        return exists ? state : { messages: [...state.messages, incoming] };
+      });
+
+      if (incoming) {
+        useChatStore.getState().updateConversationLastMessage(conversationId, incoming);
+      }
+
+      return incoming;
     } catch (error) {
-      console.error("Failed to send message:", error);
+      console.error('Failed to send message:', error);
+      return null;
     }
   },
 
-  // Algorithm: The Real-Time Listener
   subscribeToMessages: (currentConversationId) => {
     const socket = useSocketStore.getState().socket;
-    if (!socket) return;
+    if (!socket || !currentConversationId) return;
 
-    socket.on("newMessage", (newMessage) => {
-      // Security Check: Only append if the incoming message belongs to the room we are actively looking at
-      if (newMessage.conversationId === currentConversationId) {
-        set((state) => ({ messages: [...state.messages, newMessage] }));
-      }
-    });
+    if (messageHandler) {
+      socket.off('newMessage', messageHandler);
+    }
+
+    messageHandler = (newMessage) => {
+      if (!sameId(newMessage.conversationId, currentConversationId)) return;
+
+      set((state) => {
+        const exists = state.messages.some((m) => sameId(m._id, newMessage._id));
+        return exists ? state : { messages: [...state.messages, newMessage] };
+      });
+    };
+
+    socket.on('newMessage', messageHandler);
   },
 
   unsubscribeFromMessages: () => {
     const socket = useSocketStore.getState().socket;
-    if (!socket) return;
-    socket.off("newMessage");
-  }
+    if (!socket || !messageHandler) return;
+    socket.off('newMessage', messageHandler);
+    messageHandler = null;
+  },
 }));

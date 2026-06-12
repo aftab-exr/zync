@@ -1,280 +1,262 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, MoreVertical, Phone, Video, Loader2, ChevronLeft, Sparkles, Copy, Check } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { useMessageStore } from '../store/useMessageStore';
-import { useChatStore } from '../store/useChatStore';
-import { useAuthStore } from '../store/useAuthStore';
-import { useSocketStore } from '../store/useSocketStore';
+import { Send, Users, Sparkles, ShieldCheck, Copy, Check, ChevronLeft, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useNavigate } from 'react-router-dom';
+import { useChatStore } from '../store/useChatStore';
+import { useAuthStore } from '../store/useAuthStore';
+import { useMessageStore } from '../store/useMessageStore';
+import { useSocketStore } from '../store/useSocketStore';
+import { sameId, getOtherParticipant, isUserOnline } from '../lib/conversation';
 
-function CodeBlock({ inline, className, children, ...props }) {
+const CodeBlock = ({ inline, className, children, ...props }) => {
   const [copied, setCopied] = useState(false);
   const match = /language-(\w+)/.exec(className || '');
-  const language = match ? match[1] : 'text';
 
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(String(children).replace(/\n$/, ''));
+  const handleCopy = () => {
+    navigator.clipboard.writeText(String(children).replace(/\n$/, ''));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  if (inline) {
+  if (!inline && match) {
     return (
-      <code className={className} {...props}>
-        {children}
-      </code>
+      <div className="relative mt-4 mb-4 rounded-xl overflow-hidden bg-[#1e1e2e] border border-[var(--border)] shadow-sm">
+        <div className="flex items-center justify-between px-4 py-2 bg-[#2a2a3c] border-b border-[var(--border)]">
+          <span className="text-xs font-mono text-gray-400 uppercase tracking-wider">{match[1]}</span>
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors"
+          >
+            {copied ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-[var(--success)]" />
+                <span className="text-[var(--success)]">Copied!</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-3.5 h-3.5" />
+                <span>Copy</span>
+              </>
+            )}
+          </button>
+        </div>
+        <pre className="p-4 overflow-x-auto text-[13px] leading-relaxed text-gray-100 font-mono m-0">
+          <code className={className} {...props}>
+            {children}
+          </code>
+        </pre>
+      </div>
     );
   }
 
   return (
-    <div className="my-2 rounded-lg overflow-hidden border border-[var(--border)]">
-      <div className="flex items-center justify-between px-3 py-1.5 bg-[#0d0d0d] border-b border-[var(--border)]">
-        <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-secondary)]">
-          {language}
-        </span>
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="flex items-center gap-1.5 text-[10px] font-mono text-[var(--text-secondary)] hover:text-white transition-colors"
-        >
-          {copied ? (
-            <>
-              <Check className="w-3 h-3 text-[var(--success)]" />
-              <span className="text-[var(--success)]">Copied!</span>
-            </>
-          ) : (
-            <>
-              <Copy className="w-3 h-3" />
-              <span>Copy</span>
-            </>
-          )}
-        </button>
-      </div>
-      <pre className="overflow-x-auto p-3 bg-[#1a1a1a] m-0">
-        <code className={`${className || ''} text-xs font-mono text-[var(--text-primary)]`} {...props}>
-          {children}
-        </code>
-      </pre>
-    </div>
+    <code
+      className="bg-[#2a2a3c] text-[#6BA3FF] px-1.5 py-0.5 rounded-md text-sm font-mono border border-[var(--border)]"
+      {...props}
+    >
+      {children}
+    </code>
   );
-}
+};
 
-export default function ChatPane({ conversationId }) {
+export default function ChatPane() {
   const navigate = useNavigate();
   const [text, setText] = useState('');
   const messagesEndRef = useRef(null);
-  const typingTimeoutRef = useRef(null);
-  
-  // Connect all three Zustand Brains
+
+  const { selectedConversation, setSelectedConversation } = useChatStore();
   const { user } = useAuthStore();
-  const { conversations } = useChatStore();
-  const { messages, fetchMessages, sendMessage, subscribeToMessages, unsubscribeFromMessages, isFetching, typingConversations } = useMessageStore();
-  const { socket } = useSocketStore();
+  const {
+    messages,
+    fetchMessages,
+    sendMessage,
+    subscribeToMessages,
+    unsubscribeFromMessages,
+    isFetching,
+  } = useMessageStore();
+  const { onlineUsers } = useSocketStore();
 
-  const isTyping = typingConversations[conversationId];
+  const conversationId = selectedConversation?._id;
+  const isGroup = selectedConversation?.isGroup;
+  const groupName = selectedConversation?.groupName;
+  const otherUser = isGroup
+    ? null
+    : getOtherParticipant(selectedConversation?.participants, user?._id);
+  const isOnline = otherUser
+    ? isUserOnline(otherUser._id, onlineUsers, otherUser.status)
+    : false;
 
-  // Algorithm: Navigate back to sidebar on mobile
-  const handleBackToSidebar = () => {
+  useEffect(() => {
+    if (!conversationId) return;
+
+    fetchMessages(conversationId);
+    subscribeToMessages(conversationId);
+
+    return () => unsubscribeFromMessages();
+  }, [conversationId, fetchMessages, subscribeToMessages, unsubscribeFromMessages]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleBack = () => {
+    setSelectedConversation(null);
     navigate('/inbox');
   };
 
-  // Extract the specific conversation we are looking at to get the receiver's ID
-  const activeConversation = conversations.find(c => c._id === conversationId);
-  const isGroup = activeConversation?.isGroup;
-  const otherUser = activeConversation?.otherUser;
-  const headerName = isGroup
-    ? activeConversation?.groupName || 'Group Chat'
-    : otherUser?.displayName;
-
-  // Component Lifecycle: Fetch & Subscribe
-  useEffect(() => {
-    if (!conversationId) return;
-    fetchMessages(conversationId);
-  }, [conversationId, fetchMessages]);
-
-  useEffect(() => {
-    if (!conversationId || !socket) return;
-    
-    subscribeToMessages(conversationId);
-    
-    return () => unsubscribeFromMessages();
-  }, [conversationId, socket, subscribeToMessages, unsubscribeFromMessages]);
-
-  // Clean up typing timeout if component unmounts or chat switches
-  useEffect(() => {
-    return () => {
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    };
-  }, [conversationId]);
-
-  // Auto-Scroll Algorithm (now dependencies include isTyping to scroll when bubbles appear)
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping]);
-
-  // ⚡ The Debounce Core Algorithm
-  const handleInputChange = (e) => {
-    setText(e.target.value);
-
-    if (!socket || !otherUser) return;
-
-    // Emit active signal immediately
-    socket.emit("typing_start", { 
-      receiverId: otherUser._id, 
-      conversationId 
-    });
-
-    // Erase past timers if user is still typing mid-window
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
-    // Spawn execution boundary to shut off indicator after 2 seconds of silence
-    typingTimeoutRef.current = setTimeout(() => {
-      socket.emit("typing_end", { 
-        receiverId: otherUser._id, 
-        conversationId 
-      });
-    }, 2000);
-  };
-
-  const handleSendMessage = async (e) => {
+  const handleSend = async (e) => {
     e.preventDefault();
-    if (!text.trim() || !otherUser) return;
-    
-    const messageContent = text;
-    setText(''); // Clear UI instantly for perceived sub-100ms latency
-    
-    // Clear typing indicator instantly when sending
-    if (socket) {
-      socket.emit("typing_end", { receiverId: otherUser._id, conversationId });
-    }
-    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    if (!text.trim() || !conversationId) return;
 
-    await sendMessage(conversationId, messageContent, otherUser._id);
+    const content = text.trim();
+    setText('');
+    await sendMessage(conversationId, content, otherUser?._id);
   };
 
-  // Safety fallback if data hasn't hydrated yet
-  if (!otherUser || !headerName) return <div className="flex-1 bg-[var(--bg-base)]"></div>;
+  if (!selectedConversation) {
+    return <div className="flex-1 bg-[#0D0D0F]" />;
+  }
 
   return (
-    <div className="flex-1 flex flex-col bg-[var(--bg-base)] overflow-hidden">
-      
-      {/* Header - Sticky Mobile Header */}
-      <div className="h-12 border-b flex items-center justify-between px-6 bg-[var(--bg-surface)] z-10 sticky top-0 shrink-0" style={{ borderColor: 'var(--border)' }}>
+    <div className="flex-1 flex flex-col h-full bg-[#0D0D0F]">
+      <div className="h-16 flex items-center justify-between px-4 md:px-6 border-b border-[var(--border)] bg-[#141417]">
         <div className="flex items-center gap-3">
-          {/* Back Button (Mobile Only) */}
           <button
-            onClick={handleBackToSidebar}
-            className="block md:hidden p-1.5 hover:bg-[var(--bg-base)] rounded-md transition-colors text-[var(--text-secondary)] hover:text-white"
+            type="button"
+            onClick={handleBack}
+            className="md:hidden p-2 -ml-2 text-[var(--text-secondary)] hover:text-white"
+            aria-label="Back to conversations"
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronLeft className="w-6 h-6" />
           </button>
-          
-          <div className="w-8 h-8 rounded-full bg-[var(--border)] flex items-center justify-center font-display font-bold text-xs text-white relative">
-            {headerName.charAt(0).toUpperCase()}
-            {!isGroup && otherUser.status?.online && (
-              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[var(--success)] border-2 border-[var(--bg-surface)] rounded-full"></div>
-            )}
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <h3 className="text-sm font-medium text-white leading-none">{headerName}</h3>
-              {!isGroup && otherUser.isAI && <Sparkles className="w-3.5 h-3.5 text-[var(--accent)]" />}
+
+          {isGroup ? (
+            <div className="w-10 h-10 rounded-full bg-[var(--accent-dim)] text-[var(--accent)] flex items-center justify-center">
+              <Users className="w-5 h-5" />
             </div>
-            <p className="text-[10px] text-[var(--success)] font-mono mt-1 leading-none opacity-80">
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-[var(--border)] flex items-center justify-center font-bold text-sm text-white overflow-hidden relative">
+              {otherUser?.avatarUrl ? (
+                <img src={otherUser.avatarUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                (otherUser?.displayName || otherUser?.username || 'Unknown').charAt(0).toUpperCase()
+              )}
+              {isOnline && (
+                <span className="absolute bottom-0 right-0 w-3 h-3 bg-[var(--success)] border-2 border-[#141417] rounded-full" />
+              )}
+            </div>
+          )}
+
+          <div>
+            <h2 className="text-[15px] font-semibold text-white flex items-center gap-1.5">
+              {isGroup ? groupName : otherUser?.displayName}
+              {!isGroup && otherUser?.isAI && <Sparkles className="w-3.5 h-3.5 text-[var(--accent)]" />}
+            </h2>
+            <p className="text-xs text-[var(--text-secondary)]">
               {isGroup
-                ? `${activeConversation.participants?.length ?? 0} members`
-                : otherUser.isAI
+                ? `${selectedConversation.participants?.length ?? 0} members`
+                : otherUser?.isAI
                   ? 'Quantum Processing Active'
-                  : 'Encrypted Session'}
+                  : isOnline
+                    ? 'Online'
+                    : 'Offline'}
             </p>
           </div>
         </div>
-        
-        <div className="flex items-center gap-5 text-[var(--text-secondary)]">
-          <Phone className="w-4 h-4 hover:text-white cursor-pointer transition-colors" />
-          <Video className="w-4 h-4 hover:text-white cursor-pointer transition-colors" />
-          <MoreVertical className="w-4 h-4 hover:text-white cursor-pointer transition-colors" />
-        </div>
+
+        {!isGroup && !otherUser?.isAI && (
+          <div className="items-center gap-1.5 text-xs text-[var(--success)] px-3 py-1.5 rounded-full bg-[#1C1C21] border border-[var(--border)] hidden md:flex">
+            <ShieldCheck className="w-4 h-4" />
+            <span>End-to-End Encrypted</span>
+          </div>
+        )}
       </div>
 
-      {/* Message History */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
-        {isFetching ? (
-          <div className="flex justify-center mt-10">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
+        {isFetching && messages.length === 0 ? (
+          <div className="flex justify-center p-8">
             <Loader2 className="w-5 h-5 animate-spin text-[var(--accent)]" />
           </div>
         ) : (
-          <>
-            <div className="flex flex-col items-center justify-center mt-4 mb-8">
-              <div className="text-[10px] uppercase tracking-wider font-semibold text-[var(--text-secondary)] bg-[var(--bg-surface)] px-4 py-1.5 rounded-full border" style={{ borderColor: 'var(--border)' }}>
-                Beginning of secure conversation
-              </div>
-            </div>
+          messages.map((msg, index) => {
+            const isMine = sameId(msg.senderId, user?._id);
+            const sender =
+              isGroup && !isMine
+                ? selectedConversation.participants?.find((p) => sameId(p._id, msg.senderId))
+                : null;
 
-            {messages.map((msg) => {
-              const isMine = msg.senderId === user._id;
-              return (
-                <div key={msg._id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
-                  <div 
-                    className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm overflow-x-auto ${
-                      isMine 
-                        ? 'bg-[var(--accent)] text-white rounded-br-sm' 
-                        : 'bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border)] rounded-bl-sm'
+            return (
+              <div key={msg._id || index} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
+                {isGroup && !isMine && sender && (
+                  <span className="text-xs text-[var(--text-secondary)] mb-1 ml-1">
+                    {sender.displayName}
+                  </span>
+                )}
+
+                <div
+                  className={`max-w-[85%] md:max-w-[70%] rounded-2xl px-4 py-2.5 ${
+                    isMine
+                      ? 'bg-[var(--accent)] text-white rounded-br-sm'
+                      : 'bg-[var(--bg-raised)] border border-[var(--border)] text-white rounded-bl-sm'
+                  }`}
+                >
+                  <div
+                    className={`prose prose-sm max-w-none break-words ${
+                      isMine ? 'prose-invert prose-p:text-white' : 'dark:prose-invert'
                     }`}
                   >
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      components={{ code: CodeBlock }}
-                      className="prose prose-sm dark:prose-invert max-w-none break-words"
-                    >
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ code: CodeBlock }}>
                       {msg.text}
                     </ReactMarkdown>
                   </div>
                 </div>
-              );
-            })}
 
-            {/* ⚡ Transient Typing Interface */}
-            {isTyping && (
-              <div className="flex w-full mt-2 space-x-3 max-w-xs self-start items-end animate-fade-in">
-                <div className="bg-[var(--bg-surface)] px-4 py-3 rounded-2xl rounded-tl-none border border-[var(--border)] flex items-center gap-1">
-                  <span className="w-2 h-2 bg-[var(--text-secondary)] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                  <span className="w-2 h-2 bg-[var(--text-secondary)] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                  <span className="w-2 h-2 bg-[var(--text-secondary)] rounded-full animate-bounce"></span>
+                <div className="flex items-center gap-1 mt-1 text-[11px] text-[var(--text-secondary)]">
+                  {new Date(msg.createdAt).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                  {isMine && <Check className="w-3 h-3 text-[var(--text-secondary)] ml-1" />}
                 </div>
               </div>
-            )}
-            
-            {/* Invisible div to attach the auto-scroll ref (Placed after typing indicator) */}
-            <div ref={messagesEndRef} />
-          </>
+            );
+          })
         )}
+        <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
-      <div className="p-4 bg-[var(--bg-base)] border-t shrink-0" style={{ borderColor: 'var(--border)' }}>
-        <form onSubmit={handleSendMessage} className="flex items-center gap-3 bg-[var(--bg-surface)] border rounded-xl pl-4 pr-2 py-2" style={{ borderColor: 'var(--border)' }}>
-          <input
-            type="text"
-            value={text}
-            onChange={handleInputChange}
-            placeholder={isGroup ? 'Message group...' : `Message @${otherUser.username}...`}
-            className="flex-1 bg-transparent border-none outline-none text-sm text-white placeholder:text-[var(--text-secondary)]"
-            autoComplete="off"
-          />
-          <button 
-            type="submit" 
-            disabled={!text.trim()} 
-            className="p-2.5 rounded-lg bg-[var(--accent)] text-white disabled:opacity-50 disabled:bg-[var(--border)] transition-all"
+      <div className="p-4 bg-[#141417] border-t border-[var(--border)]">
+        <form onSubmit={handleSend} className="flex items-end gap-2 max-w-4xl mx-auto">
+          <div className="flex-1 bg-[var(--bg-base)] border border-[var(--border)] rounded-2xl p-1 flex items-center focus-within:border-[var(--border-active)] transition-colors">
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend(e);
+                }
+              }}
+              placeholder={
+                isGroup
+                  ? `Message ${groupName || 'group'}...`
+                  : `Message @${otherUser?.username || 'user'}...`
+              }
+              className="w-full max-h-32 min-h-[44px] bg-transparent text-sm text-white resize-none focus:outline-none py-3 px-4"
+              rows={1}
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={!text.trim()}
+            className="w-12 h-12 rounded-full bg-[var(--accent)] text-white flex items-center justify-center hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
           >
-            <Send className="w-4 h-4" />
+            <Send className="w-5 h-5 ml-1" />
           </button>
         </form>
       </div>
-      
     </div>
   );
 }
