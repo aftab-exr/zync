@@ -20,7 +20,7 @@ export const getConversations = async (req, res) => {
 
         res.status(200).json({ success: true, data: conversations });
     } catch (error) {
-        console.error("Error in getConversations:", error.message);
+        console.error("Error in getConversations:", error.stack || error);
         res.status(500).json({ success: false, error: "Internal server error" });
     }
 };
@@ -67,7 +67,7 @@ export const createConversation = async (req, res) => {
 
         res.status(201).json({ success: true, data: populatedConv });
     } catch (error) {
-        console.error("Error in createConversation:", error.message);
+        console.error("Error in createConversation:", error.stack || error);
         res.status(500).json({ success: false, error: "Internal server error" });
     }
 };
@@ -127,7 +127,7 @@ export const createGroupConversation = async (req, res) => {
 
         res.status(201).json({ success: true, data: populatedGroup });
     } catch (error) {
-        console.error("🛠️ Group Creation Error:", error.message);
+        console.error("🛠️ Group Creation Error:", error.stack || error);
         res.status(500).json({ success: false, error: "Failed to create group" });
     }
 };

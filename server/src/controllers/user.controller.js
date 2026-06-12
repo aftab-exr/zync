@@ -39,7 +39,7 @@ export const setupProfile = asyncHandler(async (req, res, next) => {
         return res.status(201)
         .json( new apiResponse(201, "Profile Setup Successful.", newUser) );
     } catch (error) {
-        console.error("❌ Profile Setup Error:", error.message);
+        console.error("❌ Profile Setup Error:", error.stack || error);
         res.status(500).json(new apiResponse(500, "Internal Server Error", {}));
     }
 })
@@ -64,7 +64,7 @@ export const searchUsers = async (req, res) => {
 
         res.status(200).json({ success: true, data: users });
     } catch (error) {
-        console.error("🔍 Search Error:", error.message);
+        console.error("🔍 Search Error:", error.stack || error);
         res.status(500).json({ success: false, error: "Search failed" });
     }
 };

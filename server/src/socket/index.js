@@ -72,33 +72,41 @@ export const initializeSocket = (httpServer) => {
 
     // 4. Connection & Event Listeners
     io.on("connection", async (socket) => {
-        const userId = socket.user._id.toString();
-        if (process.env.NODE_ENV !== 'production') console.log(`🟢 User connected: ${socket.user.username} (${socket.id})`);
+        try {
+            const userId = socket.user._id.toString();
+            if (process.env.NODE_ENV !== 'production') console.log(`🟢 User connected: ${socket.user.username} (${socket.id})`);
 
-        socket.join(userId);
+            socket.join(userId);
 
-        // ⚡ TRANSIENT STATE RELAY: Typing Indicators
-        // Direct event piping via Redis. Zero disk write overhead.
-        socket.on("typing_start", ({ receiverId, conversationId }) => {
-            socket.to(receiverId).emit("user_typing", { conversationId });
-        });
-
-        socket.on("typing_end", ({ receiverId, conversationId }) => {
-            socket.to(receiverId).emit("user_stopped_typing", { conversationId });
-        });
-
-        // ⚡ User Presence Engine
-        await User.findByIdAndUpdate(userId, { $set: { "status.online": true } });
-        socket.broadcast.emit("presence:update", { userId, online: true });
-
-        socket.on("disconnect", async () => {
-            if (process.env.NODE_ENV !== 'production') console.log(`🔴 User disconnected: ${socket.user.username}`);
-            
-            await User.findByIdAndUpdate(userId, { 
-                $set: { "status.online": false, "status.lastSeen": new Date() } 
+            // ⚡ TRANSIENT STATE RELAY: Typing Indicators
+            // Direct event piping via Redis. Zero disk write overhead.
+            socket.on("typing_start", ({ receiverId, conversationId }) => {
+                socket.to(receiverId).emit("user_typing", { conversationId });
             });
-            socket.broadcast.emit("presence:update", { userId, online: false, lastSeen: new Date() });
-        });
+
+            socket.on("typing_end", ({ receiverId, conversationId }) => {
+                socket.to(receiverId).emit("user_stopped_typing", { conversationId });
+            });
+
+            // ⚡ User Presence Engine
+            await User.findByIdAndUpdate(userId, { $set: { "status.online": true } });
+            socket.broadcast.emit("presence:update", { userId, online: true });
+
+            socket.on("disconnect", async () => {
+                try {
+                    if (process.env.NODE_ENV !== 'production') console.log(`🔴 User disconnected: ${socket.user.username}`);
+                    
+                    await User.findByIdAndUpdate(userId, { 
+                        $set: { "status.online": false, "status.lastSeen": new Date() } 
+                    });
+                    socket.broadcast.emit("presence:update", { userId, online: false, lastSeen: new Date() });
+                } catch (err) {
+                    console.error("🔴 Error in Socket disconnect presence update:", err.stack || err);
+                }
+            });
+        } catch (err) {
+            console.error("🔴 Error in Socket connection handler:", err.stack || err);
+        }
     });
     return io;
 };

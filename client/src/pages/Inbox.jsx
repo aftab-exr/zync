@@ -27,7 +27,7 @@ export default function Inbox() {
     unsubscribeFromPresence,
   } = useChatStore();
   const { user, logout } = useAuthStore();
-  const { onlineUsers, connect, disconnect, isConnected } = useSocketStore();
+  const { onlineUsers, connect, disconnect, isConnected, isReconnecting } = useSocketStore();
 
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState('');
@@ -104,7 +104,27 @@ export default function Inbox() {
                 </div>
               )}
             </div>
-            <span className="font-display font-bold text-lg">Zync</span>
+            <div className="flex flex-col">
+              <span className="font-display font-bold text-base leading-tight">Zync</span>
+              {!isConnected && isReconnecting && (
+                <span className="text-[10px] text-[var(--warning,#F59E0B)] font-medium animate-pulse flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--warning,#F59E0B)]" />
+                  Reconnecting...
+                </span>
+              )}
+              {!isConnected && !isReconnecting && (
+                <span className="text-[10px] text-[var(--error,#EF4444)] font-medium flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--error,#EF4444)]" />
+                  Disconnected
+                </span>
+              )}
+              {isConnected && (
+                <span className="text-[10px] text-[var(--success,#10B981)] font-medium flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--success,#10B981)] animate-pulse" />
+                  Connected
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <button

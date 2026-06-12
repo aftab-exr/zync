@@ -18,7 +18,9 @@ export const useChatStore = create((set) => ({
     set({ isFetchingConversations: true });
     try {
       const token = await auth.currentUser?.getIdToken();
-      if (!token) return;
+      if (!token) {
+        throw new Error('No active session token found');
+      }
 
       const response = await api.get('/conversations', {
         headers: { Authorization: `Bearer ${token}` },
@@ -38,7 +40,7 @@ export const useChatStore = create((set) => ({
         }));
       }
     } catch (error) {
-      console.error('Failed to fetch conversations:', error);
+      console.error('Failed to fetch conversations:', error.stack || error);
     } finally {
       set({ isFetchingConversations: false });
     }
@@ -47,6 +49,9 @@ export const useChatStore = create((set) => ({
   createConversation: async (receiverId) => {
     try {
       const token = await auth.currentUser?.getIdToken();
+      if (!token) {
+        throw new Error('No active session token found');
+      }
       const res = await api.post(
         '/conversations',
         { receiverId },
@@ -62,7 +67,7 @@ export const useChatStore = create((set) => ({
 
       return conversation;
     } catch (error) {
-      console.error('Failed to create conversation:', error);
+      console.error('Failed to create conversation:', error.stack || error);
       return null;
     }
   },
@@ -71,6 +76,9 @@ export const useChatStore = create((set) => ({
     set({ isCreatingGroup: true });
     try {
       const token = await auth.currentUser?.getIdToken();
+      if (!token) {
+        throw new Error('No active session token found');
+      }
       const res = await api.post(
         '/conversations/group',
         { name, participantIds },
@@ -86,7 +94,7 @@ export const useChatStore = create((set) => ({
 
       return group;
     } catch (error) {
-      console.error('Failed to create group:', error);
+      console.error('Failed to create group:', error.stack || error);
       return null;
     } finally {
       set({ isCreatingGroup: false });

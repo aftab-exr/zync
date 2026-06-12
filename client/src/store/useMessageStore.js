@@ -27,12 +27,15 @@ export const useMessageStore = create((set, get) => ({
     set({ isFetching: true, messages: [] });
     try {
       const token = await auth.currentUser?.getIdToken();
+      if (!token) {
+        throw new Error('No active session token found');
+      }
       const res = await api.get(`/messages/${conversationId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       set({ messages: res.data.data });
     } catch (error) {
-      console.error('Failed to fetch messages:', error);
+      console.error('Failed to fetch messages:', error.stack || error);
     } finally {
       set({ isFetching: false });
     }
@@ -43,10 +46,13 @@ export const useMessageStore = create((set, get) => ({
   },
 
   sendMessage: async (conversationId, text, receiverId) => {
-    if (!conversationId || !text?.trim()) return;
+    if (!conversationId || !text?.trim()) return null;
 
     try {
       const token = await auth.currentUser?.getIdToken();
+      if (!token) {
+        throw new Error('No active session token found');
+      }
       const res = await api.post(
         `/messages/${conversationId}`,
         { text: text.trim(), receiverId },
@@ -65,7 +71,7 @@ export const useMessageStore = create((set, get) => ({
 
       return incoming;
     } catch (error) {
-      console.error('Failed to send message:', error);
+      console.error('Failed to send message:', error.stack || error);
       return null;
     }
   },

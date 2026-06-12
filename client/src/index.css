@@ -2,29 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  /* Zync Dark Theme (V1) */
-  --bg-base: #0D0D0F;
-  --bg-surface: #141417;
-  --border: #2A2A30;
-  --text-primary: #F0F0F3;
-  --text-secondary: #8A8A96;
-  --accent: #4F8EF7;
-  --accent-hover: #6BA3FF;
-  /* Status & active colors */
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --border-active: #3b3b41;
-}
-
-body {
+/* ⚡ PHASE 8: THE NATIVE LOCKDOWN */
+html, body, #root {
+  height: 100dvh; /* Dynamic Viewport Height prevents mobile browser bar glitches */
+  width: 100vw;
+  overflow: hidden; /* Kills all scrollbars at the root level */
+  overscroll-behavior-y: none; /* Kills the mobile pull-to-refresh rubber-band bounce */
   background-color: var(--bg-base);
   color: var(--text-primary);
-  font-family: 'DM Sans', sans-serif;
-  margin: 0;
-  height: 100vh;
-  overflow: hidden; /* App-like feel */
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent; /* Removes the blue flash when tapping on Android/iOS */
 }
+
+/* Custom Scrollbar for inner elements only */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-active);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-disabled);
+}
+
+/* ... keep the rest of your CSS variables below ... */
 
 h1, h2, h3, .font-display {
   font-family: 'Syne', sans-serif;

@@ -64,6 +64,7 @@ const CodeBlock = ({ inline, className, children, ...props }) => {
 export default function ChatPane() {
   const navigate = useNavigate();
   const [text, setText] = useState('');
+  const [sendError, setSendError] = useState(null);
   const messagesEndRef = useRef(null);
 
   const { selectedConversation, setSelectedConversation } = useChatStore();
@@ -76,7 +77,7 @@ export default function ChatPane() {
     unsubscribeFromMessages,
     isFetching,
   } = useMessageStore();
-  const { onlineUsers } = useSocketStore();
+  const { onlineUsers, isConnected, isReconnecting } = useSocketStore();
 
   const conversationId = selectedConversation?._id;
   const isGroup = selectedConversation?.isGroup;
@@ -112,7 +113,13 @@ export default function ChatPane() {
 
     const content = text.trim();
     setText('');
-    await sendMessage(conversationId, content, otherUser?._id);
+    setSendError(null);
+    const sent = await sendMessage(conversationId, content, otherUser?._id);
+    if (!sent) {
+      setText(content);
+      setSendError("Failed to send message. Please check your network connection.");
+      setTimeout(() => setSendError(null), 5000);
+    }
   };
 
   if (!selectedConversation) {
@@ -227,8 +234,23 @@ export default function ChatPane() {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="p-4 bg-[#141417] border-t border-[var(--border)]">
-        <form onSubmit={handleSend} className="flex items-end gap-2 max-w-4xl mx-auto">
+      <div className="p-4 bg-[#141417] border-t border-[var(--border)] flex flex-col gap-2">
+        {sendError && (
+          <div className="max-w-4xl w-full mx-auto px-4 py-2 bg-[rgba(239,68,68,0.15)] border border-[rgba(239,68,68,0.3)] rounded-xl text-[var(--error,#EF4444)] text-xs flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--error,#EF4444)] animate-pulse" />
+            <span>{sendError}</span>
+          </div>
+        )}
+        {!isConnected && (
+          <div className="max-w-4xl w-full mx-auto px-4 py-2 bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.2)] rounded-xl text-[var(--error,#EF4444)] text-xs flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--error,#EF4444)] animate-pulse" />
+              <span>Connection lost. Messages will be queued or may fail to send.</span>
+            </div>
+            {isReconnecting && <span className="text-[10px] text-[var(--warning,#F59E0B)]">Reconnecting...</span>}
+          </div>
+        )}
+        <form onSubmit={handleSend} className="flex items-end gap-2 max-w-4xl w-full mx-auto">
           <div className="flex-1 bg-[var(--bg-base)] border border-[var(--border)] rounded-2xl p-1 flex items-center focus-within:border-[var(--border-active)] transition-colors">
             <textarea
               value={text}

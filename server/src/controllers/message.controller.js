@@ -34,7 +34,7 @@ export const getMessages = async (req, res) => {
         const messages = await Message.find({ conversationId }).sort({ createdAt: 1 });
         res.status(200).json({ success: true, data: messages });
     } catch (error) {
-        console.error("Error in getMessages:", error.message);
+        console.error("Error in getMessages:", error.stack || error);
         res.status(500).json({ success: false, error: "Internal server error" });
     }
 };
@@ -113,7 +113,7 @@ export const sendMessage = async (req, res) => {
 
         res.status(201).json({ success: true, data: newMessage });
     } catch (error) {
-        console.error("🔴 Error in sendMessage:", error.message);
+        console.error("🔴 Error in sendMessage:", error.stack || error);
         res.status(500).json({ success: false, error: "Internal server error" });
     }
 };

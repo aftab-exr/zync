@@ -34,12 +34,12 @@ const authenticateUser = async (req, res, next) => {
 
             next();
         } catch (firebaseErr) {
-            console.error("🔴 Firebase Token Error:", firebaseErr.message);
+            console.error("🔴 Firebase Token Error:", firebaseErr.stack || firebaseErr);
             return res.status(401).json({ success: false, error: "Invalid or expired token" });
         }
 
     } catch (error) {
-        console.error("🔴 Auth Middleware Error:", error.message);
+        console.error("🔴 Auth Middleware Error:", error.stack || error);
         res.status(500).json({ success: false, error: "Internal Server Error" });
     }
 };
