@@ -1,73 +1,82 @@
-import axios from "axios";
-import User from "../models/user.model.js";
+import Groq from "groq-sdk";
 import Message from "../models/message.model.js";
+import Conversation from "../models/conversation.model.js";
 import { getIO } from "../socket/index.js";
 
-// ⚡ ALGORITHM: Non-blocking Cloud AI Execution (Groq API)
-export const processAIResponse = async (conversationId, userMessage, userId, aiUserId) => {
+// Initialize Groq (Ensure GROQ_API_KEY is in your .env)
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+// Utility for Exponential Backoff
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * Saves a message to the database and broadcasts it to all participants in the group/DM
+ */
+const saveAndBroadcastMessage = async (conversationId, text, senderId) => {
     try {
-        const io = getIO();
+        const newMessage = await Message.create({ conversationId, senderId, text });
         
-        // 1. Simulate "Typing" state instantly over the Redis socket bus
-        io.to(userId.toString()).emit("user_typing", { conversationId });
-
-        // 2. The Cloud Intelligence Bridge
-        // Using Groq for blazing-fast, free, low-latency execution
-        const GROQ_API_KEY = process.env.GROQ_API_KEY;
-        
-        if (!GROQ_API_KEY) {
-            throw new Error("GROQ_API_KEY is missing from environment variables.");
-        }
-
-        const humanUser = await User.findById(userId).lean();
-
-        const response = await axios.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            {
-                model: "llama-3.3-70b-versatile", // Lightning-fast model for real-time chat
-                messages: [
-                    {
-                        role: "system",
-                        content: `You are Zync AI, an elite coding assistant integrated into the Zync Chat Engine. You are currently assisting ${humanUser.displayName} (@${humanUser.username}). Keep your answers concise, highly technical, and strictly use markdown formatting for code blocks.`,
-                    },
-                    { role: "user", content: userMessage }
-                ],
-                temperature: 0.7,
-                max_tokens: 1000
-            },
-            {
-                headers: {
-                    "Authorization": `Bearer ${GROQ_API_KEY}`,
-                    "Content-Type": "application/json"
-                }
-            }
+        const conversation = await Conversation.findByIdAndUpdate(
+            conversationId, 
+            { lastMessageAt: new Date(), lastMessageId: newMessage._id },
+            { new: true }
         );
 
-        const aiText = response.data.choices[0].message.content;
-
-        // 3. Save the AI's response to the MongoDB cluster
-        const aiMessage = await Message.create({
-            conversationId,
-            senderId: aiUserId,
-            text: aiText,
-        });
-
-        // 4. Terminate typing state and broadcast the final message natively
-        io.to(userId.toString()).emit("user_stopped_typing", { conversationId });
-        io.to(userId.toString()).emit("newMessage", aiMessage);
-
-    } catch (error) {
-        console.error("🔴 Cloud AI Engine Error:", error?.response?.data || error.message);
-        
-        // Fallback gracefully if API rate limit hits
         const io = getIO();
-        io.to(userId.toString()).emit("user_stopped_typing", { conversationId });
-        
-        const errorMessage = await Message.create({
-            conversationId,
-            senderId: aiUserId,
-            text: "_System Notice: Zync Intelligence is currently undergoing maintenance. Please try again in a moment._",
-        });
-        io.to(userId.toString()).emit("newMessage", errorMessage);
+        for (const participantId of conversation.participants) {
+            io.to(participantId.toString()).emit("newMessage", newMessage);
+        }
+    } catch (error) {
+        console.error("🔴 AI Broadcast Error: Failed to save fallback message", error);
+    }
+};
+
+export const processAIResponse = async (conversationId, userText, humanId, aiUserId) => {
+    let attempt = 0;
+    const maxRetries = 3;
+    const baseDelay = 1500; // Start with 1.5 seconds
+
+    // ⚡ THE FIX: The Exponential Backoff Loop
+    while (attempt < maxRetries) {
+        try {
+            // Attempt to fetch from Groq Llama 3.3
+            const chatCompletion = await groq.chat.completions.create({
+                messages: [{ role: "user", content: userText }],
+                model: "llama-3.3-70b-versatile",
+                temperature: 0.7,
+                max_tokens: 1024,
+            });
+
+            const aiResponseText = chatCompletion.choices[0]?.message?.content || "I have no words.";
+
+            // Success! Send the AI's response to the chat
+            await saveAndBroadcastMessage(conversationId, aiResponseText, aiUserId);
+            return; // Exit the loop entirely
+
+        } catch (error) {
+            attempt++;
+            
+            // Extract the specific Groq API error
+            const isOverCapacity = error.error?.type === 'internal_server_error' || error.status === 429 || error.status === 503;
+            
+            console.warn(`⚠️ Groq API Error (Attempt ${attempt}/${maxRetries}):`, error.error?.message || error.message);
+
+            if (isOverCapacity && attempt < maxRetries) {
+                // Calculate exponential backoff (1.5s, 3s, 6s) + random jitter to prevent thundering herd
+                const delay = (baseDelay * Math.pow(2, attempt - 1)) + (Math.random() * 500);
+                console.log(`⏳ Backing off for ${Math.round(delay)}ms before retry...`);
+                await sleep(delay);
+            } else {
+                // ⚡ GRACEFUL DEGRADATION: Instead of silently failing, the AI agent replies with an error
+                let fallbackText = "⚡ *System Alert:* My neural pathways experienced a critical fault. Please try again.";
+                
+                if (isOverCapacity) {
+                    fallbackText = "⚡ *System Alert:* My quantum processors (Llama 3.3) are currently over capacity due to high network traffic. Please wait a few moments and try your request again.";
+                }
+
+                await saveAndBroadcastMessage(conversationId, fallbackText, aiUserId);
+                return; // Exit after fallback
+            }
+        }
     }
 };
