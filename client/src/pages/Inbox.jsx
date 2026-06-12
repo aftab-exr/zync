@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Search, Edit, Users, LogOut, MessageSquare } from 'lucide-react';
@@ -179,9 +180,9 @@ export default function Inbox() {
                 : false;
 
               return (
-                <button
+                <motion.button
                   key={conv._id}
-                  onClick={() => openConversation(conv)}
+                  onClick={() => openConversation(conv, index)}
                   className={`w-full p-4 flex items-center gap-3 hover:bg-[var(--bg-raised)] transition-colors border-l-2 ${
                     isSelected
                       ? 'bg-[var(--bg-raised)] border-[var(--accent)]'
@@ -213,7 +214,7 @@ export default function Inbox() {
                       {getLastMessagePreview(conv)}
                     </p>
                   </div>
-                </button>
+                </motion.button>
               );
             })
           )}
