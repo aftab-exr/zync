@@ -2,6 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 🎨 THE HERMES DESIGN SYSTEM (RESTORED) */
+:root {
+  /* Backgrounds */
+  --bg-base:          #0D0D0F;
+  --bg-surface:       #141417;
+  --bg-raised:        #1C1C21;
+
+  /* Borders */
+  --border:           #2A2A30;
+  --border-active:    #3E3E48;
+
+  /* Text */
+  --text-primary:     #F0F0F3;
+  --text-secondary:   #8A8A96;
+  --text-disabled:    #4A4A54;
+
+  /* Accent */
+  --accent:           #4F8EF7;
+  --accent-hover:     #6BA3FF;
+  --accent-dim:       #1E3A6A;
+
+  /* Status */
+  --success:          #34C97B;
+  --warning:          #F5A623;
+  --error:            #E5484D;
+}
+
 /* ⚡ PHASE 8: THE NATIVE LOCKDOWN */
 html, body, #root {
   height: 100dvh; /* Dynamic Viewport Height prevents mobile browser bar glitches */
@@ -30,8 +57,6 @@ html, body, #root {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-disabled);
 }
-
-/* ... keep the rest of your CSS variables below ... */
 
 h1, h2, h3, .font-display {
   font-family: 'Syne', sans-serif;
