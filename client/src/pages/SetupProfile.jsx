@@ -38,6 +38,7 @@ export default function SetupProfile() {
 
       // 3. Hydrate the global store and route to Inbox
       useAuthStore.setState({ isAuthenticated: true, user: response.data.data });
+      await useAuthStore.getState().initializeE2E(token);
       navigate('/inbox');
 
     } catch (error) {

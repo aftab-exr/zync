@@ -20,8 +20,10 @@ const userSchema = new Schema({
   },
   displayName: { type: String, required: true, maxlength: 50 },
   avatarUrl: { type: String, default: '' },
-  avatarPublicId: { type: String, default: '' }, // Sensitive: Cloudinary deletion ID
+  avatarPublicId: { type: String, default: '' }, 
 
+  // --- WebRTC Public Keys (V1) ---
+  publicKey: { type: String, default: "" },
   // --- Cryptography (V1) ---
   identityKeyPublic: { type: String, default: '' }, // Signal Identity Key (Base64)
 

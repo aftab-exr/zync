@@ -59,7 +59,7 @@ export const searchUsers = async (req, res) => {
             _id: { $ne: req.user._id }, // Don't return myself
             deletedAt: null
         })
-        .select('username displayName avatarUrl status.lastSeen identityKeyPublic') // Only return public fields
+        .select('username displayName avatarUrl status.lastSeen identityKeyPublic publicKey') // Only return public fields
         .limit(10);
 
         res.status(200).json({ success: true, data: users });
@@ -73,3 +73,25 @@ export const getMe = asyncHandler(async (req, res) => {
     // If the middleware let them through, req.user is guaranteed to exist
     return res.status(200).json(new apiResponse(200, "Profile fetched successfully", req.user));
 });
+
+export const updatePublicKey = async (req, res) => {
+    try {
+        const { publicKey } = req.body;
+        const userId = req.user._id;
+
+        if (!publicKey) {
+            return res.status(400).json({ success: false, error: "Public key is required" });
+        }
+
+        const user = await User.findByIdAndUpdate(
+            userId,
+            { publicKey },
+            { new: true }
+        );
+
+        res.status(200).json({ success: true, data: user.publicKey });
+    } catch (error) {
+        console.error("🔴 Error updating public key:\n", error);
+        res.status(500).json({ success: false, error: "Internal server error" });
+    }
+};

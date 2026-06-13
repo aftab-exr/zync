@@ -14,7 +14,7 @@ export const getConversations = async (req, res) => {
         const conversations = await Conversation.find({
             participants: { $in: [userId] }
         })
-        .populate("participants", "username displayName avatarUrl isAI status")
+        .populate("participants", "username displayName avatarUrl isAI status publicKey")
         .populate("lastMessageId")
         .sort({ lastMessageAt: -1 });
 
@@ -63,7 +63,7 @@ export const createConversation = async (req, res) => {
         }
 
         const populatedConv = await Conversation.findById(conversation._id)
-            .populate("participants", "username displayName avatarUrl isAI status");
+            .populate("participants", "username displayName avatarUrl isAI status publicKey");
 
         res.status(201).json({ success: true, data: populatedConv });
     } catch (error) {
@@ -123,7 +123,7 @@ export const createGroupConversation = async (req, res) => {
         });
 
         const populatedGroup = await Conversation.findById(newGroup._id)
-            .populate("participants", "username displayName avatarUrl isAI status");
+            .populate("participants", "username displayName avatarUrl isAI status publicKey");
 
         res.status(201).json({ success: true, data: populatedGroup });
     } catch (error) {

@@ -4,6 +4,7 @@ import { useAuthStore } from './store/useAuthStore';
 import Login from './pages/Login';
 import SetupProfile from './pages/SetupProfile';
 import Inbox from './pages/Inbox';
+import Sidecar from './pages/Sidecar';
 import AuthGuard from './components/AuthGuard';
 import GuestGuard from './components/GuestGuard';
 
@@ -39,6 +40,7 @@ function App() {
         <Route element={<AuthGuard />}>
           {/* ⚡ OPTIMIZATION: The '?' makes the ID optional. The Inbox will NEVER unmount, keeping the Socket permanently stable. */}
           <Route path="/inbox/:conversationId?" element={<Inbox />} />
+          <Route path="/sidecar" element={<Sidecar />} />
         </Route>
         
       </Routes>

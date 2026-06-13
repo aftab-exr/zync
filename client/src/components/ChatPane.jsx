@@ -59,7 +59,7 @@ const CodeBlock = ({ inline, className, children, ...props }) => {
   );
 };
 
-export default function ChatPane({ conversationId }) {
+export default function ChatPane({ conversationId, isSidecar = false }) {
   const [text, setText] = useState("");
   
   // ⚡ PHASE 2.1: Media State
@@ -167,12 +167,14 @@ export default function ChatPane({ conversationId }) {
       {/* ⚡ HEADER */}
       <div className="h-14 flex items-center justify-between px-4 md:px-6 border-b border-[var(--border)] bg-[var(--bg-surface)] shrink-0 z-10 relative">
         <div className="flex items-center gap-3">
-          <button 
-            onClick={() => navigate('/inbox')}
-            className="md:hidden p-2 -ml-2 text-[var(--text-secondary)] hover:text-white transition-colors"
-          >
-            <ChevronLeft className="w-6 h-6" />
-          </button>
+          {!isSidecar && (
+            <button 
+              onClick={() => navigate('/inbox')}
+              className="md:hidden p-2 -ml-2 text-[var(--text-secondary)] hover:text-white transition-colors"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+          )}
 
           <div className="relative">
             {isGroup ? (
