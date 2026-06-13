@@ -83,8 +83,9 @@ export default function ChatPane({ conversationId }) {
     typingConversations
   } = useMessageStore();
 
+// Extract Context and dynamically find the other user
   const activeConversation = conversations.find(c => c._id === conversationId);
-  const displayUser = activeConversation?.otherUser;
+  const displayUser = activeConversation?.otherUser || activeConversation?.participants?.find(p => p._id !== currentUser?._id);
   const isGroup = activeConversation?.isGroup;
   const isOnline = displayUser?.status?.online;
   const isSomeoneTyping = typingConversations[conversationId];
