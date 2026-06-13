@@ -11,25 +11,27 @@ const authenticateUser = async (req, res, next) => {
 
         const token = authHeader.split(" ")[1];
 
-        // 🚧 DEVELOPMENT BYPASS (For Postman)
+        // 🚧 DEVELOPMENT BYPASS
         if (token === "DEV_TEST_TOKEN") {
             req.authContext = { uid: "firebase_mock_uid_123", email: "test@zync.dev" };
             req.user = await User.findOne({ firebaseUid: "firebase_mock_uid_123" });
             return next();
         }
 
-        // 🚀 REAL FIREBASE VERIFICATION (For React Frontend)
+        // 🚀 REAL FIREBASE VERIFICATION
         try {
             const decodedToken = await admin.auth().verifyIdToken(token);
-            req.authContext = decodedToken; // Attach Firebase Identity
+            req.authContext = decodedToken;
 
-            // Check if the user already has a Zync profile in MongoDB
             req.user = await User.findOne({ firebaseUid: decodedToken.uid });
 
-            // 🛑 THE CATCH-22 FIX:
-            // If they have no Zync profile, block them UNLESS they are trying to create one via /setup
-            if (!req.user && !req.originalUrl.includes('/setup')) {
-                return res.status(401).json({ success: false, error: "Zync profile not found. Please complete setup." });
+            // ⚡ THE FIX: Allow /setup AND /me to pass through so the controller can handle new users
+            const isSetupRoute = req.originalUrl.includes('/setup');
+            const isMeRoute = req.originalUrl.includes('/me');
+
+            if (!req.user && !isSetupRoute && !isMeRoute) {
+                // Use 403 to distinguish from a dead token (401)
+                return res.status(403).json({ success: false, error: "Zync profile not found. Please complete setup." });
             }
 
             next();

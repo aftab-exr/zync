@@ -69,10 +69,17 @@ export const searchUsers = async (req, res) => {
     }
 };
 
-export const getMe = asyncHandler(async (req, res) => {
-    // If the middleware let them through, req.user is guaranteed to exist
-    return res.status(200).json(new apiResponse(200, "Profile fetched successfully", req.user));
-});
+export const getMe = async (req, res) => {
+    try {
+        if (!req.user) {
+            // This triggers your frontend's setup redirect perfectly
+            return res.status(200).json({ status: "REGISTRATION_REQUIRED" }); 
+        }
+        res.status(200).json({ success: true, data: req.user });
+    } catch (error) {
+        res.status(500).json({ success: false, error: "Internal server error" });
+    }
+};
 
 export const updatePublicKey = async (req, res) => {
     try {

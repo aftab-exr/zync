@@ -86,9 +86,11 @@ export const useAuthStore = create((set) => ({
                 await get().initializeE2E(token);
 
             } catch (error) {
-                if (error.response?.status === 401) {
+                if (error.response?.status === 404 || error.response?.status === 403) {
+                    console.warn("Profile not found. Redirecting to setup.");
                     set({ user: null, isAuthenticated: true, isCheckingAuth: false });
                 } else {
+                    console.error("Auth verification failed:", error);
                     set({ user: null, isAuthenticated: false, isCheckingAuth: false });
                 }
             }
