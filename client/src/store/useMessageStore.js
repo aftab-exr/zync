@@ -59,8 +59,8 @@ export const useMessageStore = create((set, get) => ({
       
       set({ messages: [...get().messages, res.data.data] });
       
-      // Tell the sidebar to instantly update
-      useChatStore.getState().updateSidebar(res.data.data);
+      // ⚡ THE FIX: Use your actual store method name and pass the conversationId
+      useChatStore.getState().updateConversationLastMessage(conversationId, res.data.data);
       
       return true; 
     } catch (error) {
@@ -70,7 +70,6 @@ export const useMessageStore = create((set, get) => ({
       set({ isSending: false }); 
     }
   },
-
   subscribeToMessages: (currentConversationId) => {
     const socket = useSocketStore.getState().socket;
     if (!socket || !currentConversationId) return;

@@ -114,8 +114,13 @@ export default function Inbox() {
               const isActive = conversationId === conv._id;
               
               // Utilizing your store's normalized "otherUser" object!
-              const displayName = conv.otherUser?.displayName || "Unknown";
-              const isOnline = conv.otherUser?.status?.online || false;
+              // ⚡ THE FIX: Find the participant who is NOT the current user
+              const otherParticipant = conv.participants?.find(p => p._id !== currentUser?._id);
+              const displayUser = conv.otherUser || otherParticipant;
+
+              // If it's a group, use the groupName. Otherwise, use the other user's name.
+              const displayName = conv.isGroup ? (conv.groupName || "Group") : (displayUser?.displayName || "Unknown");
+              const isOnline = displayUser?.status?.online || false;
               const lastMsgText = conv.lastMessageId?.text || "Started a new conversation";
 
               return (
