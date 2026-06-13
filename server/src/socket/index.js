@@ -58,7 +58,7 @@ export const initializeSocket = (httpServer) => {
             // Verify Firebase JWT
             const decodedToken = await admin.auth().verifyIdToken(token);
             const user = await User.findOne({ firebaseUid: decodedToken.uid });
-            
+
             if (!user) return next(new Error("User profile not found"));
 
             // Attach user data to the socket session
@@ -95,14 +95,54 @@ export const initializeSocket = (httpServer) => {
             socket.on("disconnect", async () => {
                 try {
                     if (process.env.NODE_ENV !== 'production') console.log(`🔴 User disconnected: ${socket.user.username}`);
-                    
-                    await User.findByIdAndUpdate(userId, { 
-                        $set: { "status.online": false, "status.lastSeen": new Date() } 
+
+                    await User.findByIdAndUpdate(userId, {
+                        $set: { "status.online": false, "status.lastSeen": new Date() }
                     });
                     socket.broadcast.emit("presence:update", { userId, online: false, lastSeen: new Date() });
                 } catch (err) {
                     console.error("🔴 Error in Socket disconnect presence update:", err.stack || err);
                 }
+            });
+
+            // ==========================================
+            // ⚡ PHASE 2.2: WEBRTC SIGNALING SWITCHBOARD
+            // ==========================================
+
+            // 1. User A initiates a call to User B
+            socket.on("webrtc:call-user", ({ userToCall, signalData, callerData }) => {
+                // Route the incoming call alert and the SDP offer to User B
+                io.to(userToCall.toString()).emit("webrtc:incoming-call", {
+                    signal: signalData,
+                    caller: {
+                        _id: userId, // The person making the call
+                        ...callerData
+                    }
+                });
+            });
+
+            // 2. User B answers the call
+            socket.on("webrtc:answer-call", ({ to, signalData }) => {
+                // Route the SDP answer back to User A to finalize the handshake
+                io.to(to.toString()).emit("webrtc:call-accepted", signalData);
+            });
+
+            // 3. Routing ICE Candidates (Finding the best network path)
+            socket.on("webrtc:ice-candidate", ({ to, candidate }) => {
+                io.to(to.toString()).emit("webrtc:ice-candidate", {
+                    senderId: userId,
+                    candidate
+                });
+            });
+
+            // 4. Call Rejection or Cancellation
+            socket.on("webrtc:reject-call", ({ to }) => {
+                io.to(to.toString()).emit("webrtc:call-rejected");
+            });
+
+            // 5. Ending an active call
+            socket.on("webrtc:end-call", ({ to }) => {
+                io.to(to.toString()).emit("webrtc:call-ended");
             });
         } catch (err) {
             console.error("🔴 Error in Socket connection handler:", err.stack || err);

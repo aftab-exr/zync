@@ -1,3 +1,5 @@
+import CallOverlay from '../components/CallOverlay';
+import { useCallStore } from '../store/useCallStore';
 import { useState, useEffect } from 'react';
 import { Search, Bell, MessageSquare, Plus, LogOut, Users } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -29,6 +31,7 @@ export default function Inbox() {
 
   useEffect(() => {
     connect();
+    useCallStore.getState().initCallListeners();
     return () => disconnect();
   }, [connect, disconnect]);
 
@@ -194,7 +197,7 @@ export default function Inbox() {
           setIsSearchModalOpen(false);
         }} 
       />
-      
+      <CallOverlay />
     </div>
   );
 }

@@ -1,5 +1,6 @@
+import { useCallStore } from "../store/useCallStore";
 import { useState, useEffect, useRef } from "react";
-import { Send, Users, Sparkles, ShieldCheck, Copy, Check, ChevronLeft, Loader2, Image as ImageIcon, X } from "lucide-react";
+import { Send, Users, Sparkles, ShieldCheck, Copy, Check, ChevronLeft, Loader2, Image as ImageIcon, X, Video } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { motion, AnimatePresence } from "framer-motion";
@@ -83,13 +84,14 @@ export default function ChatPane({ conversationId }) {
     typingConversations
   } = useMessageStore();
 
-// Extract Context and dynamically find the other user
+  // ⚡ Extract Context & Dynamically find the other user
   const activeConversation = conversations.find(c => c._id === conversationId);
   const displayUser = activeConversation?.otherUser || activeConversation?.participants?.find(p => p._id !== currentUser?._id);
   const isGroup = activeConversation?.isGroup;
   const isOnline = displayUser?.status?.online;
   const isSomeoneTyping = typingConversations[conversationId];
 
+  // Lifecycle
   useEffect(() => {
     if (conversationId) {
       fetchMessages(conversationId);
@@ -132,7 +134,6 @@ export default function ChatPane({ conversationId }) {
 
   const handleSend = async (e) => {
     e.preventDefault();
-    // Block sending if entirely empty
     if ((!text.trim() && !imagePreview) || isSending) return;
 
     const currentText = text.trim();
@@ -142,7 +143,7 @@ export default function ChatPane({ conversationId }) {
     setText("");
     removeImage();
 
-    // The store now accepts the image parameter!
+    // Send the payload
     const success = await sendMessage(conversationId, currentText, currentImage, displayUser?._id);
     
     // Restore if failed
@@ -204,9 +205,21 @@ export default function ChatPane({ conversationId }) {
         </div>
         
         {!isGroup && !displayUser?.isAI && (
-          <div className="flex items-center gap-1.5 text-xs text-[var(--success)] px-3 py-1.5 rounded-full bg-[var(--bg-raised)] border border-[var(--border)] hidden md:flex">
-            <ShieldCheck className="w-4 h-4" />
-            <span>End-to-End Encrypted</span>
+          <div className="flex items-center gap-2 md:gap-4">
+            
+            {/* ⚡ PHASE 2.2: WebRTC Call Action */}
+            <button 
+              onClick={() => useCallStore.getState().initiateCall(displayUser)} 
+              className="p-2 w-9 h-9 rounded-full bg-[var(--bg-raised)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-all flex items-center justify-center active:scale-95 shadow-sm"
+              title="Start Video Call"
+            >
+              <Video className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-1.5 text-xs text-[var(--success)] px-3 py-1.5 rounded-full bg-[var(--bg-raised)] border border-[var(--border)] hidden md:flex shadow-sm">
+              <ShieldCheck className="w-4 h-4" />
+              <span>End-to-End Encrypted</span>
+            </div>
           </div>
         )}
       </div>
@@ -324,7 +337,6 @@ export default function ChatPane({ conversationId }) {
           <div className="flex items-end gap-2 w-full">
             <div className="flex-1 bg-[var(--bg-base)] border border-[var(--border)] rounded-2xl p-1 flex items-center focus-within:border-[var(--accent)] transition-colors shadow-sm">
               
-              {/* ⚡ PHASE 2.1: Hidden File Input & Trigger Button */}
               <input
                 type="file"
                 accept="image/*"
