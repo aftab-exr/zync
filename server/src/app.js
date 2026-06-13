@@ -38,7 +38,8 @@ app.use(
 );
 // Enable gzip/brotli compression for responses (production-friendly)
 app.use(compression());
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
 const PRODUCTION_ORIGIN = "https://zync-znty.onrender.com";

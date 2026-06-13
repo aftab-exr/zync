@@ -1,25 +1,38 @@
-import mongoose, { Schema } from "mongoose";
+import mongoose from "mongoose";
 
-const messageSchema = new Schema({
-    conversationId: { 
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: 'Conversation', 
-        required: true,
-        index: true 
+const messageSchema = new mongoose.Schema(
+    {
+        conversationId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Conversation",
+            required: true,
+            index: true, // Speeds up fetching messages for a specific chat
+        },
+        senderId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true,
+        },
+        text: {
+            type: String,
+            default: "",
+        },
+        // ⚡ PHASE 2.1: The Media Expansion
+        imageUrl: {
+            type: String,
+            default: "",
+        },
     },
-    senderId: { 
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: 'User', 
-        required: true 
-    },
-    text: { 
-        type: String, 
-        required: true 
-    },
-    isRead: { 
-        type: Boolean, 
-        default: false 
+    { timestamps: true }
+);
+
+// A message must have EITHER text or an image (or both), but it cannot be completely empty.
+messageSchema.pre("save", function (next) {
+    if (!this.text && !this.imageUrl) {
+        return next(new Error("A message must contain either text or an image."));
     }
-}, { timestamps: true });
+    next();
+});
 
-export default mongoose.model("Message", messageSchema);
+const Message = mongoose.model("Message", messageSchema);
+export default Message;

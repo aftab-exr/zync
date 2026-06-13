@@ -45,34 +45,29 @@ export const useMessageStore = create((set, get) => ({
     return get().fetchMessages(conversationId);
   },
 
-  sendMessage: async (conversationId, text, receiverId) => {
-    if (!conversationId || !text?.trim()) return null;
-
+// Change the parameters to accept 'image'
+  sendMessage: async (conversationId, text, image, receiverId) => {
+    set({ isSending: true }); 
     try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) {
-        throw new Error('No active session token found');
-      }
-      const res = await api.post(
-        `/messages/${conversationId}`,
-        { text: text.trim(), receiverId },
+      const token = await auth.currentUser.getIdToken();
+      
+      // ⚡ Include the image in the JSON payload
+      const res = await api.post(`/messages/${conversationId}`, 
+        { text, image, receiverId },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      const incoming = res.data.data;
-      set((state) => {
-        const exists = state.messages.some((m) => sameId(m._id, incoming._id));
-        return exists ? state : { messages: [...state.messages, incoming] };
-      });
-
-      if (incoming) {
-        useChatStore.getState().updateConversationLastMessage(conversationId, incoming);
-      }
-
-      return incoming;
+      
+      set({ messages: [...get().messages, res.data.data] });
+      
+      // Tell the sidebar to instantly update
+      useChatStore.getState().updateSidebar(res.data.data);
+      
+      return true; 
     } catch (error) {
-      console.error('Failed to send message:', error.stack || error);
-      return null;
+      console.error("🔴 Failed to send message:", error.response?.data || error.message);
+      return false; 
+    } finally {
+      set({ isSending: false }); 
     }
   },
 
