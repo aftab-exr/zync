@@ -4,7 +4,7 @@ import { signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuth
 import { auth, googleProvider } from "../lib/firebase";
 import { api } from "../lib/axios";
 
-export const useAuthStore = create((set) => ({
+export const useAuthStore = create((set, get) => ({
     user: null,
     isAuthenticated: false,
     isCheckingAuth: true,
