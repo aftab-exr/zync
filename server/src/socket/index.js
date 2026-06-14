@@ -4,6 +4,7 @@ import { createAdapter } from "@socket.io/redis-adapter";
 import Redis from "ioredis";
 import admin from "firebase-admin";
 import User from "../models/user.model.js";
+import Message from "../models/message.model.js";
 
 let io;
 
@@ -86,6 +87,52 @@ export const initializeSocket = (httpServer) => {
 
             socket.on("typing_end", ({ receiverId, conversationId }) => {
                 socket.to(receiverId).emit("user_stopped_typing", { conversationId });
+            });
+
+            // ✅ BLUE TICK PROTOCOL: Real-Time Read Receipts
+            // The reader marks the OTHER user's messages as read, then we notify
+            // the original sender so their bubbles flip to a double blue checkmark.
+            socket.on("message:mark-read", async ({ conversationId, messageIds }) => {
+                try {
+                    if (!conversationId || !Array.isArray(messageIds) || messageIds.length === 0) return;
+
+                    const readerId = userId; // socket.user._id (zero-trust: derived from the session, never the client)
+
+                    // Only flip messages NOT authored by the reader, and only if currently unread.
+                    await Message.updateMany(
+                        {
+                            _id: { $in: messageIds },
+                            conversationId,
+                            senderId: { $ne: readerId },
+                            isRead: false
+                        },
+                        { $set: { isRead: true } }
+                    );
+
+                    // Derive the broadcast targets from the messages' own senderId.
+                    // We never trust a client-supplied receiverId for routing.
+                    const affected = await Message.find({ _id: { $in: messageIds } })
+                        .select("senderId")
+                        .lean();
+
+                    const senderRooms = [
+                        ...new Set(
+                            affected
+                                .map((m) => m.senderId?.toString())
+                                .filter((sid) => sid && sid !== readerId)
+                        )
+                    ];
+
+                    senderRooms.forEach((sid) => {
+                        io.to(sid).emit("message:read", {
+                            conversationId: conversationId.toString(),
+                            messageIds,
+                            readerId
+                        });
+                    });
+                } catch (err) {
+                    console.error("🔴 Error in message:mark-read:", err.stack || err);
+                }
             });
 
             // ⚡ User Presence Engine

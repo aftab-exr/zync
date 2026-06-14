@@ -1,6 +1,6 @@
 import { useCallStore } from "../store/useCallStore";
 import { useState, useEffect, useRef } from "react";
-import { Send, Users, Sparkles, ShieldCheck, Copy, Check, ChevronLeft, Loader2, Image as ImageIcon, X, Video } from "lucide-react";
+import { Send, Users, Sparkles, ShieldCheck, Copy, Check, CheckCheck, ChevronLeft, Loader2, Image as ImageIcon, X, Video } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { motion, AnimatePresence } from "framer-motion";
@@ -67,6 +67,9 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
   const fileInputRef = useRef(null);
   
   const messagesEndRef = useRef(null);
+  // ✅ BLUE TICK PROTOCOL: feed container + per-conversation dedupe set
+  const feedRef = useRef(null);
+  const markedReadRef = useRef(new Set());
   const navigate = useNavigate();
   
   const { authUser, user } = useAuthStore();
@@ -77,8 +80,9 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
     messages, 
     fetchMessages, 
     sendMessage, 
-    subscribeToMessages, 
+    subscribeToMessages,
     unsubscribeFromMessages,
+    markMessagesAsRead,
     isFetching,
     isSending,
     typingConversations
@@ -105,6 +109,44 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isSomeoneTyping]);
+
+  // ✅ BLUE TICK PROTOCOL: reset the dedupe set when the chat changes
+  useEffect(() => {
+    markedReadRef.current = new Set();
+  }, [conversationId]);
+
+  // ✅ BLUE TICK PROTOCOL: The Viewport Interceptor
+  // Watches unread incoming bubbles; when one scrolls into view, fire the read event.
+  useEffect(() => {
+    if (!conversationId || !feedRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const newlyRead = [];
+
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const id = entry.target.dataset.messageId;
+          if (id && !markedReadRef.current.has(id)) {
+            markedReadRef.current.add(id);
+            newlyRead.push(id);
+            observer.unobserve(entry.target);
+          }
+        });
+
+        if (newlyRead.length > 0) {
+          markMessagesAsRead(conversationId, newlyRead, displayUser?._id);
+        }
+      },
+      { root: feedRef.current, threshold: 0.6 }
+    );
+
+    // Only observe the other user's still-unread bubbles.
+    const nodes = feedRef.current.querySelectorAll('[data-unread="true"]');
+    nodes.forEach((node) => observer.observe(node));
+
+    return () => observer.disconnect();
+  }, [conversationId, messages, markMessagesAsRead, displayUser?._id]);
 
   // ⚡ PHASE 2.1: Image Handling Logic
   const handleImageChange = (e) => {
@@ -227,7 +269,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
       </div>
 
       {/* ⚡ MESSAGE FEED */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 overflow-x-hidden relative">
+      <div ref={feedRef} className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 overflow-x-hidden relative">
         <AnimatePresence initial={false}>
           {messages.map((msg, index) => {
             const isMine = msg.senderId === currentUser?._id;
@@ -237,11 +279,13 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
               : null;
 
             return (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 20, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                key={msg._id || index} 
+                key={msg._id || index}
+                data-message-id={msg._id}
+                data-unread={(!isMine && !msg.isRead) ? "true" : "false"}
                 className={`flex flex-col ${isMine ? 'items-end origin-bottom-right' : 'items-start origin-bottom-left'}`}
               >
                 
@@ -284,7 +328,13 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                 
                 <div className="flex items-center gap-1 mt-1 text-[11px] text-[var(--text-secondary)] font-mono">
                   {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  {isMine && <Check className="w-3 h-3 text-[var(--text-secondary)] ml-1" />}
+                  {isMine && (
+                    msg.isRead ? (
+                      <CheckCheck className="w-3.5 h-3.5 text-[var(--accent)] ml-1 transition-colors duration-300" />
+                    ) : (
+                      <Check className="w-3 h-3 text-[var(--text-secondary)] ml-1 transition-colors duration-300" />
+                    )
+                  )}
                 </div>
               </motion.div>
             );

@@ -14,6 +14,7 @@ import {
 } from '../lib/crypto';
 
 let messageHandler = null;
+let readReceiptHandler = null;
 
 export const useMessageStore = create((set, get) => ({
   messages: [],
@@ -26,6 +27,23 @@ export const useMessageStore = create((set, get) => ({
         ...state.typingConversations,
         [conversationId]: isTyping,
       },
+    }));
+  },
+
+  // ✅ BLUE TICK PROTOCOL: Emit read confirmation to the backend.
+  // Called by the ChatPane IntersectionObserver when incoming bubbles enter view.
+  markMessagesAsRead: (conversationId, messageIds, receiverId) => {
+    const socket = useSocketStore.getState().socket;
+    if (!socket || !conversationId || !messageIds || messageIds.length === 0) return;
+
+    socket.emit('message:mark-read', { conversationId, messageIds, receiverId });
+
+    // Optimistically flag the incoming messages locally so the observer
+    // never re-fires for them within this session.
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        messageIds.some((id) => sameId(id, m._id)) ? { ...m, isRead: true } : m
+      ),
     }));
   },
 
@@ -188,12 +206,37 @@ export const useMessageStore = create((set, get) => ({
     };
 
     socket.on('newMessage', messageHandler);
+
+    // ✅ BLUE TICK PROTOCOL: Listen for the sender-side confirmation.
+    // When the other user reads our messages, flip the matching bubbles to read.
+    if (readReceiptHandler) {
+      socket.off('message:read', readReceiptHandler);
+    }
+
+    readReceiptHandler = ({ conversationId, messageIds }) => {
+      if (!sameId(conversationId, currentConversationId)) return;
+      if (!Array.isArray(messageIds) || messageIds.length === 0) return;
+
+      set((state) => ({
+        messages: state.messages.map((m) =>
+          messageIds.some((id) => sameId(id, m._id)) ? { ...m, isRead: true } : m
+        ),
+      }));
+    };
+
+    socket.on('message:read', readReceiptHandler);
   },
 
   unsubscribeFromMessages: () => {
     const socket = useSocketStore.getState().socket;
-    if (!socket || !messageHandler) return;
-    socket.off('newMessage', messageHandler);
-    messageHandler = null;
+    if (!socket) return;
+    if (messageHandler) {
+      socket.off('newMessage', messageHandler);
+      messageHandler = null;
+    }
+    if (readReceiptHandler) {
+      socket.off('message:read', readReceiptHandler);
+      readReceiptHandler = null;
+    }
   },
 }));
