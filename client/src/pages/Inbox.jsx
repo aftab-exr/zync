@@ -124,7 +124,9 @@ export default function Inbox() {
               // If it's a group, use the groupName. Otherwise, use the other user's name.
               const displayName = conv.isGroup ? (conv.groupName || "Group") : (displayUser?.displayName || "Unknown");
               const isOnline = displayUser?.status?.online || false;
-              const lastMsgText = conv.lastMessageId?.text || "Started a new conversation";
+              // ⚡ E2E UX: never leak raw cipher-text into the sidebar preview.
+              const renderPreview = (text) => (text?.startsWith('{"iv":') ? "🔒 Encrypted Message" : text);
+              const lastMsgText = renderPreview(conv.lastMessageId?.text) || "Started a new conversation";
 
               return (
                 /* ⚡ THE FIX: motion.div handles physics, standard <button> handles clicks! */

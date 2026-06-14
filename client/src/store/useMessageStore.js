@@ -251,7 +251,12 @@ export const useMessageStore = create((set, get) => ({
         }
       }
 
-      set({ messages: [...get().messages, savedMessage] });
+      // ⚡ RACE-CONDITION FIX: Groq replies can arrive over the socket BEFORE this
+      // HTTP POST resolves, so always re-sort the feed chronologically by createdAt.
+      const updatedMessages = [...get().messages, savedMessage].sort(
+        (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+      );
+      set({ messages: updatedMessages });
       
       // ⚡ THE FIX: Use your actual store method name and pass the conversationId
       useChatStore.getState().updateConversationLastMessage(conversationId, savedMessage);
@@ -304,7 +309,13 @@ export const useMessageStore = create((set, get) => ({
 
       set((state) => {
         const exists = state.messages.some((m) => sameId(m._id, decryptedMsg._id));
-        return exists ? state : { messages: [...state.messages, decryptedMsg] };
+        if (exists) return state;
+        // ⚡ RACE-CONDITION FIX: keep the feed chronological even when a fast AI
+        // socket reply lands before/around the human's own message resolves.
+        const updatedMessages = [...state.messages, decryptedMsg].sort(
+          (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+        );
+        return { messages: updatedMessages };
       });
     };
 

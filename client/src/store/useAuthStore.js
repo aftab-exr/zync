@@ -8,6 +8,7 @@ export const useAuthStore = create((set, get) => ({
     user: null,
     isAuthenticated: false,
     isCheckingAuth: true,
+    isLoggingIn: false,
     error: null,
 
     // ⚡ PHASE 3.0: E2E Key Initialization (+ DB-wipe Sync-Checker)
@@ -149,13 +150,14 @@ export const useAuthStore = create((set, get) => ({
 
     loginWithGoogle: async () => {
         try {
-            set({ error: null });
+            set({ error: null, isLoggingIn: true });
 
             // ⚡ ENTERPRISE FIX: Hybrid Auth Flow - Try Popup First, Fallback to Redirect
             // Step 1: Attempt popup (works on most browsers, bypasses third-party cookies)
             try {
                 await signInWithPopup(auth, googleProvider);
-                // Success! Auth state listener will handle redirect
+                // Success! Auth state listener (checkAuth) hydrates the user; the
+                // Login page's effect on `isAuthenticated` performs the redirect.
                 return;
             } catch (popupError) {
                 // Step 2: If popup is blocked by privacy browser, fallback to redirect
@@ -176,6 +178,10 @@ export const useAuthStore = create((set, get) => ({
             console.error("Login failed:", error);
             set({ error: error.message });
             throw error;
+        } finally {
+            // ⚡ STICKING-BUTTON FIX: always release the spinner, even on the
+            // popup success path — the navigation effect handles the redirect.
+            set({ isLoggingIn: false });
         }
     },
 

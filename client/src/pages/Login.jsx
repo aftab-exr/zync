@@ -1,24 +1,32 @@
-import { useState } from 'react';
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 
 export default function Login() {
-  const { loginWithGoogle, error } = useAuthStore();
-  const [isLoading, setIsLoading] = useState(false);
+  const { loginWithGoogle, error, isLoggingIn, isAuthenticated, user } = useAuthStore();
+  const navigate = useNavigate();
 
-  // Algorithm: Handle the Auth State Machine
+  // ⚡ STICKING-BUTTON FIX: redirect the instant auth state flips to authenticated.
+  // New users (no Zync profile yet) go to setup; returning users go to the inbox.
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(user ? '/inbox' : '/setup-profile', { replace: true });
+    }
+  }, [isAuthenticated, user, navigate]);
+
+  // Algorithm: Handle the Auth State Machine. Loading state lives in the store
+  // and is guaranteed to release via its finally block, so the spinner can't hang.
   const handleLogin = async () => {
-    setIsLoading(true);
     try {
-      // Call signInWithPopup (via loginWithGoogle)
-      // On success, AuthGuard will handle the page transition while spinner stays active
       await loginWithGoogle();
     } catch {
-      // Turn off spinner only if user cancels popup or an error occurs
-      setIsLoading(false);
+      // Errors surface via the store's `error` state; spinner already released.
     }
   };
+
+  const isLoading = isLoggingIn;
 
   const containerVariants = {
     hidden: { opacity: 0 },
