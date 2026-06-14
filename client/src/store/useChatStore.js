@@ -127,8 +127,6 @@ export const useChatStore = create((set) => ({
               console.error(`Failed to wrap group key for member ${member._id}:`, memberErr);
             }
           }
-        } else {
-          console.warn('⚠️ Missing local keys — creating group in legacy plaintext mode.');
         }
       } catch (keyErr) {
         console.error('Group key generation failed; falling back to plaintext group:', keyErr);

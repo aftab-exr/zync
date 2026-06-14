@@ -16,6 +16,4 @@ admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
 
-console.log("🔥 Firebase Admin Engine Initialized");
-
 export default admin;

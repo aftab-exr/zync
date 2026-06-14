@@ -246,7 +246,7 @@ export const useMessageStore = create((set, get) => ({
             const decryptedText = await decryptText(parsed, encryptionKey);
             savedMessage = { ...savedMessage, text: decryptedText };
           }
-        } catch (e) {
+        } catch {
           // Ignore
         }
       }

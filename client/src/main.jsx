@@ -6,13 +6,9 @@ import './index.css'
 // ⚡ V2 HORIZON: Boot the Service Worker
 import { registerSW } from 'virtual:pwa-register'
 
-const updateSW = registerSW({
-  onNeedRefresh() {
-    console.log("⚡ Zync Engine Update Available.");
-  },
-  onOfflineReady() {
-    console.log("⚡ Zync is cached and ready for offline execution.");
-  },
+registerSW({
+  onNeedRefresh() {},
+  onOfflineReady() {},
 })
 
 ReactDOM.createRoot(document.getElementById('root')).render(

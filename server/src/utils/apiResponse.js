@@ -5,6 +5,9 @@ class apiResponse {
         this.message = message;
         this.data = data;
         this.success = statusCode < 400;
+        if (statusCode >= 400) {
+            this.error = message;
+        }
     }
 }
 

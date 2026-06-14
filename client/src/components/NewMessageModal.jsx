@@ -15,15 +15,14 @@ export default function NewMessageModal({ isOpen, onClose, onSelectConversation 
 
   const { createConversation, createGroup, isCreatingGroup } = useChatStore();
 
-  useEffect(() => {
-    if (!isOpen) {
-      setSearchQuery('');
-      setSearchResults([]);
-      setIsGroupMode(false);
-      setGroupName('');
-      setSelectedUsers([]);
-    }
-  }, [isOpen]);
+  const handleClose = () => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setIsGroupMode(false);
+    setGroupName('');
+    setSelectedUsers([]);
+    onClose();
+  };
 
   useEffect(() => {
     const searchUsers = async () => {
@@ -60,7 +59,7 @@ export default function NewMessageModal({ isOpen, onClose, onSelectConversation 
       const conversation = await createConversation(user._id);
       if (conversation) {
         onSelectConversation(conversation._id);
-        onClose();
+        handleClose();
       }
     }
   };
@@ -74,7 +73,7 @@ export default function NewMessageModal({ isOpen, onClose, onSelectConversation 
 
     if (newGroup) {
       onSelectConversation(newGroup._id);
-      onClose();
+      handleClose();
     }
   };
 
@@ -89,7 +88,7 @@ export default function NewMessageModal({ isOpen, onClose, onSelectConversation 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
+            onClick={handleClose}
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
           />
 
@@ -107,7 +106,7 @@ export default function NewMessageModal({ isOpen, onClose, onSelectConversation 
               <h2 className="text-lg font-display font-bold text-white">
                 {isGroupMode ? 'Create Group' : 'New Message'}
               </h2>
-              <button onClick={onClose} className="p-2 rounded-lg text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-base)] transition-colors">
+              <button onClick={handleClose} className="p-2 rounded-lg text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-base)] transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>

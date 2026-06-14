@@ -17,13 +17,11 @@ export const useSocketStore = create((set, get) => ({
     const { socket: existingSocket } = get();
     if (existingSocket) {
       if (existingSocket.connected) return;
-      if (import.meta.env.DEV) console.log('🔄 Reconnecting existing socket...');
       set({ isReconnecting: true });
       existingSocket.connect();
       return;
     }
 
-    if (import.meta.env.DEV) console.log('🔌 Creating new socket instance...');
     set({ isReconnecting: true });
 
     const socket = io(SOCKET_URL, {
@@ -41,7 +39,6 @@ export const useSocketStore = create((set, get) => ({
     });
 
     socket.on('connect', () => {
-      if (import.meta.env.DEV) console.log('🟢 Socket connected to server:', socket.id);
       set({ isConnected: true, isReconnecting: false });
 
       // ⚡ OFFLINE CATCH-UP: If the user comes back online while looking at a chat,
@@ -53,7 +50,6 @@ export const useSocketStore = create((set, get) => ({
     });
 
     socket.on('disconnect', (reason) => {
-      if (import.meta.env.DEV) console.log('🔴 Socket disconnected. Reason:', reason);
       set({ isConnected: false, isReconnecting: reason !== 'io client disconnect' });
       // If server disconnected, manually reconnect
       if (reason === 'io server disconnect') {
@@ -67,18 +63,15 @@ export const useSocketStore = create((set, get) => ({
     });
 
     // Bind reconnection events from socket.io manager
-    socket.io.on('reconnect_attempt', (attempt) => {
-      if (import.meta.env.DEV) console.log('🔄 Socket reconnect attempt:', attempt);
+    socket.io.on('reconnect_attempt', () => {
       set({ isReconnecting: true });
     });
 
     socket.io.on('reconnect', () => {
-      if (import.meta.env.DEV) console.log('🟢 Socket reconnected successfully');
       set({ isConnected: true, isReconnecting: false });
     });
 
     socket.io.on('reconnect_failed', () => {
-      if (import.meta.env.DEV) console.log('❌ Socket reconnect failed');
       set({ isConnected: false, isReconnecting: false });
     });
 

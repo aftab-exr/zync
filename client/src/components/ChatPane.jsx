@@ -1,5 +1,5 @@
 import { useCallStore } from "../store/useCallStore";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Send, Users, Sparkles, ShieldCheck, Copy, Check, CheckCheck, ChevronLeft, Loader2, Image as ImageIcon, X, Video } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -95,16 +95,79 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
   const isOnline = displayUser?.status?.online;
   const isSomeoneTyping = typingConversations[conversationId];
 
+  const processedMessages = useMemo(() => {
+    return messages.map((msg) => {
+      const isMine = msg.senderId === currentUser?._id;
+      const sender = isGroup && !isMine 
+        ? activeConversation?.participants?.find(p => p._id === msg.senderId)
+        : null;
+      return {
+        ...msg,
+        isMine,
+        sender,
+      };
+    });
+  }, [messages, currentUser?._id, activeConversation, isGroup]);
+
+  // ⚡ PHASE 2.1: Image Handling Logic
+  const handleImageChange = useCallback((e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+       alert("Image must be less than 5MB");
+       return;
+    }
+    if (!file.type.startsWith("image/")) {
+       alert("Please select a valid image file");
+       return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+       setImagePreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  const removeImage = useCallback(() => {
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, []);
+
+  const handleSend = useCallback(async (e) => {
+    e.preventDefault();
+    if ((!text.trim() && !imagePreview) || isSending) return;
+
+    const currentText = text.trim();
+    const currentImage = imagePreview;
+
+    // Optimistic UI clear
+    setText("");
+    removeImage();
+
+    // Send the payload
+    const success = await sendMessage(conversationId, currentText, currentImage, displayUser?._id);
+    
+    // Restore if failed
+    if (!success) {
+      setText(currentText);
+      setImagePreview(currentImage);
+    }
+  }, [text, imagePreview, isSending, sendMessage, conversationId, displayUser?._id, removeImage]);
+
   // Lifecycle
   useEffect(() => {
     if (conversationId) {
       fetchMessages(conversationId);
       subscribeToMessages(conversationId);
-      // Clear unsent media when switching chats
-      removeImage();
+      // Clear unsent media when switching chats asynchronously to avoid cascading renders
+      setTimeout(() => {
+        removeImage();
+      }, 0);
     }
     return () => unsubscribeFromMessages();
-  }, [conversationId, fetchMessages, subscribeToMessages, unsubscribeFromMessages]);
+  }, [conversationId, fetchMessages, subscribeToMessages, unsubscribeFromMessages, removeImage]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -147,53 +210,6 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
 
     return () => observer.disconnect();
   }, [conversationId, messages, markMessagesAsRead, displayUser?._id]);
-
-  // ⚡ PHASE 2.1: Image Handling Logic
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
-       alert("Image must be less than 5MB");
-       return;
-    }
-    if (!file.type.startsWith("image/")) {
-       alert("Please select a valid image file");
-       return;
-    }
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-       setImagePreview(reader.result);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const removeImage = () => {
-    setImagePreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const handleSend = async (e) => {
-    e.preventDefault();
-    if ((!text.trim() && !imagePreview) || isSending) return;
-
-    const currentText = text.trim();
-    const currentImage = imagePreview;
-
-    // Optimistic UI clear
-    setText("");
-    removeImage();
-
-    // Send the payload
-    const success = await sendMessage(conversationId, currentText, currentImage, displayUser?._id);
-    
-    // Restore if failed
-    if (!success) {
-      setText(currentText);
-      setImagePreview(currentImage);
-    }
-  };
 
   if (isFetching && messages.length === 0) {
     return (
@@ -271,13 +287,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
       {/* ⚡ MESSAGE FEED */}
       <div ref={feedRef} className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 overflow-x-hidden relative">
         <AnimatePresence initial={false}>
-          {messages.map((msg, index) => {
-            const isMine = msg.senderId === currentUser?._id;
-            
-            const sender = isGroup && !isMine 
-              ? activeConversation?.participants?.find(p => p._id === msg.senderId)
-              : null;
-
+          {processedMessages.map((msg, index) => {
             return (
               <motion.div
                 initial={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -285,18 +295,18 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                 transition={{ type: "spring", stiffness: 400, damping: 25 }}
                 key={msg._id || index}
                 data-message-id={msg._id}
-                data-unread={(!isMine && !msg.isRead) ? "true" : "false"}
-                className={`flex flex-col ${isMine ? 'items-end origin-bottom-right' : 'items-start origin-bottom-left'}`}
+                data-unread={(!msg.isMine && !msg.isRead) ? "true" : "false"}
+                className={`flex flex-col ${msg.isMine ? 'items-end origin-bottom-right' : 'items-start origin-bottom-left'}`}
               >
                 
-                {isGroup && !isMine && sender && (
+                {isGroup && !msg.isMine && msg.sender && (
                   <span className="text-xs text-[var(--text-secondary)] mb-1 ml-1 font-medium">
-                    {sender.displayName}
+                    {msg.sender.displayName}
                   </span>
                 )}
 
                 <div className={`max-w-[85%] md:max-w-[70%] rounded-2xl p-2.5 shadow-sm ${
-                  isMine 
+                  msg.isMine 
                     ? 'bg-[var(--accent)] text-white rounded-br-sm' 
                     : 'bg-[var(--bg-raised)] border border-[var(--border)] text-white rounded-bl-sm'
                 }`}>
@@ -315,7 +325,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
 
                   {/* Render the text if it exists */}
                   {msg.text && (
-                    <div className={`px-2 pb-1 prose prose-sm max-w-none break-words ${isMine ? 'prose-invert prose-p:text-white' : 'dark:prose-invert'}`}>
+                    <div className={`px-2 pb-1 prose prose-sm max-w-none break-words ${msg.isMine ? 'prose-invert prose-p:text-white' : 'dark:prose-invert'}`}>
                       <ReactMarkdown 
                         remarkPlugins={[remarkGfm]} 
                         components={{ code: CodeBlock }}
@@ -328,7 +338,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                 
                 <div className="flex items-center gap-1 mt-1 text-[11px] text-[var(--text-secondary)] font-mono">
                   {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  {isMine && (
+                  {msg.isMine && (
                     msg.isRead ? (
                       <CheckCheck className="w-3.5 h-3.5 text-[var(--accent)] ml-1 transition-colors duration-300" />
                     ) : (

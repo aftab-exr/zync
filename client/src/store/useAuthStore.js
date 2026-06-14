@@ -24,7 +24,7 @@ export const useAuthStore = create((set, get) => ({
             // ⚡ SYNC-CHECKER: local private key exists but the DB lost our public key.
             // The pair is broken → wipe local state and re-provision from scratch.
             if (privateKey && !dbPublicKey) {
-                console.warn("⚠️ Key desync detected: local private key present but DB public key missing. Re-syncing...");
+                console.error("🔴 Key desync detected: local private key present but DB public key missing. Re-syncing...");
                 localStorage.removeItem("zync_private_key");
 
                 const keys = await generateKeyPair();
@@ -41,12 +41,10 @@ export const useAuthStore = create((set, get) => ({
 
                 // Reflect the fresh public key in local state so the UI is consistent.
                 set((state) => ({ user: state.user ? { ...state.user, publicKey: keys.publicKey } : state.user }));
-                console.log("✅ Fresh E2E keypair generated and synced to database.");
                 return;
             }
 
             if (!privateKey) {
-                console.log("🔒 Generating new Zero-Knowledge Key Pair...");
                 const keys = await generateKeyPair();
 
                 // 2. Lock the private key in the device
@@ -59,7 +57,6 @@ export const useAuthStore = create((set, get) => ({
                         { publicKey: keys.publicKey },
                         { headers: { Authorization: `Bearer ${token}` } }
                     );
-                    console.log("✅ Public Key secured in database.");
                 } catch (error) {
                     console.error("🔴 CRITICAL: FAILED TO SYNC PUBLIC KEY TO DB", error);
                 }
@@ -79,7 +76,6 @@ export const useAuthStore = create((set, get) => ({
                         { publicKey: pubKeyStr },
                         { headers: { Authorization: `Bearer ${token}` } }
                     );
-                    console.log("✅ Public Key restored & secured in database.");
                 } catch (err) {
                     console.error("🔴 CRITICAL: FAILED TO SYNC PUBLIC KEY TO DB", err);
                 }
@@ -149,7 +145,6 @@ export const useAuthStore = create((set, get) => ({
 
             } catch (error) {
                 if (error.response?.status === 404 || error.response?.status === 403) {
-                    console.warn("Profile not found. Redirecting to setup.");
                     set({ user: null, isAuthenticated: true, isCheckingAuth: false });
                 } else {
                     console.error("Auth verification failed:", error);
@@ -176,7 +171,6 @@ export const useAuthStore = create((set, get) => ({
                     popupError.code === 'auth/cancelled-popup-request' ||
                     popupError.code === 'auth/operation-not-supported-in-this-environment') {
 
-                    console.warn("Popup auth blocked, falling back to redirect flow:", popupError.code);
                     // Fallback to redirect for strict privacy browsers (Safari, Brave, Firefox)
                     await signInWithRedirect(auth, googleProvider);
                     // Note: Browser will navigate away; no code below executes

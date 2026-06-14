@@ -15,7 +15,8 @@ import app from "./app.js";
 import { PORT } from "./constants/constants.js";
 import { connectDB } from "../database/connection.js";
 import http from "http";
-import { initializeSocket } from "./socket/index.js"; 
+import mongoose from "mongoose";
+import { initializeSocket, closeSocket } from "./socket/index.js"; 
 import "./config/firebase.js"; 
 
 // ⚡ Vector 3: AI Bootloader Imports
@@ -37,8 +38,7 @@ const bootstrapAI = async () => {
     try {
         // Helper: forge a brand-new AI identity + fresh keypair and surface the
         // private key to the admin. Used for first-boot AND ghost-key recovery.
-        const provisionFreshAI = async (reason) => {
-            console.log(`🔄 Provisioning fresh AI identity (${reason})...`);
+        const provisionFreshAI = async () => {
             const aiUser = new User({
                 username: "zync_ai",
                 displayName: "Zync Intelligence",
@@ -51,13 +51,13 @@ const bootstrapAI = async () => {
             aiUser.publicKey = keys.publicKey;
             await aiUser.save();
 
-            console.log("\n=======================================================");
-            console.log("🚨 CRITICAL ACTION REQUIRED: AI PRIVATE KEY GENERATED");
-            console.log("=======================================================");
-            console.log("Add the following line to your server/src/config/.env file");
-            console.log("(then restart the server) so the AI Gateway can read messages:");
-            console.log(`AI_PRIVATE_KEY='${keys.privateKey}'`);
-            console.log("=======================================================\n");
+            console.error("\n=======================================================");
+            console.error("🚨 CRITICAL ACTION REQUIRED: AI PRIVATE KEY GENERATED");
+            console.error("=======================================================");
+            console.error("Add the following line to your server/src/config/.env file");
+            console.error("(then restart the server) so the AI Gateway can read messages:");
+            console.error(`AI_PRIVATE_KEY='${keys.privateKey}'`);
+            console.error("=======================================================\n");
             return aiUser;
         };
 
@@ -74,7 +74,7 @@ const bootstrapAI = async () => {
 
         if (!aiUser) {
             // First boot: no AI profile exists yet.
-            await provisionFreshAI("no AI profile found");
+            await provisionFreshAI();
             return;
         }
 
@@ -82,30 +82,27 @@ const bootstrapAI = async () => {
         // The DB publicKey is now a ghost (no matching private key) → force a reset
         // by wiping the stale profile and minting a fresh, self-consistent keypair.
         if (!hasPrivateKey) {
-            console.warn("⚠️ AI User exists but AI_PRIVATE_KEY is missing/empty. Forcing key reset to clear ghost keys.");
+            console.error("🔴 AI User exists but AI_PRIVATE_KEY is missing/empty. Forcing key reset to clear ghost keys.");
             await User.deleteOne({ isAI: true });
-            await provisionFreshAI("ghost key reset");
+            await provisionFreshAI();
             return;
         }
 
         // AI exists and we hold a private key — but the DB may have lost its publicKey
         // (e.g. partial wipe). Regenerate just the keypair if so.
         if (!aiUser.publicKey) {
-            console.log("🔒 AI profile is missing its publicKey. Generating a fresh Zero-Knowledge keypair...");
             const keys = await generateServerKeyPair();
             aiUser.publicKey = keys.publicKey;
             await aiUser.save();
 
-            console.log("\n=======================================================");
-            console.log("🚨 CRITICAL ACTION REQUIRED: AI PRIVATE KEY REGENERATED");
-            console.log("=======================================================");
-            console.log("Replace AI_PRIVATE_KEY in server/src/config/.env with:");
-            console.log(`AI_PRIVATE_KEY='${keys.privateKey}'`);
-            console.log("=======================================================\n");
+            console.error("\n=======================================================");
+            console.error("🚨 CRITICAL ACTION REQUIRED: AI PRIVATE KEY REGENERATED");
+            console.error("=======================================================");
+            console.error("Replace AI_PRIVATE_KEY in server/src/config/.env with:");
+            console.error(`AI_PRIVATE_KEY='${keys.privateKey}'`);
+            console.error("=======================================================\n");
             return;
         }
-
-        console.log("✅ AI Gateway identity verified (publicKey ⇄ AI_PRIVATE_KEY paired).");
     } catch (error) {
         console.error("🔴 Failed to bootstrap AI:", error);
     }
@@ -117,35 +114,30 @@ connectDB().then(async () => {
   // ⚡ Ensure AI exists before accepting traffic
   await bootstrapAI();
 
-  const server = httpServer.listen(PORT, () => {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`🚀 Zync Server v1.0.0 running on port ${PORT}`);
-      console.log(`⚡ Real-Time Socket Engine Active`);
-    }
-  });
+  const server = httpServer.listen(PORT);
 
   // 🛡️ Graceful Shutdown Protocol
-  const exitHandler = (reason = 'shutdown', err) => {
+  const exitHandler = async (reason = 'shutdown', err) => {
     if (err) {
       console.error('Exit triggered by error:', err);
-    } else if (reason) {
-      console.log('Exit triggered by:', reason);
     }
 
-    if (server) {
-      server.close(() => {
-        console.log('🛑 Server closed gracefully.');
-        const isError = reason === 'uncaughtException' || reason === 'unhandledRejection';
-        process.exit(isError ? 1 : 0);
-      });
-    } else {
+    try {
+      if (server) {
+        await new Promise((resolve) => server.close(resolve));
+      }
+      await closeSocket();
+      await mongoose.connection.close();
       const isError = reason === 'uncaughtException' || reason === 'unhandledRejection';
       process.exit(isError ? 1 : 0);
+    } catch (shutdownErr) {
+      console.error('Error during graceful shutdown:', shutdownErr);
+      process.exit(1);
     }
   };
 
-  process.on('SIGINT', () => exitHandler('SIGINT'));
-  process.on('SIGTERM', () => exitHandler('SIGTERM'));
+  process.on('SIGINT', () => { exitHandler('SIGINT'); });
+  process.on('SIGTERM', () => { exitHandler('SIGTERM'); });
   process.on('uncaughtException', (error) => {
     console.error('💥 Uncaught Exception:', error);
     exitHandler('uncaughtException', error);

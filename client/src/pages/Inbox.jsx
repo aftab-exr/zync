@@ -1,6 +1,6 @@
 import CallOverlay from '../components/CallOverlay';
 import { useCallStore } from '../store/useCallStore';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Search, Bell, MessageSquare, Plus, LogOut, Users } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -53,6 +53,23 @@ export default function Inbox() {
     disconnect();
     await logout();
   };
+
+  const processedConversations = useMemo(() => {
+    return conversations.map((conv) => {
+      const otherParticipant = conv.participants?.find(p => p._id !== currentUser?._id);
+      const displayUser = conv.otherUser || otherParticipant;
+      const displayName = conv.isGroup ? (conv.groupName || "Group") : (displayUser?.displayName || "Unknown");
+      const isOnline = displayUser?.status?.online || false;
+      const rawText = conv.lastMessageId?.text;
+      const lastMsgText = rawText?.startsWith('{"iv":') ? "🔒 Encrypted Message" : (rawText || "Started a new conversation");
+      return {
+        ...conv,
+        displayName,
+        isOnline,
+        lastMsgText,
+      };
+    });
+  }, [conversations, currentUser?._id]);
 
   return (
     <div className="flex flex-col h-[100dvh] w-full bg-[var(--bg-base)] text-[var(--text-primary)]">
@@ -113,20 +130,8 @@ export default function Inbox() {
               <div className="flex flex-col items-center text-center mt-10 px-4"><p className="text-sm text-[var(--text-secondary)]">No conversations yet.</p></div>
             )}
 
-            {conversations.map((conv, index) => {
+            {processedConversations.map((conv, index) => {
               const isActive = conversationId === conv._id;
-              
-              // Utilizing your store's normalized "otherUser" object!
-              // ⚡ THE FIX: Find the participant who is NOT the current user
-              const otherParticipant = conv.participants?.find(p => p._id !== currentUser?._id);
-              const displayUser = conv.otherUser || otherParticipant;
-
-              // If it's a group, use the groupName. Otherwise, use the other user's name.
-              const displayName = conv.isGroup ? (conv.groupName || "Group") : (displayUser?.displayName || "Unknown");
-              const isOnline = displayUser?.status?.online || false;
-              // ⚡ E2E UX: never leak raw cipher-text into the sidebar preview.
-              const renderPreview = (text) => (text?.startsWith('{"iv":') ? "🔒 Encrypted Message" : text);
-              const lastMsgText = renderPreview(conv.lastMessageId?.text) || "Started a new conversation";
 
               return (
                 /* ⚡ THE FIX: motion.div handles physics, standard <button> handles clicks! */
@@ -149,20 +154,20 @@ export default function Inbox() {
                         </div>
                       ) : (
                         <div className="w-10 h-10 rounded-full bg-[var(--border)] flex items-center justify-center font-display font-bold text-sm text-white">
-                          {displayName.charAt(0).toUpperCase()}
+                          {conv.displayName.charAt(0).toUpperCase()}
                         </div>
                       )}
-                      {!conv.isGroup && isOnline && (
+                      {!conv.isGroup && conv.isOnline && (
                         <div className="absolute bottom-0 right-0 w-3 h-3 bg-[var(--success)] border-2 border-[var(--bg-base)] rounded-full"></div>
                       )}
                     </div>
                     
                     <div className="flex-1 overflow-hidden">
                       <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-medium text-white truncate">{displayName}</h4>
+                        <h4 className="text-sm font-medium text-white truncate">{conv.displayName}</h4>
                       </div>
                       <p className="text-xs text-[var(--text-secondary)] font-mono truncate mt-0.5">
-                        {lastMsgText}
+                        {conv.lastMsgText}
                       </p>
                     </div>
                   </button>

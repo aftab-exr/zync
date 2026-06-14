@@ -7,6 +7,8 @@ import User from "../models/user.model.js";
 import Message from "../models/message.model.js";
 
 let io;
+let pubClient;
+let subClient;
 
 export const initializeSocket = (httpServer) => {
     // 1. Initialize Socket.io with strict CORS
@@ -23,8 +25,6 @@ export const initializeSocket = (httpServer) => {
 
     // 2. Connect to Upstash Redis only when configured
     // Forcing family: 4 (IPv4) resolves DNS resolution timeouts on Node 20+
-    let pubClient;
-    let subClient;
     if (process.env.REDIS_URL) {
         pubClient = new Redis(process.env.REDIS_URL, { family: 4 });
         subClient = pubClient.duplicate();
@@ -32,16 +32,9 @@ export const initializeSocket = (httpServer) => {
         pubClient.on("error", (err) => console.error("🔴 Redis PubClient Error:", err.message));
         subClient.on("error", (err) => console.error("🔴 Redis SubClient Error:", err.message));
 
-        pubClient.on("connect", () => {
-            if (process.env.NODE_ENV !== 'production') console.log("🟢 Redis PubClient Connected");
-        });
-        subClient.on("connect", () => {
-            if (process.env.NODE_ENV !== 'production') console.log("🟢 Redis SubClient Connected");
-        });
-
         io.adapter(createAdapter(pubClient, subClient));
     } else {
-        console.warn("⚠️ REDIS_URL is not configured. Socket.io will run without a Redis adapter in single-instance mode.");
+        console.error("🔴 REDIS_URL is not configured. Socket.io will run without a Redis adapter in single-instance mode.");
     }
 
     // 3. The Authentication Handshake (Zero-Trust Socket)
@@ -75,7 +68,6 @@ export const initializeSocket = (httpServer) => {
     io.on("connection", async (socket) => {
         try {
             const userId = socket.user._id.toString();
-            if (process.env.NODE_ENV !== 'production') console.log(`🟢 User connected: ${socket.user.username} (${socket.id})`);
 
             socket.join(userId);
 
@@ -141,8 +133,6 @@ export const initializeSocket = (httpServer) => {
 
             socket.on("disconnect", async () => {
                 try {
-                    if (process.env.NODE_ENV !== 'production') console.log(`🔴 User disconnected: ${socket.user.username}`);
-
                     await User.findByIdAndUpdate(userId, {
                         $set: { "status.online": false, "status.lastSeen": new Date() }
                     });
@@ -201,4 +191,16 @@ export const initializeSocket = (httpServer) => {
 export const getIO = () => {
     if (!io) throw new Error("Socket.io not initialized!");
     return io;
+};
+
+export const closeSocket = async () => {
+    if (io) {
+        await new Promise((resolve) => io.close(resolve));
+    }
+    if (pubClient) {
+        await pubClient.quit();
+    }
+    if (subClient) {
+        await subClient.quit();
+    }
 };
