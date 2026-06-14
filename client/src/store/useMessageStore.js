@@ -17,43 +17,42 @@ import {
 let messageHandler = null;
 let readReceiptHandler = null;
 
-// ⚡ AUTO-HEALING E2E: shown when a payload is genuinely encrypted ({iv,ciphertext})
-// but the shared-secret math / decryptText fails — i.e. a key desync, NOT plaintext.
-const KEY_MISMATCH_TEXT = "🔒 [Encrypted Message - Key Mismatch. Please clear cache and re-login.]";
+// ⚡ THE STRICT DECRYPTER — single source of truth for turning a stored `msg`
+// into displayable text. Returns a STRING, never raw ciphertext JSON.
+//   • Plaintext (JSON.parse throws SyntaxError)      → original text
+//   • JSON without crypto headers                    → original text
+//   • Guaranteed ciphertext + missing shared secret  → "Awaiting Key Sync" banner
+//   • Guaranteed ciphertext + decrypt math fails     → "Mathematical Mismatch" banner
+const safeDecryptMessage = async (msg, sharedSecret) => {
+    if (!msg || !msg.text) return "";
+    try {
+        // If it's standard plaintext, JSON.parse will fail and jump to the catch block
+        const parsed = JSON.parse(msg.text);
 
-// Returns true only for objects that look like our encrypted envelope.
-const isEncryptedPayload = (parsed) =>
-  parsed && typeof parsed === 'object' && parsed.iv && parsed.ciphertext;
+        // If it is JSON but lacks crypto headers, it's normal text
+        if (!parsed.iv || !parsed.ciphertext) return msg.text;
 
-// ⚡ GRACEFUL DECRYPTION FALLBACK
-// Distinguishes three outcomes for a message's `text`:
-//   1. Not JSON / not an envelope  → plaintext, return unchanged (human messages).
-//   2. Valid envelope, decrypt OK  → return decrypted text.
-//   3. Valid envelope, decrypt FAIL → return the key-mismatch banner (never raw JSON).
-const safeDecryptMessage = async (msg, key) => {
-  if (!msg?.text || !key) return msg;
+        // 🚨 IF WE REACH HERE, IT IS GUARANTEED CIPHER-TEXT.
+        if (!sharedSecret) {
+            console.error("🔴 E2E Blocked: Shared Secret is missing. Message:", msg._id);
+            return "🔒 [Encrypted Message - Awaiting Key Sync]";
+        }
 
-  let parsed;
-  try {
-    parsed = JSON.parse(msg.text);
-  } catch {
-    // Not JSON → it's plaintext, leave it untouched.
-    return msg;
-  }
+        const decryptedText = await decryptText(parsed, sharedSecret);
 
-  if (!isEncryptedPayload(parsed)) return msg; // JSON, but not our cipher envelope.
+        // decryptText() swallows its own errors and returns a sentinel string —
+        // treat that as a hard math failure rather than rendering the sentinel.
+        if (!decryptedText || decryptedText === "[Encrypted Message - Unreadable]") {
+            console.error("🔴 E2E Math Failed: decryptText returned sentinel. Message:", msg._id);
+            return "🔒 [Encrypted Message - Mathematical Mismatch]";
+        }
 
-  try {
-    const decryptedText = await decryptText(parsed, key);
-    // decryptText swallows errors and returns a sentinel; treat that as a mismatch too.
-    if (!decryptedText || decryptedText === "[Encrypted Message - Unreadable]") {
-      return { ...msg, text: KEY_MISMATCH_TEXT };
+        return decryptedText;
+    } catch (e) {
+        if (e.name === "SyntaxError") return msg.text; // Safe Plaintext fallback
+        console.error("🔴 E2E Math Failed:", e);
+        return "🔒 [Encrypted Message - Mathematical Mismatch]";
     }
-    return { ...msg, text: decryptedText };
-  } catch (err) {
-    console.error("🔴 Decryption failed (key mismatch):", err);
-    return { ...msg, text: KEY_MISMATCH_TEXT };
-  }
 };
 
 // ⚡ VECTOR 2: Unwrap the group's AES symmetric key for the current user.
@@ -97,7 +96,9 @@ const deriveGroupKey = async (conversation, currentUser) => {
 // decrypts any {iv, ciphertext} payloads in a message list using the given key,
 // leaving non-encrypted / unparseable messages untouched.
 const decryptMessagesWith = async (messages, key) => {
-  return Promise.all(messages.map((msg) => safeDecryptMessage(msg, key)));
+  return Promise.all(
+    messages.map(async (msg) => ({ ...msg, text: await safeDecryptMessage(msg, key) }))
+  );
 };
 
 export const useMessageStore = create((set, get) => ({
@@ -152,14 +153,14 @@ export const useMessageStore = create((set, get) => ({
       const otherParticipant = conversation?.participants?.find(p => p._id !== currentUser?._id);
       const privateKeyJwk = localStorage.getItem("zync_private_key");
 
-      if (conversation && !conversation.isGroup && privateKeyJwk && otherParticipant && otherParticipant.publicKey && !otherParticipant.isAI) {
+      if (conversation && !conversation.isGroup && privateKeyJwk && otherParticipant && otherParticipant.publicKey) {
         try {
           const myPrivKeyObj = await importPrivateKey(privateKeyJwk);
           const theirPubKeyObj = await importPublicKey(otherParticipant.publicKey);
           const sharedSecretKey = await deriveSharedSecret(myPrivKeyObj, theirPubKeyObj);
 
           decryptedMessages = await Promise.all(
-            res.data.data.map((msg) => safeDecryptMessage(msg, sharedSecretKey))
+            res.data.data.map(async (msg) => ({ ...msg, text: await safeDecryptMessage(msg, sharedSecretKey) }))
           );
         } catch (err) {
           console.error("Failed to decrypt historical messages:", err);
@@ -219,7 +220,7 @@ export const useMessageStore = create((set, get) => ({
           }
         }
         // else: legacy group with no key → send plaintext
-      } else if (conversation && !conversation.isGroup && privateKeyJwk && otherParticipant && otherParticipant.publicKey && !otherParticipant.isAI && text) {
+      } else if (conversation && !conversation.isGroup && privateKeyJwk && otherParticipant && otherParticipant.publicKey && text) {
         try {
           const myPrivKeyObj = await importPrivateKey(privateKeyJwk);
           const theirPubKeyObj = await importPublicKey(otherParticipant.publicKey);
@@ -285,27 +286,19 @@ export const useMessageStore = create((set, get) => ({
         if (conversation?.isGroup) {
           // ⚡ VECTOR 2: Group E2EE — decrypt inbound message with the group key.
           const groupKey = await deriveGroupKey(conversation, currentUser);
-          if (groupKey) {
-            decryptedMsg = await safeDecryptMessage(newMessage, groupKey);
-          }
-        } else if (conversation && !conversation.isGroup && privateKeyJwk && otherParticipant && otherParticipant.publicKey && !otherParticipant.isAI) {
+          decryptedMsg = { ...newMessage, text: await safeDecryptMessage(newMessage, groupKey) };
+        } else if (conversation && !conversation.isGroup && privateKeyJwk && otherParticipant && otherParticipant.publicKey) {
+          // ⚡ Includes the AI gateway: ECDH symmetry means our shared secret
+          // matches the one the server used to wrap the AI's reply.
+          let sharedSecretKey = null;
           try {
             const myPrivKeyObj = await importPrivateKey(privateKeyJwk);
             const theirPubKeyObj = await importPublicKey(otherParticipant.publicKey);
-            const sharedSecretKey = await deriveSharedSecret(myPrivKeyObj, theirPubKeyObj);
-            decryptedMsg = await safeDecryptMessage(newMessage, sharedSecretKey);
+            sharedSecretKey = await deriveSharedSecret(myPrivKeyObj, theirPubKeyObj);
           } catch (e) {
-            // Key derivation itself failed → surface the mismatch banner if the
-            // payload was actually encrypted, otherwise leave the raw text.
-            try {
-              const parsed = JSON.parse(newMessage.text);
-              if (parsed && typeof parsed === 'object' && parsed.iv && parsed.ciphertext) {
-                decryptedMsg = { ...newMessage, text: KEY_MISMATCH_TEXT };
-              }
-            } catch {
-              // plaintext → leave as-is
-            }
+            console.error("🔴 E2E: failed to derive shared secret for inbound message:", e);
           }
+          decryptedMsg = { ...newMessage, text: await safeDecryptMessage(newMessage, sharedSecretKey) };
         }
       }
 
