@@ -99,7 +99,19 @@ export const sendMessage = asyncHandler(async (req, res, next) => {
         // 🤖 AI Cryptographic Routing
         if (receiver.isAI) {
             const aiPrivateKeyStr = process.env.AI_PRIVATE_KEY;
-            const senderPublicKeyStr = req.user.publicKey;
+            
+            // Explicitly fetch the sender user/document and ensure publicKey is retrieved
+            const user = await User.findById(senderId).select("+publicKey");
+            
+            // Safety check right before decryption/unwrap
+            if (!user.publicKey) {
+                throw new Error("CRITICAL: Human public key missing from DB query");
+            }
+            if (typeof user.publicKey !== "string" || !user.publicKey.trim()) {
+                throw new Error("CRITICAL: Human public key is not a valid string");
+            }
+            
+            const senderPublicKeyStr = user.publicKey;
 
             if (!aiPrivateKeyStr || !senderPublicKeyStr) {
                  console.error("🔴 AI Gateway keys missing. Cannot unwrap message.");
