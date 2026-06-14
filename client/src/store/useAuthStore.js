@@ -10,11 +10,34 @@ export const useAuthStore = create((set, get) => ({
     isCheckingAuth: true,
     error: null,
 
-    // ⚡ PHASE 3.0: E2E Key Initialization
-    initializeE2E: async (token) => {
+    // ⚡ PHASE 3.0: E2E Key Initialization (+ DB-wipe Sync-Checker)
+    // `dbPublicKey` is the public key the backend currently holds for this user.
+    // If we have a local private key but the DB has lost the matching public key
+    // (e.g. after a DB wipe / ghost-key reset), our keys are desynced and every
+    // message would fail to decrypt — so we hard-reset to a fresh, synced pair.
+    initializeE2E: async (token, dbPublicKey) => {
         try {
             // 1. Check if this device already has a private key
             let privateKey = localStorage.getItem("zync_private_key");
+
+            // ⚡ SYNC-CHECKER: local private key exists but the DB lost our public key.
+            // The pair is broken → wipe local state and re-provision from scratch.
+            if (privateKey && !dbPublicKey) {
+                console.warn("⚠️ Key desync detected: local private key present but DB public key missing. Re-syncing...");
+                localStorage.removeItem("zync_private_key");
+
+                const keys = await generateKeyPair();
+                localStorage.setItem("zync_private_key", keys.privateKey);
+                await api.post('/users/keys',
+                    { publicKey: keys.publicKey },
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+
+                // Reflect the fresh public key in local state so the UI is consistent.
+                set((state) => ({ user: state.user ? { ...state.user, publicKey: keys.publicKey } : state.user }));
+                console.log("✅ Fresh E2E keypair generated and synced to database.");
+                return;
+            }
 
             if (!privateKey) {
                 console.log("🔒 Generating new Zero-Knowledge Key Pair...");
@@ -110,7 +133,7 @@ export const useAuthStore = create((set, get) => ({
                     console.error("🔴 Failed to mirror profile to local cache:", cacheErr);
                 }
                 set({ user: res.data.data, isAuthenticated: true, isCheckingAuth: false });
-                await get().initializeE2E(token);
+                await get().initializeE2E(token, res.data.data.publicKey);
 
             } catch (error) {
                 if (error.response?.status === 404 || error.response?.status === 403) {

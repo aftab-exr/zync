@@ -28,40 +28,76 @@ const httpServer = http.createServer(app);
 // 4. Attach the Socket.io engine to the HTTP server
 initializeSocket(httpServer);
 
-// ⚡ VECTOR 3: The AI Identity Bootloader
+// ⚡ VECTOR 3 + AUTO-HEALER: The AI Identity Bootloader
+// Provisions the Zync Intelligence profile and guarantees the AI's public key in
+// the DB is always paired with a live AI_PRIVATE_KEY in the environment. If that
+// pairing is broken (a "ghost key": DB has a publicKey but the matching private key
+// was lost from .env), we force a full key reset so the gateway can never desync.
 const bootstrapAI = async () => {
     try {
-        await User.deleteOne({ isAI: true })
-        let aiUser = await User.findOne({ isAI: true });
-        if (!aiUser) {
-            aiUser = new User({
+        // Helper: forge a brand-new AI identity + fresh keypair and surface the
+        // private key to the admin. Used for first-boot AND ghost-key recovery.
+        const provisionFreshAI = async (reason) => {
+            console.log(`🔄 Provisioning fresh AI identity (${reason})...`);
+            const aiUser = new User({
                 username: "zync_ai",
                 displayName: "Zync Intelligence",
                 email: "ai@zync.dev",
                 firebaseUid: "zync_internal_ai_identity_" + Date.now(),
                 isAI: true
             });
-            await aiUser.save();
-            console.log("⚡ Bootstrapped Zync Intelligence Profile.");
-        }
 
-        if (!aiUser.publicKey) {
-            console.log("🔒 Generating Zero-Knowledge Keypair for AI Gateway...");
             const keys = await generateServerKeyPair();
             aiUser.publicKey = keys.publicKey;
-            await aiUser.save({ returnDocument: 'after' });
+            await aiUser.save();
 
             console.log("\n=======================================================");
             console.log("🚨 CRITICAL ACTION REQUIRED: AI PRIVATE KEY GENERATED");
             console.log("=======================================================");
-            console.log("Add the following line to your server/src/config/.env file:");
+            console.log("Add the following line to your server/src/config/.env file");
+            console.log("(then restart the server) so the AI Gateway can read messages:");
             console.log(`AI_PRIVATE_KEY='${keys.privateKey}'`);
             console.log("=======================================================\n");
-        } else {
-            if (!process.env.AI_PRIVATE_KEY) {
-                console.log("⚠️ WARNING: AI_PRIVATE_KEY is missing from .env but AI User exists.");
-            }
+            return aiUser;
+        };
+
+        const aiUser = await User.findOne({ isAI: true });
+        const hasPrivateKey = !!(process.env.AI_PRIVATE_KEY && process.env.AI_PRIVATE_KEY.trim());
+
+        if (!aiUser) {
+            // First boot: no AI profile exists yet.
+            await provisionFreshAI("no AI profile found");
+            return;
         }
+
+        // ⚡ AUTO-HEALER: AI exists, but the private key is missing/empty in the env.
+        // The DB publicKey is now a ghost (no matching private key) → force a reset
+        // by wiping the stale profile and minting a fresh, self-consistent keypair.
+        if (!hasPrivateKey) {
+            console.warn("⚠️ AI User exists but AI_PRIVATE_KEY is missing/empty. Forcing key reset to clear ghost keys.");
+            await User.deleteOne({ isAI: true });
+            await provisionFreshAI("ghost key reset");
+            return;
+        }
+
+        // AI exists and we hold a private key — but the DB may have lost its publicKey
+        // (e.g. partial wipe). Regenerate just the keypair if so.
+        if (!aiUser.publicKey) {
+            console.log("🔒 AI profile is missing its publicKey. Generating a fresh Zero-Knowledge keypair...");
+            const keys = await generateServerKeyPair();
+            aiUser.publicKey = keys.publicKey;
+            await aiUser.save();
+
+            console.log("\n=======================================================");
+            console.log("🚨 CRITICAL ACTION REQUIRED: AI PRIVATE KEY REGENERATED");
+            console.log("=======================================================");
+            console.log("Replace AI_PRIVATE_KEY in server/src/config/.env with:");
+            console.log(`AI_PRIVATE_KEY='${keys.privateKey}'`);
+            console.log("=======================================================\n");
+            return;
+        }
+
+        console.log("✅ AI Gateway identity verified (publicKey ⇄ AI_PRIVATE_KEY paired).");
     } catch (error) {
         console.error("🔴 Failed to bootstrap AI:", error);
     }

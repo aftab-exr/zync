@@ -17,6 +17,45 @@ import {
 let messageHandler = null;
 let readReceiptHandler = null;
 
+// ⚡ AUTO-HEALING E2E: shown when a payload is genuinely encrypted ({iv,ciphertext})
+// but the shared-secret math / decryptText fails — i.e. a key desync, NOT plaintext.
+const KEY_MISMATCH_TEXT = "🔒 [Encrypted Message - Key Mismatch. Please clear cache and re-login.]";
+
+// Returns true only for objects that look like our encrypted envelope.
+const isEncryptedPayload = (parsed) =>
+  parsed && typeof parsed === 'object' && parsed.iv && parsed.ciphertext;
+
+// ⚡ GRACEFUL DECRYPTION FALLBACK
+// Distinguishes three outcomes for a message's `text`:
+//   1. Not JSON / not an envelope  → plaintext, return unchanged (human messages).
+//   2. Valid envelope, decrypt OK  → return decrypted text.
+//   3. Valid envelope, decrypt FAIL → return the key-mismatch banner (never raw JSON).
+const safeDecryptMessage = async (msg, key) => {
+  if (!msg?.text || !key) return msg;
+
+  let parsed;
+  try {
+    parsed = JSON.parse(msg.text);
+  } catch {
+    // Not JSON → it's plaintext, leave it untouched.
+    return msg;
+  }
+
+  if (!isEncryptedPayload(parsed)) return msg; // JSON, but not our cipher envelope.
+
+  try {
+    const decryptedText = await decryptText(parsed, key);
+    // decryptText swallows errors and returns a sentinel; treat that as a mismatch too.
+    if (!decryptedText || decryptedText === "[Encrypted Message - Unreadable]") {
+      return { ...msg, text: KEY_MISMATCH_TEXT };
+    }
+    return { ...msg, text: decryptedText };
+  } catch (err) {
+    console.error("🔴 Decryption failed (key mismatch):", err);
+    return { ...msg, text: KEY_MISMATCH_TEXT };
+  }
+};
+
 // ⚡ VECTOR 2: Unwrap the group's AES symmetric key for the current user.
 // Finds our personal wrapped-key entry, unwraps it using ECDH(myPrivate, creatorPublic),
 // and re-imports it as an AES-GCM CryptoKey. Returns null for legacy/plaintext groups
@@ -58,20 +97,7 @@ const deriveGroupKey = async (conversation, currentUser) => {
 // decrypts any {iv, ciphertext} payloads in a message list using the given key,
 // leaving non-encrypted / unparseable messages untouched.
 const decryptMessagesWith = async (messages, key) => {
-  return Promise.all(messages.map(async (msg) => {
-    if (msg.text) {
-      try {
-        const parsed = JSON.parse(msg.text);
-        if (parsed && typeof parsed === 'object' && parsed.iv && parsed.ciphertext) {
-          const decryptedText = await decryptText(parsed, key);
-          return { ...msg, text: decryptedText };
-        }
-      } catch (e) {
-        // Not encrypted or parsing failed, fallback to raw text
-      }
-    }
-    return msg;
-  }));
+  return Promise.all(messages.map((msg) => safeDecryptMessage(msg, key)));
 };
 
 export const useMessageStore = create((set, get) => ({
@@ -132,20 +158,9 @@ export const useMessageStore = create((set, get) => ({
           const theirPubKeyObj = await importPublicKey(otherParticipant.publicKey);
           const sharedSecretKey = await deriveSharedSecret(myPrivKeyObj, theirPubKeyObj);
 
-          decryptedMessages = await Promise.all(res.data.data.map(async (msg) => {
-            if (msg.text) {
-              try {
-                const parsed = JSON.parse(msg.text);
-                if (parsed && typeof parsed === 'object' && parsed.iv && parsed.ciphertext) {
-                  const decryptedText = await decryptText(parsed, sharedSecretKey);
-                  return { ...msg, text: decryptedText };
-                }
-              } catch (e) {
-                // Not encrypted or parsing failed, fallback to raw text
-              }
-            }
-            return msg;
-          }));
+          decryptedMessages = await Promise.all(
+            res.data.data.map((msg) => safeDecryptMessage(msg, sharedSecretKey))
+          );
         } catch (err) {
           console.error("Failed to decrypt historical messages:", err);
         }
@@ -269,30 +284,27 @@ export const useMessageStore = create((set, get) => ({
 
         if (conversation?.isGroup) {
           // ⚡ VECTOR 2: Group E2EE — decrypt inbound message with the group key.
-          try {
-            const parsed = JSON.parse(newMessage.text);
-            if (parsed && typeof parsed === 'object' && parsed.iv && parsed.ciphertext) {
-              const groupKey = await deriveGroupKey(conversation, currentUser);
-              if (groupKey) {
-                const decryptedText = await decryptText(parsed, groupKey);
-                decryptedMsg = { ...newMessage, text: decryptedText };
-              }
-            }
-          } catch (e) {
-            // Not encrypted (legacy group) or parsing failed → leave raw
+          const groupKey = await deriveGroupKey(conversation, currentUser);
+          if (groupKey) {
+            decryptedMsg = await safeDecryptMessage(newMessage, groupKey);
           }
         } else if (conversation && !conversation.isGroup && privateKeyJwk && otherParticipant && otherParticipant.publicKey && !otherParticipant.isAI) {
           try {
-            const parsed = JSON.parse(newMessage.text);
-            if (parsed && typeof parsed === 'object' && parsed.iv && parsed.ciphertext) {
-              const myPrivKeyObj = await importPrivateKey(privateKeyJwk);
-              const theirPubKeyObj = await importPublicKey(otherParticipant.publicKey);
-              const sharedSecretKey = await deriveSharedSecret(myPrivKeyObj, theirPubKeyObj);
-              const decryptedText = await decryptText(parsed, sharedSecretKey);
-              decryptedMsg = { ...newMessage, text: decryptedText };
-            }
+            const myPrivKeyObj = await importPrivateKey(privateKeyJwk);
+            const theirPubKeyObj = await importPublicKey(otherParticipant.publicKey);
+            const sharedSecretKey = await deriveSharedSecret(myPrivKeyObj, theirPubKeyObj);
+            decryptedMsg = await safeDecryptMessage(newMessage, sharedSecretKey);
           } catch (e) {
-            // Not encrypted or parsing failed
+            // Key derivation itself failed → surface the mismatch banner if the
+            // payload was actually encrypted, otherwise leave the raw text.
+            try {
+              const parsed = JSON.parse(newMessage.text);
+              if (parsed && typeof parsed === 'object' && parsed.iv && parsed.ciphertext) {
+                decryptedMsg = { ...newMessage, text: KEY_MISMATCH_TEXT };
+              }
+            } catch {
+              // plaintext → leave as-is
+            }
           }
         }
       }
