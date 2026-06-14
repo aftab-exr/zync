@@ -61,6 +61,14 @@ const bootstrapAI = async () => {
             return aiUser;
         };
 
+        // ⚡ SINGLETON ENFORCER: if no private key is configured in the env, every
+        // existing AI profile is a guaranteed ghost (DB publicKey with no matching
+        // private key). Purge ALL of them up front so we can mint exactly one fresh,
+        // self-consistent identity below — no duplicate/ghost AI profiles can survive.
+        if (!process.env.AI_PRIVATE_KEY) {
+            await User.deleteMany({ isAI: true });
+        }
+
         const aiUser = await User.findOne({ isAI: true });
         const hasPrivateKey = !!(process.env.AI_PRIVATE_KEY && process.env.AI_PRIVATE_KEY.trim());
 

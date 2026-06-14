@@ -29,10 +29,15 @@ export const useAuthStore = create((set, get) => ({
 
                 const keys = await generateKeyPair();
                 localStorage.setItem("zync_private_key", keys.privateKey);
-                await api.post('/users/keys',
-                    { publicKey: keys.publicKey },
-                    { headers: { Authorization: `Bearer ${token}` } }
-                );
+                // ✅ TRUE ROUTE (verified): POST /api/v1/users/keys → updatePublicKey
+                try {
+                    await api.post('/users/keys',
+                        { publicKey: keys.publicKey },
+                        { headers: { Authorization: `Bearer ${token}` } }
+                    );
+                } catch (error) {
+                    console.error("🔴 CRITICAL: FAILED TO SYNC PUBLIC KEY TO DB", error);
+                }
 
                 // Reflect the fresh public key in local state so the UI is consistent.
                 set((state) => ({ user: state.user ? { ...state.user, publicKey: keys.publicKey } : state.user }));
@@ -48,11 +53,16 @@ export const useAuthStore = create((set, get) => ({
                 localStorage.setItem("zync_private_key", keys.privateKey);
 
                 // 3. Upload the public key to MongoDB
-                await api.post('/users/keys',
-                    { publicKey: keys.publicKey },
-                    { headers: { Authorization: `Bearer ${token}` } }
-                );
-                console.log("✅ Public Key secured in database.");
+                // ✅ TRUE ROUTE (verified): POST /api/v1/users/keys → updatePublicKey
+                try {
+                    await api.post('/users/keys',
+                        { publicKey: keys.publicKey },
+                        { headers: { Authorization: `Bearer ${token}` } }
+                    );
+                    console.log("✅ Public Key secured in database.");
+                } catch (error) {
+                    console.error("🔴 CRITICAL: FAILED TO SYNC PUBLIC KEY TO DB", error);
+                }
             } else if (get().user && !get().user.publicKey) {
                 // Restore public key coordinates from local private key coordinate components
                 try {
@@ -64,13 +74,14 @@ export const useAuthStore = create((set, get) => ({
                         y: jwkPriv.y
                     };
                     const pubKeyStr = JSON.stringify(jwkPub);
+                    // ✅ TRUE ROUTE (verified): POST /api/v1/users/keys → updatePublicKey
                     await api.post('/users/keys',
                         { publicKey: pubKeyStr },
                         { headers: { Authorization: `Bearer ${token}` } }
                     );
                     console.log("✅ Public Key restored & secured in database.");
                 } catch (err) {
-                    console.error("Failed to restore public key from private key JWK:", err);
+                    console.error("🔴 CRITICAL: FAILED TO SYNC PUBLIC KEY TO DB", err);
                 }
             }
         } catch (error) {

@@ -43,6 +43,13 @@ export const useSocketStore = create((set, get) => ({
     socket.on('connect', () => {
       if (import.meta.env.DEV) console.log('🟢 Socket connected to server:', socket.id);
       set({ isConnected: true, isReconnecting: false });
+
+      // ⚡ OFFLINE CATCH-UP: If the user comes back online while looking at a chat,
+      // refetch to pull any messages missed during the disconnect.
+      const activeConv = useChatStore.getState().selectedConversation;
+      if (activeConv?._id) {
+        useMessageStore.getState().fetchMessages(activeConv._id);
+      }
     });
 
     socket.on('disconnect', (reason) => {

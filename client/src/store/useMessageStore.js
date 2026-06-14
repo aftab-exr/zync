@@ -50,7 +50,7 @@ const safeDecryptMessage = async (msg, sharedSecret) => {
         return decryptedText;
     } catch (e) {
         if (e.name === "SyntaxError") return msg.text; // Safe Plaintext fallback
-        console.error("🔴 E2E Math Failed:", e);
+        console.error("🔴 E2E Math Failed for msg:", msg._id, "Raw Error:", e);
         return "🔒 [Encrypted Message - Mathematical Mismatch]";
     }
 };
