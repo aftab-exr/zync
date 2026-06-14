@@ -24,6 +24,7 @@
     "socket.io-client": "^4.8.3",
     "tailwind-merge": "^3.6.0",
     "vite-plugin-node-polyfills": "^0.28.0",
+    "workbox-window": "^7.4.1",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
