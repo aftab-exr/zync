@@ -75,7 +75,7 @@ export const createConversation = async (req, res) => {
 // ⚡ PHASE 2.3: Create Group Conversation
 export const createGroupConversation = async (req, res) => {
     try {
-        const { name, participantIds } = req.body;
+        const { name, participantIds, encryptedGroupKeys } = req.body;
         const creatorId = req.user?._id;
 
         if (!creatorId || !mongoose.Types.ObjectId.isValid(creatorId)) {
@@ -115,11 +115,20 @@ export const createGroupConversation = async (req, res) => {
             return res.status(400).json({ success: false, error: "One or more participants are invalid or have deleted accounts" });
         }
 
+        // ⚡ VECTOR 2: Accept the per-member wrapped group keys (optional for
+        // backwards compatibility — legacy groups created without them stay plaintext).
+        const sanitizedGroupKeys = Array.isArray(encryptedGroupKeys)
+            ? encryptedGroupKeys.filter(
+                (k) => k && mongoose.Types.ObjectId.isValid(k.userId) && typeof k.encryptedKeyPayload === "string"
+            )
+            : [];
+
         const newGroup = await Conversation.create({
             isGroup: true,
             groupName: trimmedName,
             participants: allParticipants,
-            groupAdmins: [creatorId]
+            groupAdmins: [creatorId],
+            encryptedGroupKeys: sanitizedGroupKeys
         });
 
         const populatedGroup = await Conversation.findById(newGroup._id)

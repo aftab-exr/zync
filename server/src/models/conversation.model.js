@@ -14,6 +14,16 @@ const conversationSchema = new Schema({
     groupName: { type: String, trim: true },
     groupAvatar: { type: String, default: "" },
     groupAdmins: [{ type: Schema.Types.ObjectId, ref: "User" }],
+
+    // ⚡ VECTOR 2: Multi-Cast Zero-Knowledge Encryption
+    // The master AES-GCM group key, wrapped individually for each participant
+    // using that member's ECDH shared secret. Server never sees the raw key.
+    encryptedGroupKeys: [{
+        _id: false,
+        userId: { type: Schema.Types.ObjectId, ref: "User" },
+        encryptedKeyPayload: { type: String }
+    }],
+
     communityId: { type: Schema.Types.ObjectId, ref: "Community", default: null } // Reserved for V3
 }, {
     timestamps: true

@@ -2,7 +2,16 @@ import { create } from 'zustand';
 import { api } from '../lib/axios';
 import { auth } from '../lib/firebase';
 import { useSocketStore } from './useSocketStore';
+import { useAuthStore } from './useAuthStore';
 import { sameId } from '../lib/conversation';
+import {
+  generateGroupSymmetricKey,
+  exportSymmetricKey,
+  importPrivateKey,
+  importPublicKey,
+  deriveSharedSecret,
+  encryptText,
+} from '../lib/crypto';
 
 let presenceHandler = null;
 
@@ -72,16 +81,63 @@ export const useChatStore = create((set) => ({
     }
   },
 
-  createGroup: async (name, participantIds) => {
+  // ⚡ VECTOR 2: `participants` are full user objects (with _id + publicKey from
+  // /users/search). We wrap a fresh AES group key for every member before posting.
+  createGroup: async (name, participants) => {
     set({ isCreatingGroup: true });
     try {
       const token = await auth.currentUser?.getIdToken();
       if (!token) {
         throw new Error('No active session token found');
       }
+
+      const participantIds = (participants || []).map((p) => p._id);
+
+      // ⚡ VECTOR 2: Multi-Cast Zero-Knowledge group key wrapping.
+      // Generate one master AES key, then lock it for each member (incl. creator)
+      // using ECDH(creatorPrivate, memberPublic). Failure here degrades gracefully
+      // to a legacy plaintext group rather than blocking creation.
+      let encryptedGroupKeys = [];
+      try {
+        const currentUser = useAuthStore.getState().authUser || useAuthStore.getState().user;
+        const privateKeyJwk = localStorage.getItem('zync_private_key');
+
+        if (currentUser?._id && currentUser?.publicKey && privateKeyJwk) {
+          const groupKey = await generateGroupSymmetricKey();
+          const rawGroupKeyStr = await exportSymmetricKey(groupKey);
+          const creatorPriv = await importPrivateKey(privateKeyJwk);
+
+          // Include the creator's own key entry so they can decrypt their own group.
+          const allMembers = [
+            ...participants,
+            { _id: currentUser._id, publicKey: currentUser.publicKey },
+          ];
+
+          for (const member of allMembers) {
+            if (!member?._id || !member?.publicKey) continue;
+            try {
+              const memberPub = await importPublicKey(member.publicKey);
+              const wrapSecret = await deriveSharedSecret(creatorPriv, memberPub);
+              const encryptedKeyPayload = await encryptText(rawGroupKeyStr, wrapSecret);
+              encryptedGroupKeys.push({
+                userId: member._id,
+                encryptedKeyPayload: JSON.stringify(encryptedKeyPayload),
+              });
+            } catch (memberErr) {
+              console.error(`Failed to wrap group key for member ${member._id}:`, memberErr);
+            }
+          }
+        } else {
+          console.warn('⚠️ Missing local keys — creating group in legacy plaintext mode.');
+        }
+      } catch (keyErr) {
+        console.error('Group key generation failed; falling back to plaintext group:', keyErr);
+        encryptedGroupKeys = [];
+      }
+
       const res = await api.post(
         '/conversations/group',
-        { name, participantIds },
+        { name, participantIds, encryptedGroupKeys },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 

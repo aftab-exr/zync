@@ -68,8 +68,9 @@ export default function NewMessageModal({ isOpen, onClose, onSelectConversation 
   const handleCreateGroup = async () => {
     if (!groupName.trim() || selectedUsers.length === 0) return;
 
-    const participantIds = selectedUsers.map(u => u._id);
-    const newGroup = await createGroup(groupName, participantIds);
+    // ⚡ VECTOR 2: pass full user objects (carry publicKey) so the store can
+    // wrap the group symmetric key per-member for Zero-Knowledge group E2EE.
+    const newGroup = await createGroup(groupName, selectedUsers);
 
     if (newGroup) {
       onSelectConversation(newGroup._id);

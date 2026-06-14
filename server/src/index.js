@@ -15,8 +15,12 @@ import app from "./app.js";
 import { PORT } from "./constants/constants.js";
 import { connectDB } from "../database/connection.js";
 import http from "http";
-import { initializeSocket } from "./socket/index.js"; // Ensure this path is correct
-import "./config/firebase.js"; // Boot the Firebase Admin engine
+import { initializeSocket } from "./socket/index.js"; 
+import "./config/firebase.js"; 
+
+// ⚡ Vector 3: AI Bootloader Imports
+import User from "./models/user.model.js";
+import { generateServerKeyPair } from "./lib/serverCrypto.js";
 
 // 3. Create the HTTP server wrapping Express
 const httpServer = http.createServer(app);
@@ -24,10 +28,51 @@ const httpServer = http.createServer(app);
 // 4. Attach the Socket.io engine to the HTTP server
 initializeSocket(httpServer);
 
-// 5. Connect to DB and Start Listening
-// ... [Keep your top imports and setup] ...
+// ⚡ VECTOR 3: The AI Identity Bootloader
+const bootstrapAI = async () => {
+    try {
+        await User.deleteOne({ isAI: true })
+        let aiUser = await User.findOne({ isAI: true });
+        if (!aiUser) {
+            aiUser = new User({
+                username: "zync_ai",
+                displayName: "Zync Intelligence",
+                email: "ai@zync.dev",
+                firebaseUid: "zync_internal_ai_identity_" + Date.now(),
+                isAI: true
+            });
+            await aiUser.save();
+            console.log("⚡ Bootstrapped Zync Intelligence Profile.");
+        }
 
-connectDB().then(() => {
+        if (!aiUser.publicKey) {
+            console.log("🔒 Generating Zero-Knowledge Keypair for AI Gateway...");
+            const keys = await generateServerKeyPair();
+            aiUser.publicKey = keys.publicKey;
+            await aiUser.save({ returnDocument: 'after' });
+
+            console.log("\n=======================================================");
+            console.log("🚨 CRITICAL ACTION REQUIRED: AI PRIVATE KEY GENERATED");
+            console.log("=======================================================");
+            console.log("Add the following line to your server/src/config/.env file:");
+            console.log(`AI_PRIVATE_KEY='${keys.privateKey}'`);
+            console.log("=======================================================\n");
+        } else {
+            if (!process.env.AI_PRIVATE_KEY) {
+                console.log("⚠️ WARNING: AI_PRIVATE_KEY is missing from .env but AI User exists.");
+            }
+        }
+    } catch (error) {
+        console.error("🔴 Failed to bootstrap AI:", error);
+    }
+};
+
+// 5. Connect to DB and Start Listening
+connectDB().then(async () => {
+  
+  // ⚡ Ensure AI exists before accepting traffic
+  await bootstrapAI();
+
   const server = httpServer.listen(PORT, () => {
     if (process.env.NODE_ENV !== 'production') {
       console.log(`🚀 Zync Server v1.0.0 running on port ${PORT}`);
@@ -46,7 +91,6 @@ connectDB().then(() => {
     if (server) {
       server.close(() => {
         console.log('🛑 Server closed gracefully.');
-        // Exit with non-zero code for errors, zero for normal signals
         const isError = reason === 'uncaughtException' || reason === 'unhandledRejection';
         process.exit(isError ? 1 : 0);
       });

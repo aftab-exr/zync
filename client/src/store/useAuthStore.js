@@ -69,6 +69,27 @@ export const useAuthStore = create((set, get) => ({
             }
 
             try {
+                // ⚡ PWA OFFLINE BYPASS: When the device has no network, never hit the wire.
+                // Mirror the last-known profile from local storage so airplane mode
+                // doesn't nuke the session and bounce the user to /login.
+                if (!navigator.onLine) {
+                    try {
+                        const cached = localStorage.getItem("zync_user_cache");
+                        if (cached) {
+                            const parsedCache = JSON.parse(cached);
+                            set({ user: parsedCache, isAuthenticated: true, isCheckingAuth: false });
+                            return;
+                        }
+                        // No mirror to fall back on — fail gracefully as unauthenticated.
+                        set({ user: null, isAuthenticated: false, isCheckingAuth: false });
+                        return;
+                    } catch (cacheErr) {
+                        console.error("🔴 Offline cache parse failed:", cacheErr);
+                        set({ user: null, isAuthenticated: false, isCheckingAuth: false });
+                        return;
+                    }
+                }
+
                 const token = await firebaseUser.getIdToken();
 
                 const res = await api.get('/users/me', {
@@ -82,6 +103,12 @@ export const useAuthStore = create((set, get) => ({
                 }
 
                 // Profile exists! Hydrate the state.
+                // ⚡ PWA OFFLINE MIRROR: persist the live profile for offline boots.
+                try {
+                    localStorage.setItem("zync_user_cache", JSON.stringify(res.data.data));
+                } catch (cacheErr) {
+                    console.error("🔴 Failed to mirror profile to local cache:", cacheErr);
+                }
                 set({ user: res.data.data, isAuthenticated: true, isCheckingAuth: false });
                 await get().initializeE2E(token);
 
@@ -131,6 +158,8 @@ export const useAuthStore = create((set, get) => ({
 
     logout: async () => {
         await signOut(auth);
+        // ⚡ PWA OFFLINE MIRROR: clear the cached profile so it can't resurrect a stale session.
+        localStorage.removeItem("zync_user_cache");
         set({ isAuthenticated: false, user: null });
     }
 }));

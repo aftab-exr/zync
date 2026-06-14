@@ -8,7 +8,8 @@ import cloudinary from "../config/cloudinary.js";
 
 // ⚡ Safe Dynamic Imports
 import * as socketModule from "../socket/index.js"; 
-import * as aiService from "../services/ai.service.js"; 
+import { generateAIResponse } from "../services/ai.service.js"; 
+import { importPublicKey, importPrivateKey, deriveSharedSecret, decryptText, encryptText } from "../lib/serverCrypto.js";
 
 export const getMessages = async (req, res) => {
     try {
@@ -43,10 +44,7 @@ export const getMessages = async (req, res) => {
 
 export const sendMessage = async (req, res) => {
     try {
-        // ⚡ THE FIX: Correctly extracting conversationId from your exact route definition
         const conversationId = req.params.conversationId || req.params.id || req.body.conversationId;
-        
-        // ⚡ Extracting the image payload from React
         const { text, image } = req.body; 
         const senderId = req.user?._id;
 
@@ -58,7 +56,6 @@ export const sendMessage = async (req, res) => {
             return res.status(400).json({ success: false, error: "Conversation ID is missing or invalid." });
         }
 
-        // ⚡ THE FIX: Allow empty text ONLY if an image is provided
         if ((text === undefined || text === null || typeof text !== "string" || !text.trim()) && !image) {
             return res.status(400).json({ success: false, error: "Message must contain text or an image." });
         }
@@ -82,7 +79,7 @@ export const sendMessage = async (req, res) => {
             imageUrl = uploadResponse.secure_url;
         }
 
-        // ⚡ Save the message with the image URL attached
+        // ⚡ Save the Human's Encrypted Message
         const newMessage = await Message.create({
             conversationId,
             senderId,
@@ -95,7 +92,6 @@ export const sendMessage = async (req, res) => {
             lastMessageId: newMessage._id
         });
 
-        // ⚡ O(1) Bulk Fetch Optimization for Multi-Cast Loop ⚡
         const otherParticipantIds = conversation.participants.filter(
             (pId) => pId.toString() !== senderId.toString()
         );
@@ -104,17 +100,69 @@ export const sendMessage = async (req, res) => {
         const io = socketModule.io || (socketModule.getIO && socketModule.getIO());
 
         for (const receiver of receivers) {
-            // 🤖 AI Routing (Preserved perfectly from your code)
+            // 🤖 AI Cryptographic Routing
             if (receiver.isAI) {
-                // Give the AI fallback text if you only sent an image
-                const aiTextPayload = text || "[User sent an image attachment]";
-                
-                if (typeof aiService.processAIResponse === 'function') {
-                    aiService.processAIResponse(conversationId, aiTextPayload, senderId, receiver._id);
-                } else if (typeof aiService.generateAIResponse === 'function') {
-                    aiService.generateAIResponse(conversationId, aiTextPayload, senderId, receiver._id);
-                } else if (typeof aiService.default === 'function') {
-                    aiService.default(conversationId, aiTextPayload, senderId, receiver._id);
+                const aiPrivateKeyStr = process.env.AI_PRIVATE_KEY;
+                const senderPublicKeyStr = req.user.publicKey;
+
+                if (!aiPrivateKeyStr || !senderPublicKeyStr) {
+                     console.error("🔴 AI Gateway keys missing. Cannot unwrap message.");
+                     continue;
+                }
+
+                let plainTextPrompt = text; 
+                let sharedSecret;
+
+                // 1. UNWRAP THE CIPHER-TEXT
+                try {
+                    const aiPrivateKey = await importPrivateKey(aiPrivateKeyStr);
+                    const senderPublicKey = await importPublicKey(senderPublicKeyStr);
+                    sharedSecret = await deriveSharedSecret(aiPrivateKey, senderPublicKey);
+
+                    if (text && text.startsWith('{"iv":')) {
+                        const encryptedPayload = JSON.parse(text);
+                        plainTextPrompt = await decryptText(encryptedPayload, sharedSecret);
+                    }
+                } catch (err) {
+                    console.error("🔴 AI Gateway Unwrap Failed:", err);
+                    plainTextPrompt = "System Warning: Failed to decrypt human prompt.";
+                }
+
+                if (image) plainTextPrompt += "\n[User also attached an image payload]";
+
+                // 2. INFERENCE (GROQ Llama 3.3)
+                const aiResponseText = await generateAIResponse(plainTextPrompt);
+
+                // 3. RE-WRAP THE CIPHER-TEXT
+                let finalEncryptedResponse = aiResponseText;
+                try {
+                    const encryptedObj = await encryptText(aiResponseText, sharedSecret);
+                    finalEncryptedResponse = JSON.stringify(encryptedObj);
+                } catch (err) {
+                    console.error("🔴 AI Gateway Re-wrap Failed:", err);
+                }
+
+                // 4. SAVE AND DELIVER AI RESPONSE
+                const aiMessage = await Message.create({
+                    senderId: receiver._id,
+                    conversationId: conversation._id,
+                    text: finalEncryptedResponse,
+                    imageUrl: "" // Assuming AI doesn't reply with images yet
+                });
+
+                await Conversation.findByIdAndUpdate(conversationId, {
+                    lastMessageAt: new Date(),
+                    lastMessageId: aiMessage._id
+                });
+
+                if (io) {
+                    const aiPayload = {
+                        ...aiMessage.toObject(),
+                        conversationId: aiMessage.conversationId.toString(),
+                        senderId: aiMessage.senderId.toString(),
+                    };
+                    // Emit directly back to the human sender
+                    io.to(senderId.toString()).emit("newMessage", aiPayload);
                 }
             } 
             // 👤 Human Socket Routing

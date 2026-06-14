@@ -93,7 +93,7 @@ export const updatePublicKey = async (req, res) => {
         const user = await User.findByIdAndUpdate(
             userId,
             { publicKey },
-            { new: true }
+            { returnDocument: 'after' }
         );
 
         res.status(200).json({ success: true, data: user.publicKey });

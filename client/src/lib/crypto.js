@@ -90,3 +90,37 @@ export const decryptText = async (encryptedPayload, sharedSecretKey) => {
         return "[Encrypted Message - Unreadable]";
     }
 };
+
+/**
+ * ⚡ VECTOR 2: MULTI-CAST GROUP SYMMETRIC KEY
+ * One AES-GCM master key per group. It is wrapped (encrypted) individually for
+ * each member using the standard ECDH shared secret (encryptText/decryptText),
+ * so the server only ever stores ciphertext — true Zero-Knowledge group E2EE.
+ */
+
+// 6. Generate a raw AES-GCM 256-bit group key (extractable so it can be wrapped per-member)
+export const generateGroupSymmetricKey = async () => {
+    return await window.crypto.subtle.generateKey(
+        { name: "AES-GCM", length: 256 },
+        true, // extractable
+        ["encrypt", "decrypt"]
+    );
+};
+
+// 7. Export the AES key to a raw Base64 string so it can be wrapped via encryptText
+export const exportSymmetricKey = async (key) => {
+    const rawBuffer = await window.crypto.subtle.exportKey("raw", key);
+    return btoa(String.fromCharCode(...new Uint8Array(rawBuffer)));
+};
+
+// 8. Import a Base64 string back into an AES-GCM CryptoKey
+export const importSymmetricKey = async (base64String) => {
+    const raw = new Uint8Array(atob(base64String).split("").map(c => c.charCodeAt(0)));
+    return await window.crypto.subtle.importKey(
+        "raw",
+        raw,
+        { name: "AES-GCM", length: 256 },
+        true,
+        ["encrypt", "decrypt"]
+    );
+};
