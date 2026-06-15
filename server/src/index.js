@@ -21,6 +21,8 @@ import "./config/firebase.js";
 
 // ⚡ Vector 3: AI Bootloader Imports
 import User from "./models/user.model.js";
+import Conversation from "./models/conversation.model.js";
+import Message from "./models/message.model.js";
 import { generateServerKeyPair } from "./lib/serverCrypto.js";
 
 // 3. Create the HTTP server wrapping Express
@@ -66,6 +68,35 @@ const bootstrapAI = async () => {
         // private key). Purge ALL of them up front so we can mint exactly one fresh,
         // self-consistent identity below — no duplicate/ghost AI profiles can survive.
         if (!process.env.AI_PRIVATE_KEY) {
+            console.log("♻️  AI Key Missing: Initiating Cascade Auto-Healer...");
+            const oldAIs = await User.find({ isAI: true });
+            const oldAIIds = oldAIs.map(ai => ai._id);
+
+            if (oldAIIds.length > 0) {
+                // 1. Identify every conversation the ghost AI is part of so we can
+                //    purge ALL of its messages — not just the ones the AI sent, but
+                //    the user's own messages in that thread (otherwise they orphan).
+                const ghostConvos = await Conversation.find(
+                    { participants: { $in: oldAIIds } },
+                    { _id: 1 }
+                );
+                const ghostConvoIds = ghostConvos.map(c => c._id);
+
+                // 2. Wipe all messages in ghost conversations OR sent by the ghost AI.
+                await Message.deleteMany({
+                    $or: [
+                        { conversationId: { $in: ghostConvoIds } },
+                        { senderId: { $in: oldAIIds } }
+                    ]
+                });
+
+                // 3. Wipe the ghost conversations themselves.
+                await Conversation.deleteMany({ participants: { $in: oldAIIds } });
+
+                console.log("🧹 Cleared orphaned AI conversations and messages.");
+            }
+
+            // 4. Wipe the ghost AI profiles.
             await User.deleteMany({ isAI: true });
         }
 

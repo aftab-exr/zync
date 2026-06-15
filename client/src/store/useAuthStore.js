@@ -26,7 +26,8 @@ export const useAuthStore = create((set, get) => ({
             if (privateKey && !dbPublicKey) {
                 console.error("🔴 Key desync detected: local private key present but DB public key missing. Re-syncing...");
                 localStorage.removeItem("zync_private_key");
-
+                localStorage.removeItem("zync_user_cache");
+                
                 const keys = await generateKeyPair();
                 localStorage.setItem("zync_private_key", keys.privateKey);
                 // ✅ TRUE ROUTE (verified): POST /api/v1/users/keys → updatePublicKey

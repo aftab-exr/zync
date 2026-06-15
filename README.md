@@ -45,7 +45,7 @@ Zync solves the classic "lost message" problem found in pure WebSocket apps by u
 
 ### 1. Clone & Install
 ```bash
-git clone [https://github.com/YOUR_GITHUB_USERNAME/zync.git](https://github.com/YOUR_GITHUB_USERNAME/zync.git)
+git clone [https://github.com/aftab-exr/zync.git](https://github.com/YOUR_GITHUB_USERNAME/zync.git)
 cd zync
 
 # Install backend dependencies
