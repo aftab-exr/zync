@@ -4,6 +4,45 @@ import { signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuth
 import { auth, googleProvider } from "../lib/firebase";
 import { api } from "../lib/axios";
 
+// ⚡ Derive the public-key JWK string from a stored private-key JWK string.
+// The public key is fully recoverable from the private key, so a missing/failed
+// public key is NEVER a reason to touch the private key.
+const derivePublicKeyFromPrivate = (privateKeyStr) => {
+    const jwkPriv = JSON.parse(privateKeyStr);
+    return JSON.stringify({
+        kty: jwkPriv.kty,
+        crv: jwkPriv.crv,
+        x: jwkPriv.x,
+        y: jwkPriv.y,
+    });
+};
+
+// ⚡ THE RETRY PROTOCOL: upload the public key with bounded backoff.
+// On persistent failure it sets a `zync_pending_key_upload` flag so the next
+// boot/reconnect re-attempts, and it NEVER deletes the local private key —
+// the failure is fully recoverable, the private key is not.
+const uploadPublicKeyWithRetry = async (publicKey, token, attempts = 3) => {
+    for (let i = 0; i < attempts; i++) {
+        try {
+            await api.post('/users/keys',
+                { publicKey },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            localStorage.removeItem("zync_pending_key_upload");
+            return true;
+        } catch (error) {
+            console.error(`🔴 Public key upload attempt ${i + 1}/${attempts} failed:`, error);
+            if (i < attempts - 1) {
+                // Linear backoff: 500ms, 1000ms — survives a brief network drop.
+                await new Promise((resolve) => setTimeout(resolve, 500 * (i + 1)));
+            }
+        }
+    }
+    // Persistent failure → flag for retry on next boot. Private key stays intact.
+    localStorage.setItem("zync_pending_key_upload", "1");
+    return false;
+};
+
 export const useAuthStore = create((set, get) => ({
     user: null,
     isAuthenticated: false,
@@ -21,27 +60,37 @@ export const useAuthStore = create((set, get) => ({
             // 1. Check if this device already has a private key
             let privateKey = localStorage.getItem("zync_private_key");
 
-            // ⚡ SYNC-CHECKER: local private key exists but the DB lost our public key.
-            // The pair is broken → wipe local state and re-provision from scratch.
+            // ⚡ HARDENED SYNC-CHECKER (non-destructive):
+            // Local private key exists but the DB has no public key for us. The old
+            // code wiped the private key and regenerated — permanently destroying the
+            // ability to decrypt all prior messages. Instead, we RE-DERIVE the public
+            // key from the existing private key and RE-UPLOAD it. The private key is
+            // never touched.
             if (privateKey && !dbPublicKey) {
-                console.error("🔴 Key desync detected: local private key present but DB public key missing. Re-syncing...");
-                localStorage.removeItem("zync_private_key");
-                localStorage.removeItem("zync_user_cache");
-                
-                const keys = await generateKeyPair();
-                localStorage.setItem("zync_private_key", keys.privateKey);
-                // ✅ TRUE ROUTE (verified): POST /api/v1/users/keys → updatePublicKey
-                try {
-                    await api.post('/users/keys',
-                        { publicKey: keys.publicKey },
-                        { headers: { Authorization: `Bearer ${token}` } }
-                    );
-                } catch (error) {
-                    console.error("🔴 CRITICAL: FAILED TO SYNC PUBLIC KEY TO DB", error);
+                // Safety guard: only act on a CONFIRMED profile that genuinely lacks a
+                // public key — not a transient/partial read. checkAuth only reaches
+                // here after a successful /users/me, and `dbPublicKey` is read from
+                // that profile; if there's no user object yet, treat it as untrusted
+                // and bail without changing anything.
+                if (!get().user) {
+                    console.warn("⚠️ Key re-sync skipped: no confirmed user profile (possible transient read). Will retry next boot.");
+                    return;
                 }
 
-                // Reflect the fresh public key in local state so the UI is consistent.
-                set((state) => ({ user: state.user ? { ...state.user, publicKey: keys.publicKey } : state.user }));
+                console.warn("🟡 Key desync detected: DB missing public key. Re-deriving from local private key and re-uploading (private key preserved)...");
+                try {
+                    const pubKeyStr = derivePublicKeyFromPrivate(privateKey);
+                    const ok = await uploadPublicKeyWithRetry(pubKeyStr, token);
+                    if (ok) {
+                        // Reflect the recovered public key in local state for UI consistency.
+                        set((state) => ({ user: state.user ? { ...state.user, publicKey: pubKeyStr } : state.user }));
+                    }
+                    // If !ok, the pending flag is set; the next boot re-enters this same
+                    // branch (DB still lacks the key) and retries. No data lost either way.
+                } catch (err) {
+                    // Malformed local private key — surface it, but NEVER delete it.
+                    console.error("🔴 Could not derive public key from local private key:", err);
+                }
                 return;
             }
 
@@ -51,34 +100,20 @@ export const useAuthStore = create((set, get) => ({
                 // 2. Lock the private key in the device
                 localStorage.setItem("zync_private_key", keys.privateKey);
 
-                // 3. Upload the public key to MongoDB
+                // 3. Upload the public key to MongoDB (retry on failure, never wipe).
                 // ✅ TRUE ROUTE (verified): POST /api/v1/users/keys → updatePublicKey
-                try {
-                    await api.post('/users/keys',
-                        { publicKey: keys.publicKey },
-                        { headers: { Authorization: `Bearer ${token}` } }
-                    );
-                } catch (error) {
-                    console.error("🔴 CRITICAL: FAILED TO SYNC PUBLIC KEY TO DB", error);
+                const ok = await uploadPublicKeyWithRetry(keys.publicKey, token);
+                if (ok) {
+                    set((state) => ({ user: state.user ? { ...state.user, publicKey: keys.publicKey } : state.user }));
                 }
             } else if (get().user && !get().user.publicKey) {
-                // Restore public key coordinates from local private key coordinate components
+                // Restore the public key by deriving it from the local private key.
                 try {
-                    const jwkPriv = JSON.parse(privateKey);
-                    const jwkPub = {
-                        kty: jwkPriv.kty,
-                        crv: jwkPriv.crv,
-                        x: jwkPriv.x,
-                        y: jwkPriv.y
-                    };
-                    const pubKeyStr = JSON.stringify(jwkPub);
+                    const pubKeyStr = derivePublicKeyFromPrivate(privateKey);
                     // ✅ TRUE ROUTE (verified): POST /api/v1/users/keys → updatePublicKey
-                    await api.post('/users/keys',
-                        { publicKey: pubKeyStr },
-                        { headers: { Authorization: `Bearer ${token}` } }
-                    );
+                    await uploadPublicKeyWithRetry(pubKeyStr, token);
                 } catch (err) {
-                    console.error("🔴 CRITICAL: FAILED TO SYNC PUBLIC KEY TO DB", err);
+                    console.error("🔴 Failed to derive/sync public key from private key:", err);
                 }
             }
         } catch (error) {
@@ -195,6 +230,12 @@ export const useAuthStore = create((set, get) => ({
         await signOut(auth);
         // ⚡ PWA OFFLINE MIRROR: clear the cached profile so it can't resurrect a stale session.
         localStorage.removeItem("zync_user_cache");
+        // 🔒 DO NOT remove "zync_private_key" here. It is the ONLY copy of the user's
+        // cryptographic identity (no server backup — see lib/crypto.js). Deleting it on
+        // logout would permanently destroy the ability to decrypt all prior messages on
+        // the next login. Logout clears session state only. A deliberate "forget this
+        // device" action — with an explicit data-loss warning — is the only place a key
+        // wipe belongs.
         set({ isAuthenticated: false, user: null });
     }
 }));
