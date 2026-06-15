@@ -200,10 +200,13 @@ export const useMessageStore = create((set, get) => ({
       const privateKeyJwk = localStorage.getItem("zync_private_key");
 
       const chatStore = useChatStore.getState();
-      const conversation = chatStore.conversations.find(c => c._id === conversationId);
+      const conversation = chatStore.conversations.find(c => sameId(c._id, conversationId));
       const currentUser = useAuthStore.getState().authUser || useAuthStore.getState().user;
-      const otherParticipant = conversation?.participants?.find(p => p._id === receiverId)
-        || conversation?.participants?.find(p => p._id !== useAuthStore.getState().authUser?._id && p._id !== useAuthStore.getState().user?._id);
+      // ⚡ KEY-FRESHNESS: resolve the peer from the LIVE store (hard-refreshed by
+      // getConversations on boot), so we always encrypt against the most recently
+      // fetched publicKey — never a stale snapshot. sameId guards type mismatches.
+      const otherParticipant = conversation?.participants?.find(p => sameId(p._id, receiverId))
+        || conversation?.participants?.find(p => !sameId(p._id, currentUser?._id));
 
       if (conversation?.isGroup && text) {
         // ⚡ VECTOR 2: Group E2EE — encrypt with the shared group symmetric key.
@@ -284,9 +287,9 @@ export const useMessageStore = create((set, get) => ({
       if (newMessage.text) {
         const privateKeyJwk = localStorage.getItem("zync_private_key");
         const chatStore = useChatStore.getState();
-        const conversation = chatStore.conversations.find(c => c._id === currentConversationId);
+        const conversation = chatStore.conversations.find(c => sameId(c._id, currentConversationId));
         const currentUser = useAuthStore.getState().authUser || useAuthStore.getState().user;
-        const otherParticipant = conversation?.participants?.find(p => p._id !== currentUser?._id);
+        const otherParticipant = conversation?.participants?.find(p => !sameId(p._id, currentUser?._id));
 
         if (conversation?.isGroup) {
           // ⚡ VECTOR 2: Group E2EE — decrypt inbound message with the group key.
@@ -319,18 +322,14 @@ export const useMessageStore = create((set, get) => ({
       });
     };
 
-    socket.on("newMessage", async (msg) => {
-    // 1. Identify if the message is from the AI
-    const isFromAI = msg.senderId === AI_USER_ID; 
-
-    // 2. Force decrypt regardless of sender if it looks like encrypted JSON
-    if (isFromAI || msg.text.startsWith('{"iv":')) {
-        const sharedSecret = await deriveSharedSecret(msg.conversationId);
-        msg.text = await safeDecryptMessage(msg, sharedSecret);
-    }
-    
-    set((state) => ({ messages: [...state.messages, msg] }));
-});
+    // ⚡ KEY-FRESHNESS FIX: register the proper handler. It re-reads the peer's
+    // publicKey from useChatStore on every message — and that store is hard-
+    // overwritten by getConversations on boot — so a rotated key can never
+    // desync the decryption math. (Replaces a broken inline handler that called
+    // deriveSharedSecret(conversationId) with one bad arg → OperationError, and
+    // referenced an undefined AI_USER_ID. The AI gateway is already handled by
+    // messageHandler via ECDH symmetry.)
+    socket.on('newMessage', messageHandler);
 
     // ✅ BLUE TICK PROTOCOL: Listen for the sender-side confirmation.
     // When the other user reads our messages, flip the matching bubbles to read.
