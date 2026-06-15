@@ -319,7 +319,18 @@ export const useMessageStore = create((set, get) => ({
       });
     };
 
-    socket.on('newMessage', messageHandler);
+    socket.on("newMessage", async (msg) => {
+    // 1. Identify if the message is from the AI
+    const isFromAI = msg.senderId === AI_USER_ID; 
+
+    // 2. Force decrypt regardless of sender if it looks like encrypted JSON
+    if (isFromAI || msg.text.startsWith('{"iv":')) {
+        const sharedSecret = await deriveSharedSecret(msg.conversationId);
+        msg.text = await safeDecryptMessage(msg, sharedSecret);
+    }
+    
+    set((state) => ({ messages: [...state.messages, msg] }));
+});
 
     // ✅ BLUE TICK PROTOCOL: Listen for the sender-side confirmation.
     // When the other user reads our messages, flip the matching bubbles to read.
