@@ -36,11 +36,11 @@ initializeSocket(httpServer);
 // the DB is always paired with a live AI_PRIVATE_KEY in the environment. If that
 // pairing is broken (a "ghost key": DB has a publicKey but the matching private key
 // was lost from .env), we force a full key reset so the gateway can never desync.
+// ⚡ THE GOD-MODE AUTO-HEALER
 const bootstrapAI = async () => {
     try {
-        // Helper: forge a brand-new AI identity + fresh keypair and surface the
-        // private key to the admin. Used for first-boot AND ghost-key recovery.
         const provisionFreshAI = async () => {
+            await User.deleteMany({ isAI: true }); // Kill all ghosts
             const aiUser = new User({
                 username: "zync_ai",
                 displayName: "Zync Intelligence",
@@ -48,92 +48,65 @@ const bootstrapAI = async () => {
                 firebaseUid: "zync_internal_ai_identity_" + Date.now(),
                 isAI: true
             });
-
             const keys = await generateServerKeyPair();
             aiUser.publicKey = keys.publicKey;
             await aiUser.save();
 
             console.error("\n=======================================================");
             console.error("🚨 CRITICAL ACTION REQUIRED: AI PRIVATE KEY GENERATED");
-            console.error("=======================================================");
-            console.error("Add the following line to your server/src/config/.env file");
-            console.error("(then restart the server) so the AI Gateway can read messages:");
+            console.error("Add this exactly to your Render Environment Variables:");
             console.error(`AI_PRIVATE_KEY='${keys.privateKey}'`);
             console.error("=======================================================\n");
             return aiUser;
         };
 
-        // ⚡ SINGLETON ENFORCER: if no private key is configured in the env, every
-        // existing AI profile is a guaranteed ghost (DB publicKey with no matching
-        // private key). Purge ALL of them up front so we can mint exactly one fresh,
-        // self-consistent identity below — no duplicate/ghost AI profiles can survive.
+        let aiUser = await User.findOne({ isAI: true });
+
+        // 1. If no key is in the env, burn everything and restart.
         if (!process.env.AI_PRIVATE_KEY) {
-            console.log("♻️  AI Key Missing: Initiating Cascade Auto-Healer...");
-            const oldAIs = await User.find({ isAI: true });
-            const oldAIIds = oldAIs.map(ai => ai._id);
-
-            if (oldAIIds.length > 0) {
-                // 1. Identify every conversation the ghost AI is part of so we can
-                //    purge ALL of its messages — not just the ones the AI sent, but
-                //    the user's own messages in that thread (otherwise they orphan).
-                const ghostConvos = await Conversation.find(
-                    { participants: { $in: oldAIIds } },
-                    { _id: 1 }
-                );
-                const ghostConvoIds = ghostConvos.map(c => c._id);
-
-                // 2. Wipe all messages in ghost conversations OR sent by the ghost AI.
-                await Message.deleteMany({
-                    $or: [
-                        { conversationId: { $in: ghostConvoIds } },
-                        { senderId: { $in: oldAIIds } }
-                    ]
-                });
-
-                // 3. Wipe the ghost conversations themselves.
-                await Conversation.deleteMany({ participants: { $in: oldAIIds } });
-
-                console.log("🧹 Cleared orphaned AI conversations and messages.");
-            }
-
-            // 4. Wipe the ghost AI profiles.
-            await User.deleteMany({ isAI: true });
+            await provisionFreshAI();
+            return;
         }
 
-        const aiUser = await User.findOne({ isAI: true });
-        const hasPrivateKey = !!(process.env.AI_PRIVATE_KEY && process.env.AI_PRIVATE_KEY.trim());
-
+        // 2. If env key exists, but no AI in DB, burn and restart.
         if (!aiUser) {
-            // First boot: no AI profile exists yet.
             await provisionFreshAI();
             return;
         }
 
-        // ⚡ AUTO-HEALER: AI exists, but the private key is missing/empty in the env.
-        // The DB publicKey is now a ghost (no matching private key) → force a reset
-        // by wiping the stale profile and minting a fresh, self-consistent keypair.
-        if (!hasPrivateKey) {
-            console.error("🔴 AI User exists but AI_PRIVATE_KEY is missing/empty. Forcing key reset to clear ghost keys.");
-            await User.deleteOne({ isAI: true });
-            await provisionFreshAI();
-            return;
+        // 3. ⚡ THE MATHEMATICAL SYNC CHECKER (The Magic Fix)
+        // This guarantees the DB and the .env perfectly match on every boot.
+        let isMathBroken = false;
+        try {
+            const envKey = JSON.parse(process.env.AI_PRIVATE_KEY);
+            const dbKey = JSON.parse(aiUser.publicKey);
+            // In ECDH, the public coordinates (x, y) must match exactly.
+            if (envKey.x !== dbKey.x || envKey.y !== dbKey.y) {
+                isMathBroken = true;
+            }
+        } catch (e) {
+            isMathBroken = true;
         }
 
-        // AI exists and we hold a private key — but the DB may have lost its publicKey
-        // (e.g. partial wipe). Regenerate just the keypair if so.
-        if (!aiUser.publicKey) {
-            const keys = await generateServerKeyPair();
-            aiUser.publicKey = keys.publicKey;
+        if (isMathBroken) {
+            console.error("🚨 KEY DESYNC DETECTED: DB Public Key != Env Private Key");
+            console.error("🧹 Auto-healing... Forcing database to match environment.");
+            
+            // Reconstruct the exact matching Public Key from the Env Private Key
+            const envKey = JSON.parse(process.env.AI_PRIVATE_KEY);
+            const derivedPublicKey = {
+                kty: "EC", crv: "P-256", ext: true,
+                key_ops: [], // Public keys don't have derive operations
+                x: envKey.x, y: envKey.y
+            };
+            
+            aiUser.publicKey = JSON.stringify(derivedPublicKey);
             await aiUser.save();
-
-            console.error("\n=======================================================");
-            console.error("🚨 CRITICAL ACTION REQUIRED: AI PRIVATE KEY REGENERATED");
-            console.error("=======================================================");
-            console.error("Replace AI_PRIVATE_KEY in server/src/config/.env with:");
-            console.error(`AI_PRIVATE_KEY='${keys.privateKey}'`);
-            console.error("=======================================================\n");
-            return;
+            console.error("✅ Zync AI Keys perfectly synchronized. Gateway Open.");
+        } else {
+            console.log("✅ Zync AI Gateway is fully synced and ready.");
         }
+
     } catch (error) {
         console.error("🔴 Failed to bootstrap AI:", error);
     }
