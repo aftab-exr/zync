@@ -38,6 +38,13 @@ const userSchema = new Schema({
     lastSeen: { type: Date, default: Date.now },
   },
 
+  // --- Profile Change Rate-Limiting (anti-spam) ---
+  // Timestamps of the last successful mutation. `null` means "never changed",
+  // so the very first edit is always allowed. Compared against the lockout
+  // windows enforced in user.controller.js (14d displayName, 60d username).
+  lastDisplayNameChangeAt: { type: Date, default: null },
+  lastUsernameChangeAt: { type: Date, default: null },
+
   // --- Security & Audit ---
   lastIp: { type: String }, // 30-day TTL index applied later
   deletedAt: { type: Date, default: null }, // Soft delete flag

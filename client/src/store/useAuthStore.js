@@ -50,6 +50,18 @@ export const useAuthStore = create((set, get) => ({
     isLoggingIn: false,
     error: null,
 
+    // ⚡ Hydrate the live profile after an edit (display name, username, avatar)
+    // and keep the PWA offline mirror in sync so a refresh shows the new values.
+    setUser: (updatedUser) => {
+        if (!updatedUser) return;
+        try {
+            localStorage.setItem("zync_user_cache", JSON.stringify(updatedUser));
+        } catch (err) {
+            console.error("🔴 Failed to mirror updated profile to cache:", err);
+        }
+        set({ user: updatedUser });
+    },
+
     // ⚡ PHASE 3.0: E2E Key Initialization (+ DB-wipe Sync-Checker)
     // `dbPublicKey` is the public key the backend currently holds for this user.
     // If we have a local private key but the DB has lost the matching public key

@@ -1,14 +1,81 @@
 import { useCallStore } from "../store/useCallStore";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { Send, Users, Sparkles, ShieldCheck, Copy, Check, CheckCheck, ChevronLeft, Loader2, Image as ImageIcon, X, Video } from "lucide-react";
+import { Send, Users, Sparkles, ShieldCheck, Copy, Check, CheckCheck, ChevronLeft, Loader2, Image as ImageIcon, X, Video, Paperclip, Mic, ShieldAlert } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 
 import { useChatStore } from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
 import { useMessageStore } from "../store/useMessageStore";
+import { useSettingsStore, resolveBackgroundStyle } from "../store/useSettingsStore";
+import { auth } from "../lib/firebase";
+import { compressIfImage, encryptFile, uploadEncryptedBlob, fetchAndDecrypt } from "../lib/media";
+import { deriveConversationKey } from "../lib/mediaKeys";
+import VoiceRecorder from "./VoiceRecorder";
+
+// ⚡ PHASE 2: Renders an encrypted attachment. Fetches the raw ciphertext blob
+// from Cloudinary, decrypts it locally with the conversation key, and renders a
+// `blob:` URL as <img>/<video>/<audio>. The plaintext never touches the network.
+const EncryptedMedia = ({ url, type, mime, convKey }) => {
+  const [src, setSrc] = useState(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (!convKey || !url) return;
+
+    let active = true;
+    let createdUrl = null;
+
+    fetchAndDecrypt(url, convKey, mime)
+      .then((blobUrl) => {
+        if (active) {
+          createdUrl = blobUrl;
+          setSrc(blobUrl);
+        } else {
+          URL.revokeObjectURL(blobUrl);
+        }
+      })
+      .catch((err) => {
+        console.error("🔴 Failed to decrypt attachment:", err);
+        if (active) setFailed(true);
+      });
+
+    return () => {
+      active = false;
+      if (createdUrl) URL.revokeObjectURL(createdUrl);
+    };
+  }, [url, mime, convKey]);
+
+  if (failed) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)] py-3 px-1">
+        <ShieldAlert className="w-4 h-4 text-[var(--warning)]" /> Unable to decrypt media
+      </div>
+    );
+  }
+
+  if (!src) {
+    return (
+      <div className="flex items-center justify-center gap-2 text-xs text-[var(--text-secondary)] py-8 px-6">
+        <Loader2 className="w-4 h-4 animate-spin" /> Decrypting…
+      </div>
+    );
+  }
+
+  if (type === "image") {
+    return <img src={src} alt="Encrypted attachment" className="w-full h-auto max-h-[320px] object-cover rounded-xl" loading="lazy" />;
+  }
+  if (type === "video") {
+    return <video src={src} controls className="w-full max-h-[320px] rounded-xl bg-black" />;
+  }
+  if (type === "audio") {
+    return <audio src={src} controls className="w-[230px] max-w-full" />;
+  }
+  return <a href={src} download className="text-sm underline">Download file</a>;
+};
 
 // ⚡ Premium AI Code Block Renderer
 const CodeBlock = ({ inline, className, children, ...props }) => {
@@ -65,7 +132,13 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
   // ⚡ PHASE 2.1: Media State
   const [imagePreview, setImagePreview] = useState(null);
   const fileInputRef = useRef(null);
-  
+
+  // ⚡ PHASE 2: Encrypted media state
+  const attachInputRef = useRef(null);
+  const [mediaStatus, setMediaStatus] = useState(null); // "Encrypting…" | "Uploading…" | "Sending…"
+  const [isRecording, setIsRecording] = useState(false);
+  const [convKey, setConvKey] = useState(null); // AES-GCM CryptoKey for this conversation
+
   const messagesEndRef = useRef(null);
   // ✅ BLUE TICK PROTOCOL: feed container + per-conversation dedupe set
   const feedRef = useRef(null);
@@ -73,13 +146,21 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
   const navigate = useNavigate();
   
   const { authUser, user } = useAuthStore();
-  const currentUser = authUser || user; 
+  const currentUser = authUser || user;
+
+  // ⚡ ZERO-COST UI: locally-persisted chat background (no backend involved).
+  const { chatBackground, backgroundType } = useSettingsStore();
+  const backgroundStyle = useMemo(
+    () => resolveBackgroundStyle(chatBackground, backgroundType),
+    [chatBackground, backgroundType]
+  );
 
   const { conversations } = useChatStore();
-  const { 
-    messages, 
-    fetchMessages, 
-    sendMessage, 
+  const {
+    messages,
+    fetchMessages,
+    sendMessage,
+    sendAttachmentMessage,
     subscribeToMessages,
     unsubscribeFromMessages,
     markMessagesAsRead,
@@ -134,6 +215,74 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
     setImagePreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }, []);
+
+  // ⚡ PHASE 2: Derive the conversation's AES-GCM key (same key used for text) so
+  // we can encrypt outgoing media and decrypt incoming media locally.
+  useEffect(() => {
+    let active = true;
+    // Reset so we never decrypt the new conversation's media with a stale key.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setConvKey(null);
+    if (activeConversation && currentUser) {
+      deriveConversationKey(activeConversation, currentUser)
+        .then((key) => { if (active) setConvKey(key); })
+        .catch((err) => console.error("🔴 Failed to derive conversation key:", err));
+    }
+    return () => { active = false; };
+  }, [activeConversation, currentUser]);
+
+  // ⚡ PHASE 2: The encrypt → upload → send pipeline for any binary attachment.
+  const processAndSend = useCallback(async (file, type) => {
+    if (!convKey) {
+      toast.error("Secure channel isn't ready yet. Try again in a moment.");
+      return;
+    }
+    try {
+      setMediaStatus("Encrypting…");
+      const processed = type === "image" ? await compressIfImage(file) : file;
+      const mime = processed.type || file.type || (type === "audio" ? "audio/webm" : "application/octet-stream");
+
+      const encryptedBlob = await encryptFile(processed, convKey);
+
+      setMediaStatus("Uploading…");
+      const token = await auth.currentUser.getIdToken();
+      const url = await uploadEncryptedBlob(encryptedBlob, token);
+      if (!url) throw new Error("Upload returned no URL");
+
+      setMediaStatus("Sending…");
+      const ok = await sendAttachmentMessage(conversationId, { url, type, mime }, "", displayUser?._id);
+      if (!ok) throw new Error("Send failed");
+    } catch (err) {
+      console.error("🔴 Encrypted media send failed:", err);
+      toast.error("Failed to send attachment.");
+    } finally {
+      setMediaStatus(null);
+    }
+  }, [convKey, conversationId, displayUser, sendAttachmentMessage]);
+
+  const handleAttachmentSelect = useCallback(async (e) => {
+    const file = e.target.files?.[0];
+    if (e.target) e.target.value = "";
+    if (!file) return;
+
+    const isImage = file.type.startsWith("image/");
+    const isVideo = file.type.startsWith("video/");
+    if (!isImage && !isVideo) {
+      toast.error("Only images and videos are supported.");
+      return;
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("File must be under 50MB.");
+      return;
+    }
+    await processAndSend(file, isImage ? "image" : "video");
+  }, [processAndSend]);
+
+  const handleVoiceSend = useCallback(async (blob, mime) => {
+    setIsRecording(false);
+    const file = new File([blob], "voice-note", { type: mime || blob.type || "audio/webm" });
+    await processAndSend(file, "audio");
+  }, [processAndSend]);
 
   const handleSend = useCallback(async (e) => {
     e.preventDefault();
@@ -220,8 +369,8 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[var(--bg-base)] overflow-hidden">
-      
+    <div className="flex-1 flex flex-col h-full bg-[var(--bg-base)] overflow-hidden" style={backgroundStyle}>
+
       {/* ⚡ HEADER */}
       <div className="h-14 flex items-center justify-between px-4 md:px-6 border-b border-[var(--border)] bg-[var(--bg-surface)] shrink-0 z-10 relative">
         <div className="flex items-center gap-3">
@@ -311,6 +460,18 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                     : 'bg-[var(--bg-raised)] border border-[var(--border)] text-white rounded-bl-sm'
                 }`}>
                   
+                  {/* ⚡ PHASE 2: Encrypted attachment (image / video / voice note) */}
+                  {msg.attachmentUrl && (
+                    <div className="relative rounded-xl overflow-hidden mb-2 min-w-[180px]">
+                      <EncryptedMedia
+                        url={msg.attachmentUrl}
+                        type={msg.attachmentType}
+                        mime={msg.attachmentMime}
+                        convKey={convKey}
+                      />
+                    </div>
+                  )}
+
                   {/* ⚡ PHASE 2.1: Render the image if it exists */}
                   {msg.imageUrl && (
                     <div className="relative rounded-xl overflow-hidden mb-2 border border-black/10">
@@ -396,9 +557,33 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
             )}
           </AnimatePresence>
 
+          {/* ⚡ PHASE 2: Encrypt/upload status indicator */}
+          <AnimatePresence>
+            {mediaStatus && (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 6 }}
+                className="w-full flex items-center gap-2 bg-[var(--bg-raised)] border border-[var(--border)] rounded-2xl px-4 py-2.5 text-sm text-[var(--text-secondary)]"
+              >
+                <Loader2 className="w-4 h-4 animate-spin text-[var(--accent)]" />
+                <span>{mediaStatus}</span>
+                <ShieldCheck className="w-4 h-4 text-[var(--success)] ml-auto" />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {isRecording ? (
+            <VoiceRecorder
+              onSend={handleVoiceSend}
+              onCancel={() => setIsRecording(false)}
+              busy={!!mediaStatus}
+            />
+          ) : (
           <div className="flex items-end gap-2 w-full">
             <div className="flex-1 bg-[var(--bg-base)] border border-[var(--border)] rounded-2xl p-1 flex items-center focus-within:border-[var(--accent)] transition-colors shadow-sm">
-              
+
+              {/* Legacy plaintext image input (kept for backward-compat) */}
               <input
                 type="file"
                 accept="image/*"
@@ -406,13 +591,31 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                 ref={fileInputRef}
                 onChange={handleImageChange}
               />
-              
               <button
                 type="button"
+                title="Photo"
                 className="p-3 text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors rounded-xl active:scale-95"
                 onClick={() => fileInputRef.current?.click()}
               >
                 <ImageIcon className="w-5 h-5" />
+              </button>
+
+              {/* ⚡ PHASE 2: Encrypted attachment (image / video) */}
+              <input
+                type="file"
+                accept="image/*,video/*"
+                className="hidden"
+                ref={attachInputRef}
+                onChange={handleAttachmentSelect}
+              />
+              <button
+                type="button"
+                title="Encrypted attachment"
+                disabled={!!mediaStatus}
+                className="p-3 text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors rounded-xl active:scale-95 disabled:opacity-40"
+                onClick={() => attachInputRef.current?.click()}
+              >
+                <Paperclip className="w-5 h-5" />
               </button>
 
               <textarea
@@ -429,15 +632,29 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                 rows={1}
               />
             </div>
-            
-            <button 
-              type="submit"
-              disabled={(!text.trim() && !imagePreview) || isSending}
-              className="w-12 h-12 rounded-full bg-[var(--accent)] text-white flex items-center justify-center hover:bg-[var(--accent-hover)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 active:scale-95 shadow-md"
-            >
-              {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 ml-1" />}
-            </button>
+
+            {/* ⚡ PHASE 2: Voice note when empty, Send when composing */}
+            {(!text.trim() && !imagePreview) ? (
+              <button
+                type="button"
+                title="Record voice note"
+                disabled={!!mediaStatus}
+                onClick={() => setIsRecording(true)}
+                className="w-12 h-12 rounded-full bg-[var(--bg-raised)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--accent)] hover:border-[var(--accent)] flex items-center justify-center transition-all flex-shrink-0 active:scale-95 disabled:opacity-50 shadow-sm"
+              >
+                <Mic className="w-5 h-5" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={(!text.trim() && !imagePreview) || isSending}
+                className="w-12 h-12 rounded-full bg-[var(--accent)] text-white flex items-center justify-center hover:bg-[var(--accent-hover)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 active:scale-95 shadow-md"
+              >
+                {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 ml-1" />}
+              </button>
+            )}
           </div>
+          )}
 
         </form>
       </div>

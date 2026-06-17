@@ -40,9 +40,69 @@ export const getMessages = asyncHandler(async (req, res, next) => {
     res.status(200).json(new apiResponse(200, "Messages retrieved successfully", messages));
 });
 
+// ⚡ "Clear All Chats" — purges the caller's entire message history.
+// The Message schema is keyed by `conversationId` (there is no `receiverId`),
+// so the faithful interpretation of "messages where the user is involved" is
+// every message in the conversations the user participates in. NOTE: messages
+// are single shared documents, so this clears the thread for ALL participants of
+// those conversations, not just the caller's view — intended for a hard,
+// irreversible "wipe my history" action.
+export const clearMessages = asyncHandler(async (req, res, next) => {
+    const userId = req.user?._id;
+
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+        throw new apiError(401, "Unauthorized");
+    }
+
+    const conversations = await Conversation.find({ participants: userId })
+        .select("_id")
+        .lean();
+    const conversationIds = conversations.map((c) => c._id);
+
+    if (conversationIds.length === 0) {
+        return res.status(200).json(new apiResponse(200, "No messages to clear.", { deletedCount: 0 }));
+    }
+
+    const result = await Message.deleteMany({ conversationId: { $in: conversationIds } });
+
+    // Reset the last-message pointers so inbox previews don't reference dead docs.
+    await Conversation.updateMany(
+        { _id: { $in: conversationIds } },
+        { $set: { lastMessageId: null } }
+    );
+
+    return res.status(200).json(
+        new apiResponse(200, "Chat history cleared successfully.", {
+            deletedCount: result.deletedCount || 0,
+        })
+    );
+});
+
+// ⚡ PHASE 2: Encrypted media upload. The incoming file is an opaque AES-GCM blob
+// (IV + ciphertext), so it MUST be stored as Cloudinary `resource_type: "raw"` —
+// Cloudinary would otherwise try to transcode it as an image/video and corrupt it.
+// We stream the in-memory buffer straight up; the server never sees plaintext.
+export const uploadAttachment = asyncHandler(async (req, res, next) => {
+    if (!req.file || !req.file.buffer) {
+        throw new apiError(400, "No file provided.");
+    }
+
+    const result = await new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+            { resource_type: "raw", folder: "zync_secure_media" },
+            (error, uploaded) => (error ? reject(error) : resolve(uploaded))
+        );
+        uploadStream.end(req.file.buffer);
+    });
+
+    return res.status(200).json(
+        new apiResponse(200, "File uploaded successfully", { url: result.secure_url })
+    );
+});
+
 export const sendMessage = asyncHandler(async (req, res, next) => {
     const conversationId = req.params.conversationId || req.params.id || req.body.conversationId;
-    const { text, image } = req.body; 
+    const { text, image, attachmentUrl, attachmentType, attachmentMime } = req.body;
     const senderId = req.user?._id;
 
     if (!senderId || !mongoose.Types.ObjectId.isValid(senderId)) {
@@ -53,8 +113,9 @@ export const sendMessage = asyncHandler(async (req, res, next) => {
         throw new apiError(400, "Conversation ID is missing or invalid.");
     }
 
-    if ((text === undefined || text === null || typeof text !== "string" || !text.trim()) && !image) {
-        throw new apiError(400, "Message must contain text or an image.");
+    const hasText = typeof text === "string" && text.trim();
+    if (!hasText && !image && !attachmentUrl) {
+        throw new apiError(400, "Message must contain text, an image, or an attachment.");
     }
 
     const conversation = await Conversation.findById(conversationId);
@@ -81,7 +142,11 @@ export const sendMessage = asyncHandler(async (req, res, next) => {
         conversationId,
         senderId,
         text: text ? text.trim() : "",
-        imageUrl
+        imageUrl,
+        // ⚡ PHASE 2: encrypted attachment metadata (server stores refs only).
+        attachmentUrl: attachmentUrl || "",
+        attachmentType: attachmentType || "",
+        attachmentMime: attachmentMime || ""
     });
 
     conversation.lastMessageAt = new Date();

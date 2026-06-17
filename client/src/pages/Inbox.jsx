@@ -1,7 +1,7 @@
 import CallOverlay from '../components/CallOverlay';
 import { useCallStore } from '../store/useCallStore';
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Bell, MessageSquare, Plus, LogOut, Users } from 'lucide-react';
+import { Search, Bell, MessageSquare, Plus, Users } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useSocketStore } from '../store/useSocketStore';
@@ -9,17 +9,17 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useChatStore } from '../store/useChatStore';
 import NewMessageModal from '../components/NewMessageModal';
 import ChatPane from '../components/ChatPane';
+import AvatarDropdown from '../components/AvatarDropdown';
 
 export default function Inbox() {
   const navigate = useNavigate();
   const { conversationId } = useParams();
   
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
-  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
   const { connect, disconnect, isConnected, socket } = useSocketStore();
-  const { user, authUser, logout } = useAuthStore();
-  const currentUser = authUser || user; 
+  const { user, authUser } = useAuthStore();
+  const currentUser = authUser || user;
 
   const { 
     conversations, 
@@ -49,11 +49,6 @@ export default function Inbox() {
     };
   }, [socket, subscribeToPresence, unsubscribeFromPresence]);
   
-  const handleLogout = async () => {
-    disconnect();
-    await logout();
-  };
-
   const processedConversations = useMemo(() => {
     return conversations.map((conv) => {
       const otherParticipant = conv.participants?.find(p => p._id !== currentUser?._id);
@@ -88,25 +83,7 @@ export default function Inbox() {
           <button className="text-[var(--text-secondary)] hover:text-white transition-all p-2 hover:bg-[var(--bg-surface)] rounded-lg">
             <Bell className="w-5 h-5" />
           </button>
-          <div className="relative">
-            <button onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)} className="w-10 h-10 rounded-full bg-[var(--border)] border-2 border-[var(--border-active)] overflow-hidden flex items-center justify-center font-display font-bold text-xs text-white hover:brightness-110 transition-all focus:outline-none focus:ring-2 focus:ring-[var(--accent)]">
-              {currentUser?.displayName?.charAt(0).toUpperCase() || 'Z'}
-            </button>
-            {isProfileMenuOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setIsProfileMenuOpen(false)}></div>
-                <div className="absolute right-0 mt-2 w-48 bg-[var(--bg-surface)] border rounded-xl shadow-2xl py-1.5 z-50 overflow-hidden" style={{ borderColor: 'var(--border)' }}>
-                  <div className="px-4 py-2 border-b mb-1" style={{ borderColor: 'var(--border)' }}>
-                    <p className="text-sm font-medium text-white truncate">{currentUser?.displayName}</p>
-                    <p className="text-xs text-[var(--text-secondary)] font-mono truncate">@{currentUser?.username}</p>
-                  </div>
-                  <button onClick={handleLogout} className="w-full flex items-center gap-2 px-4 py-3 text-sm text-[var(--error)] hover:bg-[var(--bg-raised)] transition-all text-left active:scale-95">
-                    <LogOut className="w-4 h-4" /> Sign out
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+          <AvatarDropdown avatarUrl={currentUser?.avatarUrl} />
         </div>
       </header>
 

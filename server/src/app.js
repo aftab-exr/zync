@@ -23,14 +23,19 @@ app.use(
         scriptSrc: ["'self'", "'unsafe-inline'", "https://apis.google.com", "https://www.gstatic.com"],
         scriptSrcElem: ["'self'", "'unsafe-inline'", "https://apis.google.com", "https://www.gstatic.com"],
         connectSrc: [
-          "'self'", 
-          "https://*.googleapis.com", 
+          "'self'",
+          "https://*.googleapis.com",
           "https://securetoken.googleapis.com",
           "https://zync-znty.onrender.com",
-          "wss://zync-znty.onrender.com"
+          "wss://zync-znty.onrender.com",
+          // ⚡ PHASE 2: fetch encrypted media blobs back from Cloudinary for local decryption.
+          "https://res.cloudinary.com"
         ],
         frameSrc: ["'self'", "https://*.firebaseapp.com", "https://identitytoolkit.googleapis.com"],
-        imgSrc: ["'self'", "data:", "https://*.googleusercontent.com"],
+        // ⚡ PHASE 2: `blob:` for locally-decrypted previews; Cloudinary for legacy images.
+        imgSrc: ["'self'", "data:", "blob:", "https://*.googleusercontent.com", "https://res.cloudinary.com"],
+        // ⚡ PHASE 2: decrypted audio/video render from in-memory blob: URLs.
+        mediaSrc: ["'self'", "blob:"],
         upgradeInsecureRequests: [],
       },
     },

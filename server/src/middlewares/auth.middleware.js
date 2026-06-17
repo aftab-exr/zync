@@ -23,7 +23,27 @@ const authenticateUser = async (req, res, next) => {
             const decodedToken = await admin.auth().verifyIdToken(token);
             req.authContext = decodedToken;
 
+            // 🛡️ ZERO-COST EMAIL GATE: Firebase already verifies email ownership for
+            // free (Google sign-in is always verified; email/password sign-ups carry
+            // `email_verified: false` until the user clicks the Firebase link). We gate
+            // every protected route on that claim rather than running a parallel OTP
+            // system. No email is sent from our infra, so this scales at zero cost.
+            if (decodedToken.email && decodedToken.email_verified === false) {
+                return res.status(403).json({
+                    success: false,
+                    code: "EMAIL_NOT_VERIFIED",
+                    error: "Please verify your email address before continuing."
+                });
+            }
+
             req.user = await User.findOne({ firebaseUid: decodedToken.uid });
+
+            // Keep the persisted verification flag in sync with Firebase's source of
+            // truth (cheap, only writes when the value actually drifted).
+            if (req.user && req.user.emailVerified !== decodedToken.email_verified) {
+                req.user.emailVerified = !!decodedToken.email_verified;
+                await req.user.save();
+            }
 
             // ⚡ THE FIX: Allow /setup AND /me to pass through so the controller can handle new users
             const isSetupRoute = req.originalUrl.includes('/setup');

@@ -51,6 +51,13 @@ export const initializeSocket = (httpServer) => {
 
             // Verify Firebase JWT
             const decodedToken = await admin.auth().verifyIdToken(token);
+
+            // 🛡️ ZERO-COST EMAIL GATE: mirror the Express middleware — an unverified
+            // email never reaches the real-time pipeline (presence, messaging, WebRTC).
+            if (decodedToken.email && decodedToken.email_verified === false) {
+                return next(new Error("Email not verified"));
+            }
+
             const user = await User.findOne({ firebaseUid: decodedToken.uid });
 
             if (!user) return next(new Error("User profile not found"));

@@ -13,6 +13,7 @@ import {
   decryptText,
   importSymmetricKey
 } from '../lib/crypto';
+import { deriveConversationKey } from '../lib/mediaKeys';
 
 let messageHandler = null;
 let readReceiptHandler = null;
@@ -115,6 +116,27 @@ export const useMessageStore = create((set, get) => ({
     }));
   },
 
+  // ⚡ "Clear All Chats" — hard-purges the user's message history server-side,
+  // then empties the in-memory feed. 🔒 IDENTITY-SAFE: this never touches the
+  // E2E decryption pipeline or the local `zync_private_key`; only message
+  // documents and the rendered list are cleared.
+  clearAllMessages: async () => {
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error('No active session token found');
+
+      await api.delete('/messages/clear', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      set({ messages: [] });
+      return true;
+    } catch (error) {
+      console.error('🔴 Failed to clear chat history:', error.response?.data || error.message);
+      return false;
+    }
+  },
+
   // ✅ BLUE TICK PROTOCOL: Emit read confirmation to the backend.
   // Called by the ChatPane IntersectionObserver when incoming bubbles enter view.
   markMessagesAsRead: (conversationId, messageIds, receiverId) => {
@@ -130,6 +152,76 @@ export const useMessageStore = create((set, get) => ({
         messageIds.some((id) => sameId(id, m._id)) ? { ...m, isRead: true } : m
       ),
     }));
+  },
+
+  // ⚡ PHASE 2: Send an already-encrypted+uploaded attachment (image/video/audio).
+  // The binary is encrypted & uploaded by the caller (ChatPane via lib/media.js);
+  // here we just persist the reference + an optional E2E-encrypted caption, then
+  // optimistically add the saved message to the feed. This is ADDITIVE — it does
+  // not alter the text send/decrypt pipeline.
+  sendAttachmentMessage: async (conversationId, attachment, caption, receiverId) => {
+    set({ isSending: true });
+    try {
+      const token = await auth.currentUser.getIdToken();
+
+      const chatStore = useChatStore.getState();
+      const conversation = chatStore.conversations.find((c) => sameId(c._id, conversationId));
+      const currentUser = useAuthStore.getState().authUser || useAuthStore.getState().user;
+
+      // Encrypt the caption (if any) with the conversation key, mirroring text sends.
+      let textToSend = caption || '';
+      let encryptionKey = null;
+      if (caption) {
+        encryptionKey = await deriveConversationKey(conversation, currentUser);
+        if (encryptionKey) {
+          try {
+            const encryptedPayload = await encryptText(caption, encryptionKey);
+            textToSend = JSON.stringify(encryptedPayload);
+          } catch (err) {
+            console.error('Failed to encrypt caption:', err);
+            textToSend = caption;
+          }
+        }
+      }
+
+      const res = await api.post(
+        `/messages/${conversationId}`,
+        {
+          text: textToSend,
+          attachmentUrl: attachment.url,
+          attachmentType: attachment.type,
+          attachmentMime: attachment.mime,
+          receiverId,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      let savedMessage = res.data.data;
+      // Decrypt our own caption back for immediate display.
+      if (encryptionKey && savedMessage.text) {
+        try {
+          const parsed = JSON.parse(savedMessage.text);
+          if (parsed?.iv && parsed?.ciphertext) {
+            savedMessage = { ...savedMessage, text: await decryptText(parsed, encryptionKey) };
+          }
+        } catch {
+          // plaintext caption — leave as-is
+        }
+      }
+
+      const updatedMessages = [...get().messages, savedMessage].sort(
+        (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+      );
+      set({ messages: updatedMessages });
+      useChatStore.getState().updateConversationLastMessage(conversationId, savedMessage);
+
+      return true;
+    } catch (error) {
+      console.error('🔴 Failed to send attachment:', error.response?.data || error.message);
+      return false;
+    } finally {
+      set({ isSending: false });
+    }
   },
 
   fetchMessages: async (conversationId) => {
