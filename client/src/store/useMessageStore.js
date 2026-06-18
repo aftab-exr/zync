@@ -100,7 +100,13 @@ const deriveGroupKey = async (conversation, currentUser) => {
 // leaving non-encrypted / unparseable messages untouched.
 const decryptMessagesWith = async (messages, key) => {
   return Promise.all(
-    messages.map(async (msg) => ({ ...msg, text: await safeDecryptMessage(msg, key) }))
+    messages.map(async (message) => {
+      if (message.isDecrypted === true) {
+        // Skip decryption entirely; this is already plain text from the local disk cache
+        return message;
+      }
+      return { ...message, text: await safeDecryptMessage(message, key) };
+    })
   );
 };
 
@@ -276,7 +282,13 @@ export const useMessageStore = create((set, get) => ({
           const sharedSecretKey = await deriveSharedSecret(myPrivKeyObj, theirPubKeyObj);
 
           decryptedMessages = await Promise.all(
-            res.data.data.map(async (msg) => ({ ...msg, text: await safeDecryptMessage(msg, sharedSecretKey) }))
+            res.data.data.map(async (message) => {
+              if (message.isDecrypted === true) {
+                // Skip decryption entirely; this is already plain text from the local disk cache
+                return message;
+              }
+              return { ...message, text: await safeDecryptMessage(message, sharedSecretKey) };
+            })
           );
         } catch (err) {
           console.error("Failed to decrypt historical messages:", err);

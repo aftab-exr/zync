@@ -138,6 +138,9 @@ export const getMotion = (currentProfile) => {
 
 // Reactive convenience hook — subscribes to the live motionProfile so a
 // component re-renders (and re-times) the instant the user switches profiles.
-export const useMotion = () => getMotion(useSettingsStore((s) => s.motionProfile));
+export const useMotion = () => {
+  const profile = useSettingsStore((s) => s.motionProfile);
+  return getMotion(profile || 'fluid');
+};
 
 export default getMotion;

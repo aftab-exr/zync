@@ -164,9 +164,20 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
 
   // Pseudo-guard: Only attempt decryption if the text looks like an encrypted payload
   const getMessageText = (msg) => {
-    if (msg.isDecrypted || !msg.text || !msg.text.includes(':')) {
-      return msg.text;
+    // 1. Safe guard for already decrypted plain text
+    if (msg.isDecrypted === true) return msg.text;
+    if (!msg.text) return "";
+
+    // 2. Structural heuristic guard: If the text matches the encrypted schema, 
+    // we return a safe fallback rather than crashing the React element tree.
+    try {
+      if (msg.text.includes('"iv"') && msg.text.includes('"ciphertext"')) {
+        return "🔒 [Encrypted Message - Awaiting Key Sync]";
+      }
+    } catch (e) {
+      console.error("🔴 Defensive Guard: Failed to parse structural heuristics:", e);
     }
+
     return msg.text;
   };
 
