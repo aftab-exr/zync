@@ -5,6 +5,7 @@ import { useChatStore } from '../store/useChatStore';
 import { api } from '../lib/axios';
 import { auth } from '../lib/firebase';
 import ChatPane from '../components/ChatPane';
+import AISidecar from '../components/AISidecar';
 import { Loader2, Sparkles } from 'lucide-react';
 
 export default function Sidecar() {
@@ -116,6 +117,8 @@ export default function Sidecar() {
           <ChatPane conversationId={activeConversationId} isSidecar={true} />
         )}
       </div>
+
+      <AISidecar />
     </div>
   );
 }

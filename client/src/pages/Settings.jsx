@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 import {
   ChevronLeft, Camera, Pencil, AtSign, User, Palette,
-  Trash2, ShieldAlert, Loader2, X, Check,
+  Trash2, ShieldAlert, Loader2, X, Check, Bot, Eye, EyeOff,
 } from "lucide-react";
 
 import { api } from "../lib/axios";
@@ -12,6 +12,7 @@ import { auth } from "../lib/firebase";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
 import { useMessageStore } from "../store/useMessageStore";
+import { useAIStore } from "../store/useAIStore";
 import {
   useSettingsStore,
   resolveBackgroundStyle,
@@ -265,6 +266,91 @@ function Section({ title, children }) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// AI Sidecar developer configuration (base URL / key / model)
+// ──────────────────────────────────────────────────────────────────────────
+function AISidecarConfig() {
+  const { aiBaseUrl, aiApiKey, aiModel, setAiConfig } = useAIStore();
+  const [showKey, setShowKey] = useState(false);
+
+  const fieldClass =
+    "w-full bg-[var(--bg-base)] border rounded-lg px-3 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-[var(--accent)] transition-colors";
+
+  return (
+    <div className="p-4 space-y-4">
+      <div className="flex items-start gap-2 text-xs text-[var(--text-secondary)] bg-[var(--bg-raised)] rounded-lg px-3 py-2 border" style={{ borderColor: "var(--border)" }}>
+        <Bot className="w-4 h-4 mt-0.5 flex-shrink-0 text-[var(--accent)]" />
+        <span>
+          To run a private local model, host an OpenAI-compatible server (LM Studio / Ollama)
+          on your machine and enter your local network IP endpoint here.
+        </span>
+      </div>
+
+      {/* Base URL */}
+      <div>
+        <label className="block text-xs text-[var(--text-secondary)] mb-1.5 font-medium">AI Base URL</label>
+        <input
+          type="text"
+          value={aiBaseUrl}
+          onChange={(e) => setAiConfig({ aiBaseUrl: e.target.value })}
+          placeholder="https://api.groq.com/openai/v1"
+          spellCheck={false}
+          autoCapitalize="none"
+          className={fieldClass}
+          style={{ borderColor: "var(--border)" }}
+        />
+        <p className="text-[11px] text-[var(--text-secondary)] mt-1">
+          e.g. <span className="font-mono">http://192.168.1.20:1234/v1</span> for a local model.
+        </p>
+      </div>
+
+      {/* API Key */}
+      <div>
+        <label className="block text-xs text-[var(--text-secondary)] mb-1.5 font-medium">API Key</label>
+        <div className="relative">
+          <input
+            type={showKey ? "text" : "password"}
+            value={aiApiKey}
+            onChange={(e) => setAiConfig({ aiApiKey: e.target.value })}
+            placeholder="sk-… (or any token your local server accepts)"
+            spellCheck={false}
+            autoCapitalize="none"
+            autoComplete="off"
+            className={`${fieldClass} pr-10`}
+            style={{ borderColor: "var(--border)" }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowKey((v) => !v)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-[var(--text-secondary)] hover:text-white transition-colors"
+            title={showKey ? "Hide key" : "Show key"}
+          >
+            {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
+        <p className="text-[11px] text-[var(--text-secondary)] mt-1">
+          Stored only in this browser's localStorage — never sent to Zync servers.
+        </p>
+      </div>
+
+      {/* Model */}
+      <div>
+        <label className="block text-xs text-[var(--text-secondary)] mb-1.5 font-medium">Model Name</label>
+        <input
+          type="text"
+          value={aiModel}
+          onChange={(e) => setAiConfig({ aiModel: e.target.value })}
+          placeholder="llama-3.1-8b-instant"
+          spellCheck={false}
+          autoCapitalize="none"
+          className={fieldClass}
+          style={{ borderColor: "var(--border)" }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // Settings Page
 // ──────────────────────────────────────────────────────────────────────────
 export default function Settings() {
@@ -456,6 +542,11 @@ export default function Settings() {
               <span className="text-xs text-white/70 font-mono">Preview</span>
             </div>
           </div>
+        </Section>
+
+        {/* ⚡ PHASE 5: AI SIDECAR DEVELOPER CONFIGURATION */}
+        <Section title="AI Sidecar Developer Configuration">
+          <AISidecarConfig />
         </Section>
 
         {/* ⚡ PRIVACY & DATA */}

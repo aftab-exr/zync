@@ -1,4 +1,5 @@
 import CallOverlay from '../components/CallOverlay';
+import AISidecar from '../components/AISidecar';
 import { useCallStore } from '../store/useCallStore';
 import { useState, useEffect, useMemo } from 'react';
 import { Search, Bell, MessageSquare, Plus, Users } from 'lucide-react';
@@ -182,6 +183,7 @@ export default function Inbox() {
         }} 
       />
       <CallOverlay />
+      <AISidecar />
     </div>
   );
 }

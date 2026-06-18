@@ -1,6 +1,6 @@
 import { useCallStore } from "../store/useCallStore";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { Send, Users, Sparkles, ShieldCheck, Copy, Check, CheckCheck, ChevronLeft, Loader2, Video, Phone, Paperclip, Mic, ShieldAlert, Clock } from "lucide-react";
+import { Send, Users, Sparkles, ShieldCheck, Copy, Check, CheckCheck, ChevronLeft, Loader2, Video, Phone, Paperclip, Mic, ShieldAlert, Clock, Bot } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { motion, AnimatePresence } from "framer-motion";
@@ -10,6 +10,7 @@ import toast from "react-hot-toast";
 import { useChatStore } from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
 import { useMessageStore } from "../store/useMessageStore";
+import { useAIStore } from "../store/useAIStore";
 import { useSettingsStore, resolveBackgroundStyle } from "../store/useSettingsStore";
 import { auth } from "../lib/firebase";
 import { compressIfImage, encryptFile, uploadEncryptedBlob, fetchAndDecrypt } from "../lib/media";
@@ -92,26 +93,38 @@ const CodeBlock = ({ inline, className, children, ...props }) => {
   };
 
   if (!inline && match) {
+    const codeText = String(children).replace(/\n$/, '');
     return (
       <div className="relative mt-4 mb-4 rounded-xl overflow-hidden bg-[#1e1e2e] border border-[var(--border)] shadow-sm">
         <div className="flex items-center justify-between px-4 py-2 bg-[#2a2a3c] border-b border-[var(--border)]">
           <span className="text-xs font-mono text-gray-400 uppercase tracking-wider">{match[1]}</span>
-          <button
-            onClick={handleCopy}
-            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors"
-          >
-            {copied ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-[var(--success)]" />
-                <span className="text-[var(--success)]">Copied!</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-3.5 h-3.5" />
-                <span>Copy</span>
-              </>
-            )}
-          </button>
+          <div className="flex items-center gap-3">
+            {/* ⚡ PHASE 5: Forward this code block into the AI Sidecar to debug/analyze it. */}
+            <button
+              onClick={() => useAIStore.getState().forwardToAi(codeText)}
+              title="Forward to AI Sidecar"
+              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-[var(--accent)] transition-colors"
+            >
+              <Bot className="w-3.5 h-3.5" />
+              <span>Ask AI</span>
+            </button>
+            <button
+              onClick={handleCopy}
+              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-[var(--success)]" />
+                  <span className="text-[var(--success)]">Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copy</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
         <pre className="p-4 overflow-x-auto text-[13px] leading-relaxed text-gray-100 font-mono m-0">
           <code className={className} {...props}>
@@ -475,6 +488,16 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                 </div>
                 
                 <div className="flex items-center gap-1 mt-1 text-[11px] text-[var(--text-secondary)] font-mono">
+                  {/* ⚡ PHASE 5: subtle "Forward to AI Sidecar" for code/long text. */}
+                  {msg.text && (msg.text.length > 80 || msg.text.includes('```')) && (
+                    <button
+                      onClick={() => useAIStore.getState().forwardToAi(msg.text)}
+                      title="Forward to AI Sidecar"
+                      className="mr-1 p-0.5 rounded text-[var(--text-secondary)] opacity-50 hover:opacity-100 hover:text-[var(--accent)] transition-all"
+                    >
+                      <Bot className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                   {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   {msg.isMine && (
                     msg.status === 'pending' ? (
