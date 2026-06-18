@@ -154,10 +154,13 @@ export const initializeSocket = (httpServer) => {
             // ==========================================
 
             // 1. User A initiates a call to User B
-            socket.on("webrtc:call-user", ({ userToCall, signalData, callerData }) => {
-                // Route the incoming call alert and the SDP offer to User B
+            socket.on("webrtc:call-user", ({ userToCall, signalData, callerData, callType }) => {
+                // Route the incoming call alert and the SDP offer to User B.
+                // ⚡ PHASE 4: forward callType so the callee answers in the same
+                // mode (audio-only vs video). Defaults to 'video' for legacy callers.
                 io.to(userToCall.toString()).emit("webrtc:incoming-call", {
                     signal: signalData,
+                    callType: callType === "audio" ? "audio" : "video",
                     caller: {
                         _id: userId, // The person making the call
                         ...callerData

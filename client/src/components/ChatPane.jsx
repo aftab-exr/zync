@@ -1,6 +1,6 @@
 import { useCallStore } from "../store/useCallStore";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { Send, Users, Sparkles, ShieldCheck, Copy, Check, CheckCheck, ChevronLeft, Loader2, Video, Paperclip, Mic, ShieldAlert, Clock } from "lucide-react";
+import { Send, Users, Sparkles, ShieldCheck, Copy, Check, CheckCheck, ChevronLeft, Loader2, Video, Phone, Paperclip, Mic, ShieldAlert, Clock } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { motion, AnimatePresence } from "framer-motion";
@@ -384,9 +384,18 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
         {!isGroup && !displayUser?.isAI && (
           <div className="flex items-center gap-2 md:gap-4">
             
-            {/* ⚡ PHASE 2.2: WebRTC Call Action */}
-            <button 
-              onClick={() => useCallStore.getState().initiateCall(displayUser)} 
+            {/* ⚡ PHASE 4: WebRTC Voice Call */}
+            <button
+              onClick={() => useCallStore.getState().initiateCall(displayUser, 'audio')}
+              className="p-2 w-9 h-9 rounded-full bg-[var(--bg-raised)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-all flex items-center justify-center active:scale-95 shadow-sm"
+              title="Start Voice Call"
+            >
+              <Phone className="w-4 h-4" />
+            </button>
+
+            {/* ⚡ PHASE 2.2 / 4: WebRTC Video Call */}
+            <button
+              onClick={() => useCallStore.getState().initiateCall(displayUser, 'video')}
               className="p-2 w-9 h-9 rounded-full bg-[var(--bg-raised)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-all flex items-center justify-center active:scale-95 shadow-sm"
               title="Start Video Call"
             >
