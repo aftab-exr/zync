@@ -7,6 +7,12 @@ import { sameId } from '../lib/conversation.js';
 
 const SOCKET_URL = import.meta.env.MODE === 'development' ? 'http://localhost:4000' : '/';
 
+// ⚡ SOCKET LIFECYCLE HARDENING: native connectivity handlers held at module
+// scope so they can be detached on teardown — prevents duplicate listeners and
+// stale-socket references across connect/disconnect cycles.
+let onlineHandler = null;
+let offlineHandler = null;
+
 export const useSocketStore = create((set, get) => ({
   socket: null,
   isConnected: false,
@@ -107,6 +113,24 @@ export const useSocketStore = create((set, get) => ({
       }
     });
 
+    // ⚡ SOCKET LIFECYCLE HARDENING: mirror the browser's connectivity state onto
+    // the socket. When the tab goes offline, proactively disconnect so socket.io
+    // stops retry-polling and spamming net::ERR_INTERNET_DISCONNECTED; reconnect
+    // the instant we're back online. Detach any handlers bound to a prior socket
+    // first, so re-running connect() never stacks duplicates.
+    if (onlineHandler) window.removeEventListener('online', onlineHandler);
+    if (offlineHandler) window.removeEventListener('offline', offlineHandler);
+
+    onlineHandler = () => {
+      if (socket && !socket.connected) socket.connect();
+    };
+    offlineHandler = () => {
+      if (socket) socket.disconnect();
+    };
+
+    window.addEventListener('online', onlineHandler);
+    window.addEventListener('offline', offlineHandler);
+
     set({ socket });
   },
 
@@ -123,6 +147,17 @@ export const useSocketStore = create((set, get) => ({
       socket.io.off('reconnect_failed');
       socket.disconnect();
       set({ socket: null, isConnected: false, isReconnecting: false, onlineUsers: [] });
+    }
+
+    // ⚡ SOCKET LIFECYCLE HARDENING: detach the connectivity listeners so the now-
+    // destroyed socket can't be revived by a stale 'online'/'offline' event.
+    if (onlineHandler) {
+      window.removeEventListener('online', onlineHandler);
+      onlineHandler = null;
+    }
+    if (offlineHandler) {
+      window.removeEventListener('offline', offlineHandler);
+      offlineHandler = null;
     }
   },
 }));
