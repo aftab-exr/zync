@@ -36,7 +36,19 @@ export const getMessages = asyncHandler(async (req, res, next) => {
         throw new apiError(403, "You are not authorized to view messages in this conversation");
     }
 
-    const messages = await Message.find({ conversationId }).sort({ createdAt: 1 });
+    // ⚡ PHASE 3 — DELTA SYNC: when the client passes ?after=<ISO timestamp> it
+    // already holds everything up to that point in its local IndexedDB cache, so
+    // return only strictly-newer messages. No `after` → full history (cold cache).
+    const filter = { conversationId };
+    const { after } = req.query;
+    if (after) {
+        const afterDate = new Date(after);
+        if (!isNaN(afterDate.getTime())) {
+            filter.createdAt = { $gt: afterDate };
+        }
+    }
+
+    const messages = await Message.find(filter).sort({ createdAt: 1 });
     res.status(200).json(new apiResponse(200, "Messages retrieved successfully", messages));
 });
 

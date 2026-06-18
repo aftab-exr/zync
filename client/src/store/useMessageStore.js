@@ -14,6 +14,7 @@ import {
   importSymmetricKey
 } from '../lib/crypto';
 import { deriveConversationKey } from '../lib/mediaKeys';
+import { cacheMessage, cacheMessages, getCachedMessages, clearCachedMessages } from '../lib/db';
 
 let messageHandler = null;
 let readReceiptHandler = null;
@@ -129,6 +130,11 @@ export const useMessageStore = create((set, get) => ({
         headers: { Authorization: `Bearer ${token}` },
       });
 
+      // ⚡ PHASE 3 — WIPE PROTOCOL: nuke the local IndexedDB cache alongside the
+      // server-side purge and the in-memory feed reset, so no decrypted history
+      // lingers on the device after a "Clear All Chats".
+      await clearCachedMessages();
+
       set({ messages: [] });
       return true;
     } catch (error) {
@@ -215,6 +221,11 @@ export const useMessageStore = create((set, get) => ({
       set({ messages: updatedMessages });
       useChatStore.getState().updateConversationLastMessage(conversationId, savedMessage);
 
+      // ⚡ PHASE 3: persist the decrypted attachment message (metadata + caption)
+      // to the local cache. The blob: URL is intentionally NOT stored — it's
+      // session-scoped; EncryptedMedia re-fetches & decrypts from attachmentUrl.
+      cacheMessage(savedMessage);
+
       return true;
     } catch (error) {
       console.error('🔴 Failed to send attachment:', error.response?.data || error.message);
@@ -227,17 +238,28 @@ export const useMessageStore = create((set, get) => ({
   fetchMessages: async (conversationId) => {
     if (!conversationId) return;
 
-    set({ isFetching: true, messages: [] });
+    // ⚡ PHASE 3 — OFFLINE-FIRST: paint the locally-cached history FIRST, before
+    // any network round-trip. These records were decrypted when first stored, so
+    // old messages render instantly with zero key math. Only show the blocking
+    // spinner when we have nothing cached for this conversation.
+    const cached = await getCachedMessages(conversationId);
+    set({ messages: cached, isFetching: cached.length === 0 });
+
     try {
       const token = await auth.currentUser?.getIdToken();
       if (!token) {
         throw new Error('No active session token found');
       }
+
+      // ⚡ PHASE 3 — DELTA SYNC: only ask the server for messages newer than our
+      // newest cached one. Empty cache → full history fetch.
+      const since = cached.length ? cached[cached.length - 1].createdAt : null;
       const res = await api.get(`/messages/${conversationId}`, {
         headers: { Authorization: `Bearer ${token}` },
+        params: since ? { after: since } : undefined,
       });
 
-      // E2E Decryption Interception
+      // ===== EXISTING E2E DECRYPTION (unchanged) — now over the DELTA set =====
       let decryptedMessages = res.data.data;
       const chatStore = useChatStore.getState();
       const conversation = chatStore.conversations.find(c => c._id === conversationId);
@@ -267,8 +289,21 @@ export const useMessageStore = create((set, get) => ({
           decryptedMessages = await decryptMessagesWith(res.data.data, groupKey);
         }
       }
+      // ===== END EXISTING E2E DECRYPTION =====
 
-      set({ messages: decryptedMessages });
+      // ⚡ PHASE 3: persist the freshly-decrypted delta, then merge it into the
+      // feed (dedupe by _id; a socket message may have landed mid-sync).
+      await cacheMessages(decryptedMessages);
+
+      set((state) => {
+        const byId = new Map();
+        for (const m of state.messages) byId.set(String(m._id), m);
+        for (const m of decryptedMessages) byId.set(String(m._id), m);
+        const merged = [...byId.values()].sort(
+          (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+        );
+        return { messages: merged };
+      });
     } catch (error) {
       console.error('Failed to fetch messages:', error.stack || error);
     } finally {
@@ -352,11 +387,14 @@ export const useMessageStore = create((set, get) => ({
         (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
       );
       set({ messages: updatedMessages });
-      
+
       // ⚡ THE FIX: Use your actual store method name and pass the conversationId
       useChatStore.getState().updateConversationLastMessage(conversationId, savedMessage);
-      
-      return true; 
+
+      // ⚡ PHASE 3: persist the decrypted sent message to the local cache.
+      cacheMessage(savedMessage);
+
+      return true;
     } catch (error) {
       console.error("🔴 Failed to send message:", error.response?.data || error.message);
       return false; 
@@ -412,6 +450,10 @@ export const useMessageStore = create((set, get) => ({
         );
         return { messages: updatedMessages };
       });
+
+      // ⚡ PHASE 3: persist the decrypted inbound message to the local cache so it
+      // survives reloads. Idempotent put — safe even if it was already present.
+      cacheMessage(decryptedMsg);
     };
 
     // ⚡ KEY-FRESHNESS FIX: register the proper handler. It re-reads the peer's

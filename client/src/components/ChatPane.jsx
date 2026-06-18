@@ -1,6 +1,6 @@
 import { useCallStore } from "../store/useCallStore";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { Send, Users, Sparkles, ShieldCheck, Copy, Check, CheckCheck, ChevronLeft, Loader2, Image as ImageIcon, X, Video, Paperclip, Mic, ShieldAlert } from "lucide-react";
+import { Send, Users, Sparkles, ShieldCheck, Copy, Check, CheckCheck, ChevronLeft, Loader2, Video, Paperclip, Mic, ShieldAlert } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { motion, AnimatePresence } from "framer-motion";
@@ -15,6 +15,9 @@ import { auth } from "../lib/firebase";
 import { compressIfImage, encryptFile, uploadEncryptedBlob, fetchAndDecrypt } from "../lib/media";
 import { deriveConversationKey } from "../lib/mediaKeys";
 import VoiceRecorder from "./VoiceRecorder";
+
+// ⚡ PHASE 2: Strict ceiling for any encrypted attachment (image / video / voice).
+const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024; // 50MB
 
 // ⚡ PHASE 2: Renders an encrypted attachment. Fetches the raw ciphertext blob
 // from Cloudinary, decrypts it locally with the conversation key, and renders a
@@ -128,10 +131,6 @@ const CodeBlock = ({ inline, className, children, ...props }) => {
 
 export default function ChatPane({ conversationId, isSidecar = false }) {
   const [text, setText] = useState("");
-  
-  // ⚡ PHASE 2.1: Media State
-  const [imagePreview, setImagePreview] = useState(null);
-  const fileInputRef = useRef(null);
 
   // ⚡ PHASE 2: Encrypted media state
   const attachInputRef = useRef(null);
@@ -190,32 +189,6 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
     });
   }, [messages, currentUser?._id, activeConversation, isGroup]);
 
-  // ⚡ PHASE 2.1: Image Handling Logic
-  const handleImageChange = useCallback((e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
-       alert("Image must be less than 5MB");
-       return;
-    }
-    if (!file.type.startsWith("image/")) {
-       alert("Please select a valid image file");
-       return;
-    }
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-       setImagePreview(reader.result);
-    };
-    reader.readAsDataURL(file);
-  }, []);
-
-  const removeImage = useCallback(() => {
-    setImagePreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }, []);
-
   // ⚡ PHASE 2: Derive the conversation's AES-GCM key (same key used for text) so
   // we can encrypt outgoing media and decrypt incoming media locally.
   useEffect(() => {
@@ -235,6 +208,12 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
   const processAndSend = useCallback(async (file, type) => {
     if (!convKey) {
       toast.error("Secure channel isn't ready yet. Try again in a moment.");
+      return;
+    }
+    // ⚡ HARD CAP: reject oversized payloads BEFORE encryptFile loads the whole
+    // file into memory — guards mobile browsers from OOM crashes on large media.
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      toast.error("File exceeds 50MB limit");
       return;
     }
     try {
@@ -271,10 +250,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
       toast.error("Only images and videos are supported.");
       return;
     }
-    if (file.size > 50 * 1024 * 1024) {
-      toast.error("File must be under 50MB.");
-      return;
-    }
+    // Size enforcement is centralized in processAndSend (also covers voice notes).
     await processAndSend(file, isImage ? "image" : "video");
   }, [processAndSend]);
 
@@ -286,37 +262,30 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
 
   const handleSend = useCallback(async (e) => {
     e.preventDefault();
-    if ((!text.trim() && !imagePreview) || isSending) return;
+    if (!text.trim() || isSending) return;
 
     const currentText = text.trim();
-    const currentImage = imagePreview;
 
     // Optimistic UI clear
     setText("");
-    removeImage();
 
-    // Send the payload
-    const success = await sendMessage(conversationId, currentText, currentImage, displayUser?._id);
-    
+    // Send the encrypted text payload (binary media goes through processAndSend).
+    const success = await sendMessage(conversationId, currentText, null, displayUser?._id);
+
     // Restore if failed
     if (!success) {
       setText(currentText);
-      setImagePreview(currentImage);
     }
-  }, [text, imagePreview, isSending, sendMessage, conversationId, displayUser?._id, removeImage]);
+  }, [text, isSending, sendMessage, conversationId, displayUser?._id]);
 
   // Lifecycle
   useEffect(() => {
     if (conversationId) {
       fetchMessages(conversationId);
       subscribeToMessages(conversationId);
-      // Clear unsent media when switching chats asynchronously to avoid cascading renders
-      setTimeout(() => {
-        removeImage();
-      }, 0);
     }
     return () => unsubscribeFromMessages();
-  }, [conversationId, fetchMessages, subscribeToMessages, unsubscribeFromMessages, removeImage]);
+  }, [conversationId, fetchMessages, subscribeToMessages, unsubscribeFromMessages]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -533,29 +502,6 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
       {/* ⚡ COMPOSER */}
       <div className="p-3 md:p-4 bg-[var(--bg-surface)] border-t border-[var(--border)] shrink-0 relative z-20">
         <form onSubmit={handleSend} className="flex flex-col gap-2 max-w-4xl mx-auto relative">
-          
-          {/* ⚡ PHASE 2.1: Image Preview Popup */}
-          <AnimatePresence>
-            {imagePreview && (
-              <motion.div 
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                className="w-full flex items-center bg-[var(--bg-raised)] p-3 rounded-2xl border border-[var(--border)]"
-              >
-                <div className="relative">
-                  <img src={imagePreview} alt="Preview" className="w-20 h-20 object-cover rounded-xl border border-[var(--border)] shadow-md" />
-                  <button
-                    type="button"
-                    onClick={removeImage}
-                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[var(--bg-surface)] border border-[var(--border)] shadow-sm text-[var(--text-secondary)] hover:text-[var(--error)] flex items-center justify-center transition-all hover:scale-110 active:scale-95"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
 
           {/* ⚡ PHASE 2: Encrypt/upload status indicator */}
           <AnimatePresence>
@@ -582,23 +528,6 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
           ) : (
           <div className="flex items-end gap-2 w-full">
             <div className="flex-1 bg-[var(--bg-base)] border border-[var(--border)] rounded-2xl p-1 flex items-center focus-within:border-[var(--accent)] transition-colors shadow-sm">
-
-              {/* Legacy plaintext image input (kept for backward-compat) */}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                ref={fileInputRef}
-                onChange={handleImageChange}
-              />
-              <button
-                type="button"
-                title="Photo"
-                className="p-3 text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors rounded-xl active:scale-95"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <ImageIcon className="w-5 h-5" />
-              </button>
 
               {/* ⚡ PHASE 2: Encrypted attachment (image / video) */}
               <input
@@ -634,7 +563,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
             </div>
 
             {/* ⚡ PHASE 2: Voice note when empty, Send when composing */}
-            {(!text.trim() && !imagePreview) ? (
+            {!text.trim() ? (
               <button
                 type="button"
                 title="Record voice note"
@@ -647,7 +576,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
             ) : (
               <button
                 type="submit"
-                disabled={(!text.trim() && !imagePreview) || isSending}
+                disabled={!text.trim() || isSending}
                 className="w-12 h-12 rounded-full bg-[var(--accent)] text-white flex items-center justify-center hover:bg-[var(--accent-hover)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 active:scale-95 shadow-md"
               >
                 {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 ml-1" />}
