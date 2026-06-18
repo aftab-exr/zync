@@ -47,6 +47,11 @@ export const useSocketStore = create((set, get) => ({
     socket.on('connect', () => {
       set({ isConnected: true, isReconnecting: false });
 
+      // ⚡ PHASE 3.5 — OUTBOX REPLAY: connectivity is back, so flush any messages
+      // composed while offline (status: 'pending') before anything else. Each
+      // confirmed send swaps its temp bubble for the real server message.
+      useMessageStore.getState().resendPendingMessages();
+
       // ⚡ OFFLINE CATCH-UP: If the user comes back online while looking at a chat,
       // refetch to pull any messages missed during the disconnect.
       const activeConv = useChatStore.getState().selectedConversation;

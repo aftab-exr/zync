@@ -1,6 +1,6 @@
 import { useCallStore } from "../store/useCallStore";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { Send, Users, Sparkles, ShieldCheck, Copy, Check, CheckCheck, ChevronLeft, Loader2, Video, Paperclip, Mic, ShieldAlert } from "lucide-react";
+import { Send, Users, Sparkles, ShieldCheck, Copy, Check, CheckCheck, ChevronLeft, Loader2, Video, Paperclip, Mic, ShieldAlert, Clock } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { motion, AnimatePresence } from "framer-motion";
@@ -266,16 +266,15 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
 
     const currentText = text.trim();
 
-    // Optimistic UI clear
+    // Clear the composer immediately — the message now lives in the feed as an
+    // optimistic bubble (rendered before the network call inside sendMessage).
     setText("");
 
-    // Send the encrypted text payload (binary media goes through processAndSend).
-    const success = await sendMessage(conversationId, currentText, null, displayUser?._id);
-
-    // Restore if failed
-    if (!success) {
-      setText(currentText);
-    }
+    // ⚡ PHASE 3.5: a falsy result means the send failed (e.g. offline). We do NOT
+    // restore the composer text anymore — the message is already painted as a
+    // `pending` bubble and will auto-replay on reconnect, so re-inserting it here
+    // would duplicate it. Send the encrypted text payload (media → processAndSend).
+    await sendMessage(conversationId, currentText, null, displayUser?._id);
   }, [text, isSending, sendMessage, conversationId, displayUser?._id]);
 
   // Lifecycle
@@ -423,11 +422,11 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                   </span>
                 )}
 
-                <div className={`max-w-[85%] md:max-w-[70%] rounded-2xl p-2.5 shadow-sm ${
-                  msg.isMine 
-                    ? 'bg-[var(--accent)] text-white rounded-br-sm' 
+                <div className={`max-w-[85%] md:max-w-[70%] rounded-2xl p-2.5 shadow-sm transition-opacity ${
+                  msg.isMine
+                    ? 'bg-[var(--accent)] text-white rounded-br-sm'
                     : 'bg-[var(--bg-raised)] border border-[var(--border)] text-white rounded-bl-sm'
-                }`}>
+                } ${msg.status === 'pending' ? 'opacity-70' : ''}`}>
                   
                   {/* ⚡ PHASE 2: Encrypted attachment (image / video / voice note) */}
                   {msg.attachmentUrl && (
@@ -469,7 +468,10 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                 <div className="flex items-center gap-1 mt-1 text-[11px] text-[var(--text-secondary)] font-mono">
                   {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   {msg.isMine && (
-                    msg.isRead ? (
+                    msg.status === 'pending' ? (
+                      // ⚡ PHASE 3.5: queued offline — not yet on the server.
+                      <Clock className="w-3 h-3 text-[var(--text-secondary)] ml-1" title="Sending…" />
+                    ) : msg.isRead ? (
                       <CheckCheck className="w-3.5 h-3.5 text-[var(--accent)] ml-1 transition-colors duration-300" />
                     ) : (
                       <Check className="w-3 h-3 text-[var(--text-secondary)] ml-1 transition-colors duration-300" />

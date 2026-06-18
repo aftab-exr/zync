@@ -51,6 +51,32 @@ export const getCachedMessages = async (conversationId) => {
   }
 };
 
+// ⚡ PHASE 3.5 — OPTIMISTIC UI: remove a single cached record by its PK (`id`,
+// which mirrors `_id`). Used to evict an optimistic `temp_*` message once the
+// server confirms it and returns the real MongoDB `_id`. Never rejects.
+export const deleteCachedMessage = async (id) => {
+  try {
+    if (id != null) await db.messages.delete(id);
+  } catch (err) {
+    console.error("🔴 Dexie cache delete failed:", err);
+  }
+};
+
+// ⚡ PHASE 3.5 — OFFLINE OUTBOX: every message still flagged `status: 'pending'`
+// (sent while offline and never confirmed by the server), oldest-first so the
+// re-sync hook replays them in the order they were composed. Returns [] on
+// failure so a cache miss can't break reconnection.
+export const getPendingMessages = async () => {
+  try {
+    return await db.messages
+      .filter((m) => m?.status === "pending")
+      .sortBy("createdAt");
+  } catch (err) {
+    console.error("🔴 Dexie pending-read failed:", err);
+    return [];
+  }
+};
+
 // Wipe Protocol: drop the entire local message cache.
 export const clearCachedMessages = async () => {
   try {

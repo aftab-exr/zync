@@ -14,7 +14,7 @@ import {
   importSymmetricKey
 } from '../lib/crypto';
 import { deriveConversationKey } from '../lib/mediaKeys';
-import { cacheMessage, cacheMessages, getCachedMessages, clearCachedMessages } from '../lib/db';
+import { cacheMessage, cacheMessages, getCachedMessages, clearCachedMessages, deleteCachedMessage, getPendingMessages } from '../lib/db';
 
 let messageHandler = null;
 let readReceiptHandler = null;
@@ -317,57 +317,91 @@ export const useMessageStore = create((set, get) => ({
 
 // Change the parameters to accept 'image'
   sendMessage: async (conversationId, text, image, receiverId) => {
-    set({ isSending: true }); 
-    try {
-      const token = await auth.currentUser.getIdToken();
-      
-      let textToSend = text;
-      // Unified cipher key: the 1-on-1 ECDH shared secret OR the group AES key.
-      let encryptionKey = null;
-      const privateKeyJwk = localStorage.getItem("zync_private_key");
+    set({ isSending: true });
 
-      const chatStore = useChatStore.getState();
-      const conversation = chatStore.conversations.find(c => sameId(c._id, conversationId));
-      const currentUser = useAuthStore.getState().authUser || useAuthStore.getState().user;
-      // ⚡ KEY-FRESHNESS: resolve the peer from the LIVE store (hard-refreshed by
-      // getConversations on boot), so we always encrypt against the most recently
-      // fetched publicKey — never a stale snapshot. sameId guards type mismatches.
-      const otherParticipant = conversation?.participants?.find(p => sameId(p._id, receiverId))
-        || conversation?.participants?.find(p => !sameId(p._id, currentUser?._id));
+    // ===== EXISTING E2E ENCRYPTION (unchanged) — runs purely locally, BEFORE any
+    // network I/O, so the optimistic bubble can paint instantly even offline. =====
+    let textToSend = text;
+    // Unified cipher key: the 1-on-1 ECDH shared secret OR the group AES key.
+    let encryptionKey = null;
+    const privateKeyJwk = localStorage.getItem("zync_private_key");
 
-      if (conversation?.isGroup && text) {
-        // ⚡ VECTOR 2: Group E2EE — encrypt with the shared group symmetric key.
-        const groupKey = await deriveGroupKey(conversation, currentUser);
-        if (groupKey) {
-          try {
-            const encryptedPayload = await encryptText(text, groupKey);
-            textToSend = JSON.stringify(encryptedPayload);
-            encryptionKey = groupKey;
-          } catch (err) {
-            console.error("Failed to encrypt group message text:", err);
-            textToSend = text;
-            encryptionKey = null;
-          }
-        }
-        // else: legacy group with no key → send plaintext
-      } else if (conversation && !conversation.isGroup && privateKeyJwk && otherParticipant && otherParticipant.publicKey && text) {
+    const chatStore = useChatStore.getState();
+    const conversation = chatStore.conversations.find(c => sameId(c._id, conversationId));
+    const currentUser = useAuthStore.getState().authUser || useAuthStore.getState().user;
+    // ⚡ KEY-FRESHNESS: resolve the peer from the LIVE store (hard-refreshed by
+    // getConversations on boot), so we always encrypt against the most recently
+    // fetched publicKey — never a stale snapshot. sameId guards type mismatches.
+    const otherParticipant = conversation?.participants?.find(p => sameId(p._id, receiverId))
+      || conversation?.participants?.find(p => !sameId(p._id, currentUser?._id));
+
+    if (conversation?.isGroup && text) {
+      // ⚡ VECTOR 2: Group E2EE — encrypt with the shared group symmetric key.
+      const groupKey = await deriveGroupKey(conversation, currentUser);
+      if (groupKey) {
         try {
-          const myPrivKeyObj = await importPrivateKey(privateKeyJwk);
-          const theirPubKeyObj = await importPublicKey(otherParticipant.publicKey);
-          encryptionKey = await deriveSharedSecret(myPrivKeyObj, theirPubKeyObj);
-          const encryptedPayload = await encryptText(text, encryptionKey);
+          const encryptedPayload = await encryptText(text, groupKey);
           textToSend = JSON.stringify(encryptedPayload);
+          encryptionKey = groupKey;
         } catch (err) {
-          console.error("Failed to encrypt message text:", err);
+          console.error("Failed to encrypt group message text:", err);
+          textToSend = text;
+          encryptionKey = null;
         }
       }
+      // else: legacy group with no key → send plaintext
+    } else if (conversation && !conversation.isGroup && privateKeyJwk && otherParticipant && otherParticipant.publicKey && text) {
+      try {
+        const myPrivKeyObj = await importPrivateKey(privateKeyJwk);
+        const theirPubKeyObj = await importPublicKey(otherParticipant.publicKey);
+        encryptionKey = await deriveSharedSecret(myPrivKeyObj, theirPubKeyObj);
+        const encryptedPayload = await encryptText(text, encryptionKey);
+        textToSend = JSON.stringify(encryptedPayload);
+      } catch (err) {
+        console.error("Failed to encrypt message text:", err);
+      }
+    }
+    // ===== END EXISTING E2E ENCRYPTION =====
+
+    // ⚡ PHASE 3.5 — OPTIMISTIC MESSAGE: paint the bubble BEFORE the network call.
+    // The wire payload (`textToSend`) carries the encrypted ciphertext, but the
+    // optimistic record stores the PLAINTEXT `text` for display (the feed renders
+    // msg.text directly) and stashes everything needed to replay the send while
+    // offline. createdAt is an ISO string — Dexie sortBy compares it as a string
+    // key, so a numeric Date.now() would jump pending bubbles to the top.
+    const tempId = `temp_${Date.now()}`;
+    const optimisticMessage = {
+      _id: tempId,
+      conversationId,
+      senderId: currentUser?._id,
+      text,                 // plaintext for the UI
+      image: image || null,
+      createdAt: new Date().toISOString(),
+      isRead: false,
+      status: 'pending',
+      // Outbox payload — the wire-ready ciphertext + routing, replayed verbatim
+      // by resendPendingMessages once connectivity returns.
+      pendingPayload: { text: textToSend, image: image || null, receiverId },
+    };
+
+    // IMMEDIATE paint + persist so the message survives a reload while still pending.
+    set((state) => ({
+      messages: [...state.messages, optimisticMessage].sort(
+        (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+      ),
+    }));
+    cacheMessage(optimisticMessage);
+    useChatStore.getState().updateConversationLastMessage(conversationId, optimisticMessage);
+
+    try {
+      const token = await auth.currentUser.getIdToken();
 
       // ⚡ Include the image in the JSON payload
-      const res = await api.post(`/messages/${conversationId}`, 
+      const res = await api.post(`/messages/${conversationId}`,
         { text: textToSend, image, receiverId },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      
+
       let savedMessage = res.data.data;
       if (encryptionKey && savedMessage.text) {
         try {
@@ -381,25 +415,85 @@ export const useMessageStore = create((set, get) => ({
         }
       }
 
-      // ⚡ RACE-CONDITION FIX: Groq replies can arrive over the socket BEFORE this
-      // HTTP POST resolves, so always re-sort the feed chronologically by createdAt.
-      const updatedMessages = [...get().messages, savedMessage].sort(
-        (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
-      );
-      set({ messages: updatedMessages });
+      // ⚡ PHASE 3.5 — CONFIRM: swap the temp bubble for the real server message
+      // (now carrying its MongoDB _id), keeping the feed chronological. The sort
+      // also covers the race where a Groq reply lands over the socket before this
+      // POST resolves.
+      set((state) => {
+        const withoutTemp = state.messages.filter((m) => !sameId(m._id, tempId));
+        const merged = [...withoutTemp, savedMessage].sort(
+          (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+        );
+        return { messages: merged };
+      });
 
       // ⚡ THE FIX: Use your actual store method name and pass the conversationId
       useChatStore.getState().updateConversationLastMessage(conversationId, savedMessage);
 
-      // ⚡ PHASE 3: persist the decrypted sent message to the local cache.
+      // ⚡ PHASE 3: drop the optimistic temp record, persist the confirmed message.
+      await deleteCachedMessage(tempId);
       cacheMessage(savedMessage);
 
       return true;
     } catch (error) {
-      console.error("🔴 Failed to send message:", error.response?.data || error.message);
-      return false; 
+      // ⚡ PHASE 3.5 — OFFLINE: the send failed (no network). Leave the bubble in
+      // the store AND Dexie flagged `status: 'pending'` so it stays visible and
+      // gets replayed by resendPendingMessages on reconnect. Swallow the error so
+      // there's no unhandled rejection and no crash.
+      console.warn("📭 Message queued offline (will retry on reconnect):", error?.message || error);
+      return false;
     } finally {
-      set({ isSending: false }); 
+      set({ isSending: false });
+    }
+  },
+
+  // ⚡ PHASE 3.5 — OFFLINE OUTBOX REPLAY: drain every `status: 'pending'` message
+  // from Dexie and re-POST it. Invoked by the socket lifecycle on reconnect /
+  // browser 'online'. Each pending record already holds the wire-ready ciphertext
+  // (pendingPayload) and the plaintext (msg.text) we reuse for display — so no key
+  // re-derivation is needed and the E2E pipeline is untouched. Best-effort: if a
+  // resend still fails (flaky reconnect), the message stays pending for next time.
+  resendPendingMessages: async () => {
+    const pending = await getPendingMessages();
+    if (!pending.length) return;
+
+    for (const msg of pending) {
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) return; // session gone — keep everything queued
+
+        const payload = msg.pendingPayload || {
+          text: msg.text,
+          image: msg.image || null,
+          receiverId: msg.receiverId,
+        };
+
+        const res = await api.post(`/messages/${msg.conversationId}`, payload, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        // Reuse the plaintext we already know (msg.text) rather than re-deriving
+        // the key to decrypt the echoed ciphertext.
+        const savedMessage = { ...res.data.data, text: msg.text };
+
+        set((state) => {
+          const withoutTemp = state.messages.filter((m) => !sameId(m._id, msg._id));
+          const exists = withoutTemp.some((m) => sameId(m._id, savedMessage._id));
+          const next = exists ? withoutTemp : [...withoutTemp, savedMessage];
+          return {
+            messages: next.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)),
+          };
+        });
+
+        await deleteCachedMessage(msg._id);
+        cacheMessage(savedMessage);
+        useChatStore.getState().updateConversationLastMessage(msg.conversationId, savedMessage);
+      } catch (error) {
+        // Still offline / server unreachable — leave this one pending and stop;
+        // a later 'online'/reconnect event will trigger another drain.
+        console.warn("📭 Pending resend failed, will retry later:", error?.message || error);
+        return;
+      }
     }
   },
   subscribeToMessages: (currentConversationId) => {
