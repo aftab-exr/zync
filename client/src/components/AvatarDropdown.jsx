@@ -5,12 +5,14 @@ import { Settings, LogOut } from "lucide-react";
 
 import { useAuthStore } from "../store/useAuthStore";
 import { useSocketStore } from "../store/useSocketStore";
+import { useMotion } from "../lib/motion";
 
 // ⚡ Reusable avatar + dropdown menu. Gateway to Settings and the secure logout.
 // `avatarUrl` is an optional override; otherwise we read the live profile from
 // the store. (The schema has no `profilePic` field — the photo lives on
 // `avatarUrl`, which the whole app reads.)
 export default function AvatarDropdown({ avatarUrl }) {
+  const M = useMotion();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const containerRef = useRef(null);
@@ -65,15 +67,15 @@ export default function AvatarDropdown({ avatarUrl }) {
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: -4 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: -4 }}
-            transition={{ duration: 0.14, ease: "easeOut" }}
+            variants={M.dropdownVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
             role="menu"
-            className="absolute right-0 mt-2 w-52 origin-top-right rounded-xl border border-slate-700 bg-slate-800/90 backdrop-blur-md shadow-xl py-1.5 z-[60] overflow-hidden"
+            className="absolute right-0 mt-2 w-52 origin-top-right rounded-xl border border-zinc-800 bg-zinc-900/70 backdrop-blur-xl py-1.5 z-[60] overflow-hidden"
           >
             {/* Identity header */}
-            <div className="px-4 py-2 border-b border-slate-700 mb-1">
+            <div className="px-4 py-2 border-b border-zinc-800 mb-1">
               <p className="text-sm font-medium text-white truncate">
                 {currentUser?.displayName || "Zync User"}
               </p>
@@ -85,7 +87,7 @@ export default function AvatarDropdown({ avatarUrl }) {
             <button
               role="menuitem"
               onClick={goToSettings}
-              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-100 hover:bg-slate-700/50 transition-colors text-left active:scale-[0.98]"
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-100 hover:bg-zinc-800/50 transition-colors text-left active:scale-[0.98]"
             >
               <Settings className="w-4 h-4" /> Profile / Settings
             </button>
@@ -93,7 +95,7 @@ export default function AvatarDropdown({ avatarUrl }) {
             <button
               role="menuitem"
               onClick={handleLogout}
-              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-400 hover:bg-slate-700/50 transition-colors text-left active:scale-[0.98]"
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-400 hover:bg-zinc-800/50 transition-colors text-left active:scale-[0.98]"
             >
               <LogOut className="w-4 h-4" /> Logout
             </button>

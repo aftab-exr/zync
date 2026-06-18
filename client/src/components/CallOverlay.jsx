@@ -2,8 +2,10 @@ import { useEffect, useRef } from 'react';
 import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCallStore } from '../store/useCallStore';
+import { useMotion } from '../lib/motion';
 
 export default function CallOverlay() {
+  const M = useMotion();
   const {
     callState,
     callType,
@@ -54,23 +56,24 @@ export default function CallOverlay() {
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
+        variants={M.backdropVariants}
+        initial="hidden"
+        animate="visible"
+        exit="exit"
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
       >
         <motion.div
-          initial={{ scale: 0.95, y: 20 }}
-          animate={{ scale: 1, y: 0 }}
-          exit={{ scale: 0.95, y: 20 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-          className="w-full max-w-4xl rounded-3xl overflow-hidden bg-[var(--bg-surface)] border border-[var(--border)] shadow-2xl relative flex flex-col"
+          variants={M.modalVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          className="w-full max-w-4xl rounded-3xl overflow-hidden bg-zinc-900/70 backdrop-blur-xl border border-zinc-800 relative flex flex-col"
         >
 
           {/* Header */}
-          <div className="px-6 py-4 flex items-center justify-between border-b border-[var(--border)] z-10 bg-[var(--bg-surface)]">
+          <div className="px-6 py-4 flex items-center justify-between border-b border-zinc-800 z-10 bg-transparent">
             <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rounded-full bg-[var(--success)] animate-pulse shadow-[0_0_10px_var(--success)]" />
+              <div className="w-3 h-3 rounded-full bg-[var(--success)] animate-pulse" />
               <h3 className="font-display font-semibold text-white">{headerLabel}</h3>
             </div>
             <p className="font-mono text-sm text-[var(--text-secondary)]">{remoteUser?.displayName || "Unknown"}</p>
@@ -85,7 +88,7 @@ export default function CallOverlay() {
             {(!isConnected) ? (
               // RINGING / CALLING — caller card
               <div className="flex flex-col items-center">
-                <div className="w-24 h-24 rounded-full bg-[var(--accent)] mb-4 flex items-center justify-center shadow-[0_0_30px_rgba(79,142,247,0.3)]">
+                <div className="w-24 h-24 rounded-full bg-[var(--accent)] mb-4 flex items-center justify-center">
                   {isVideoCall ? <Video className="w-10 h-10 text-white" /> : <Phone className="w-10 h-10 text-white" />}
                 </div>
                 <h2 className="text-xl font-medium text-white mb-2">{remoteUser?.displayName}</h2>
@@ -106,8 +109,8 @@ export default function CallOverlay() {
                 <motion.div
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: 0.5 }}
-                  className="absolute bottom-6 right-6 w-32 md:w-48 aspect-video bg-black rounded-xl overflow-hidden shadow-xl border-2 border-[var(--border)]"
+                  transition={M.transition}
+                  className="absolute bottom-6 right-6 w-32 md:w-48 aspect-video bg-black rounded-xl overflow-hidden border border-zinc-800"
                 >
                   <video playsInline autoPlay muted ref={localVideoRef} className="w-full h-full object-cover scale-x-[-1]" />
                   {isCameraOff && (
@@ -120,7 +123,7 @@ export default function CallOverlay() {
             ) : (
               // CONNECTED — audio-only call (no video tracks): show an avatar.
               <div className="flex flex-col items-center">
-                <div className="w-28 h-28 rounded-full bg-[var(--border)] mb-4 flex items-center justify-center overflow-hidden shadow-[0_0_30px_rgba(79,142,247,0.2)]">
+                <div className="w-28 h-28 rounded-full bg-zinc-800 mb-4 flex items-center justify-center overflow-hidden border border-zinc-700">
                   {remoteUser?.avatarUrl ? (
                     <img src={remoteUser.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
                   ) : (
@@ -134,7 +137,7 @@ export default function CallOverlay() {
           </div>
 
           {/* Controls Footer */}
-          <div className="px-6 py-6 bg-[var(--bg-surface)] border-t border-[var(--border)] flex justify-center gap-6 z-10">
+          <div className="px-6 py-6 bg-transparent border-t border-zinc-800 flex justify-center gap-6 z-10">
 
             {/* In-call media toggles (mic always; camera only for video calls) */}
             {isConnected && (
@@ -142,7 +145,7 @@ export default function CallOverlay() {
                 <button
                   onClick={toggleMic}
                   title={isMicMuted ? 'Unmute microphone' : 'Mute microphone'}
-                  className="w-14 h-14 rounded-full bg-[var(--bg-raised)] border border-[var(--border)] flex items-center justify-center hover:brightness-110 active:scale-95 transition-all shadow-lg"
+                  className="w-14 h-14 rounded-full bg-[var(--bg-raised)] border border-zinc-800 flex items-center justify-center hover:brightness-110 active:scale-95 transition-all"
                 >
                   {isMicMuted ? <MicOff className="w-6 h-6 text-[var(--error)]" /> : <Mic className="w-6 h-6 text-white" />}
                 </button>
@@ -151,7 +154,7 @@ export default function CallOverlay() {
                   <button
                     onClick={toggleCamera}
                     title={isCameraOff ? 'Turn camera on' : 'Turn camera off'}
-                    className="w-14 h-14 rounded-full bg-[var(--bg-raised)] border border-[var(--border)] flex items-center justify-center hover:brightness-110 active:scale-95 transition-all shadow-lg"
+                    className="w-14 h-14 rounded-full bg-[var(--bg-raised)] border border-zinc-800 flex items-center justify-center hover:brightness-110 active:scale-95 transition-all"
                   >
                     {isCameraOff ? <VideoOff className="w-6 h-6 text-[var(--error)]" /> : <Video className="w-6 h-6 text-white" />}
                   </button>
@@ -161,13 +164,13 @@ export default function CallOverlay() {
 
             {/* Answer (only while ringing) */}
             {callState === 'RINGING' && (
-              <button onClick={answerCall} className="w-14 h-14 rounded-full bg-[var(--success)] flex items-center justify-center hover:brightness-110 active:scale-95 transition-all shadow-lg">
+              <button onClick={answerCall} className="w-14 h-14 rounded-full bg-[var(--success)] flex items-center justify-center hover:brightness-110 active:scale-95 transition-all">
                 <Phone className="w-6 h-6 text-white" />
               </button>
             )}
 
             {/* Reject / End */}
-            <button onClick={callState === 'RINGING' ? rejectCall : endCall} className="w-14 h-14 rounded-full bg-[var(--error)] flex items-center justify-center hover:brightness-110 active:scale-95 transition-all shadow-lg">
+            <button onClick={callState === 'RINGING' ? rejectCall : endCall} className="w-14 h-14 rounded-full bg-[var(--error)] flex items-center justify-center hover:brightness-110 active:scale-95 transition-all">
               <PhoneOff className="w-6 h-6 text-white" />
             </button>
           </div>

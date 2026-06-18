@@ -11,6 +11,7 @@ import { useChatStore } from '../store/useChatStore';
 import NewMessageModal from '../components/NewMessageModal';
 import ChatPane from '../components/ChatPane';
 import AvatarDropdown from '../components/AvatarDropdown';
+import EmptyChatState from '../components/EmptyChatState';
 
 export default function Inbox() {
   const navigate = useNavigate();
@@ -159,18 +160,7 @@ export default function Inbox() {
         {conversationId ? (
           <ChatPane conversationId={conversationId} />
         ) : (
-          <main className="flex-1 flex flex-col items-center justify-center bg-[var(--bg-base)]">
-            <div className="flex flex-col items-center text-center max-w-[240px]">
-              <MessageSquare className="w-12 h-12 text-[var(--text-secondary)] mb-6 opacity-50" />
-              <h2 className="text-md font-semibold mb-2">Select a conversation</h2>
-              <p className="text-sm text-[var(--text-secondary)]">or start a new one from the sidebar.</p>
-              
-              <div className="mt-8 flex items-center gap-2 text-xs font-mono text-[var(--text-secondary)]">
-                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-[var(--success)]' : 'bg-[var(--warning)] animate-pulse'}`} />
-                {isConnected ? 'Socket Connected' : 'Reconnecting...'}
-              </div>
-            </div>
-          </main>
+          <EmptyChatState hasChats={processedConversations.length > 0} />
         )}
       </div>
 

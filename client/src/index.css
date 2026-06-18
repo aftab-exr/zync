@@ -4,6 +4,10 @@
 
 /* 🎨 THE HERMES DESIGN SYSTEM (RESTORED) */
 :root {
+  /* Fonts */
+  --font-body:        'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
+  --font-display:     'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
+
   /* Backgrounds */
   --bg-base:          #0D0D0F;
   --bg-surface:       #141417;
@@ -18,10 +22,10 @@
   --text-secondary:   #8A8A96;
   --text-disabled:    #4A4A54;
 
-  /* Accent */
-  --accent:           #4F8EF7;
-  --accent-hover:     #6BA3FF;
-  --accent-dim:       #1E3A6A;
+  /* Accent - Apple Sky Link Blue for dark mode */
+  --accent:           #2997ff;
+  --accent-hover:     #54aeff;
+  --accent-dim:       rgba(41, 151, 255, 0.15);
 
   /* Status */
   --success:          #34C97B;
@@ -59,7 +63,8 @@ html, body, #root {
 }
 
 h1, h2, h3, .font-display {
-  font-family: 'Syne', sans-serif;
+  font-family: var(--font-display);
+  letter-spacing: -0.022em;
 }
 
 .font-mono {

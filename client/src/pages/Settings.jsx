@@ -360,7 +360,7 @@ export default function Settings() {
   const { user, authUser } = useAuthStore();
   const currentUser = authUser || user;
 
-  const { chatBackground, backgroundType, updateBackground } = useSettingsStore();
+  const { chatBackground, backgroundType, updateBackground, motionProfile, setMotionProfile } = useSettingsStore();
   const previewStyle = useMemo(
     () => resolveBackgroundStyle(chatBackground, backgroundType),
     [chatBackground, backgroundType]
@@ -543,6 +543,42 @@ export default function Settings() {
             </div>
           </div>
         </Section>
+
+        {/* ⚡ MOTION & ACCESSIBILITY */}
+        <Section title="Motion & Accessibility">
+          <div className="p-4 space-y-4">
+            <p className="text-xs text-[var(--text-secondary)]">
+              Choose the physics profile for transitions and animations.
+            </p>
+            <div className="flex bg-[var(--bg-base)] rounded-full p-1 border" style={{ borderColor: "var(--border)" }}>
+              {[
+                { id: "fluid", name: "Fluid", desc: "HIG Spring" },
+                { id: "snappy", name: "Snappy", desc: "Linear" },
+                { id: "reduced", name: "Reduced", desc: "Fade Only" }
+              ].map((profile) => {
+                const active = motionProfile === profile.id;
+                return (
+                  <button
+                    key={profile.id}
+                    onClick={() => setMotionProfile(profile.id)}
+                    className={`relative flex-1 py-2 text-xs font-medium rounded-full transition-colors ${active ? "text-white" : "text-[var(--text-secondary)]"}`}
+                  >
+                    {active && (
+                      <motion.span
+                        layoutId="motionProfilePill"
+                        className="absolute inset-0 rounded-full bg-[var(--accent)]"
+                        transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                      />
+                    )}
+                    <span className="relative z-10 block font-semibold">{profile.name}</span>
+                    <span className="relative z-10 block text-[9px] opacity-70 mt-0.5">{profile.desc}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </Section>
+
 
         {/* ⚡ PHASE 5: AI SIDECAR DEVELOPER CONFIGURATION */}
         <Section title="AI Sidecar Developer Configuration">
