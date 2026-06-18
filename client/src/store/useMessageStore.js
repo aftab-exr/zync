@@ -27,6 +27,7 @@ let readReceiptHandler = null;
 //   • Guaranteed ciphertext + decrypt math fails     → "Mathematical Mismatch" banner
 const safeDecryptMessage = async (msg, sharedSecret) => {
     if (!msg || !msg.text) return "";
+    if (msg.isDecrypted === true) return msg.text;
     try {
         // If it's standard plaintext, JSON.parse will fail and jump to the catch block
         const parsed = JSON.parse(msg.text);
@@ -242,7 +243,8 @@ export const useMessageStore = create((set, get) => ({
     // any network round-trip. These records were decrypted when first stored, so
     // old messages render instantly with zero key math. Only show the blocking
     // spinner when we have nothing cached for this conversation.
-    const cached = await getCachedMessages(conversationId);
+    const cachedRaw = await getCachedMessages(conversationId);
+    const cached = cachedRaw.map((m) => ({ ...m, isDecrypted: true }));
     set({ messages: cached, isFetching: cached.length === 0 });
 
     try {

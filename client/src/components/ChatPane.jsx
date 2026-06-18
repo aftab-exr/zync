@@ -162,6 +162,14 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
   const { authUser, user } = useAuthStore();
   const currentUser = authUser || user;
 
+  // Pseudo-guard: Only attempt decryption if the text looks like an encrypted payload
+  const getMessageText = (msg) => {
+    if (msg.isDecrypted || !msg.text || !msg.text.includes(':')) {
+      return msg.text;
+    }
+    return msg.text;
+  };
+
   // ⚡ ZERO-COST UI: locally-persisted chat background (no backend involved).
   const { chatBackground, backgroundType } = useSettingsStore();
   const backgroundStyle = useMemo(
@@ -484,7 +492,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                         remarkPlugins={[remarkGfm]} 
                         components={{ code: CodeBlock }}
                       >
-                        {msg.text}
+                        {getMessageText(msg)}
                       </ReactMarkdown>
                     </div>
                   )}
