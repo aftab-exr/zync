@@ -2,38 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 🎨 THE HERMES DESIGN SYSTEM (RESTORED) */
 :root {
-  /* Fonts */
   --font-body:        'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
   --font-display:     'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
 
-  /* Backgrounds */
   --bg-base:          #0D0D0F;
   --bg-surface:       #141417;
   --bg-raised:        #1C1C21;
-
-  /* Borders */
   --border:           #2A2A30;
   --border-active:    #3E3E48;
-
-  /* Text */
   --text-primary:     #F0F0F3;
   --text-secondary:   #8A8A96;
   --text-disabled:    #4A4A54;
-
-  /* Accent - Apple Sky Link Blue for dark mode */
   --accent:           #2997ff;
   --accent-hover:     #54aeff;
   --accent-dim:       rgba(41, 151, 255, 0.15);
-
-  /* Status */
   --success:          #34C97B;
   --warning:          #F5A623;
   --error:            #E5484D;
 }
 
-/* ⚡ PHASE 8: THE NATIVE LOCKDOWN */
 html, body, #root {
   height: 100dvh; /* Dynamic Viewport Height prevents mobile browser bar glitches */
   width: 100vw;
@@ -46,7 +34,6 @@ html, body, #root {
   -webkit-tap-highlight-color: transparent; /* Removes the blue flash when tapping on Android/iOS */
 }
 
-/* Custom Scrollbar for inner elements only */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
