@@ -3,57 +3,78 @@
 @tailwind utilities;
 
 :root {
-  --font-body:        'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
-  --font-display:     'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
+  /* Neubrutalism Typography */
+  --font-body:        -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display:     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono:        'JetBrains Mono', monospace;
 
-  --bg-base:          #0D0D0F;
-  --bg-surface:       #141417;
-  --bg-raised:        #1C1C21;
-  --border:           #2A2A30;
-  --border-active:    #3E3E48;
-  --text-primary:     #F0F0F3;
-  --text-secondary:   #8A8A96;
-  --text-disabled:    #4A4A54;
-  --accent:           #2997ff;
-  --accent-hover:     #54aeff;
-  --accent-dim:       rgba(41, 151, 255, 0.15);
-  --success:          #34C97B;
-  --warning:          #F5A623;
-  --error:            #E5484D;
+  /* Neubrutalism Colors */
+  --bg-base:          #F4F4F5; /* Neutral off-white for background */
+  --bg-surface:       #FFFFFF; /* White for cards */
+  --bg-raised:        #FAFAFC; 
+  
+  --border:           #111111; /* Off-black for borders and shadows */
+  --border-active:    #333333;
+  
+  --text-primary:     #111111; 
+  --text-secondary:   #444444; 
+  --text-muted:       #888888; 
+  --text-inverse:     #FFFFFF;
+  
+  --color-primary:    #FFEB3B; /* Brutalist Yellow */
+  --color-primary-hover: #FDD835; 
+  --color-secondary:  #FF5252; /* Brutalist Red */
+  --color-accent:     #2196F3; /* Brutalist Blue */
+  
+  --success:          #4CAF50;
+  --warning:          #FFC107;
+  --error:            #F44336;
 }
 
 html, body, #root {
-  height: 100dvh; /* Dynamic Viewport Height prevents mobile browser bar glitches */
+  min-height: 100dvh;
   width: 100vw;
-  overflow: hidden; /* Kills all scrollbars at the root level */
-  overscroll-behavior-y: none; /* Kills the mobile pull-to-refresh rubber-band bounce */
+  overflow-x: hidden;
   background-color: var(--bg-base);
   color: var(--text-primary);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
-  -webkit-tap-highlight-color: transparent; /* Removes the blue flash when tapping on Android/iOS */
+  -webkit-tap-highlight-color: transparent;
 }
 
+/* Minimalist scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--bg-base);
+  border-left: 2px solid var(--border);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border-active);
-  border-radius: 10px;
+  background: var(--border);
+  border: 2px solid var(--bg-base);
+  border-radius: 0px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-disabled);
+  background: var(--border-active);
 }
 
 h1, h2, h3, .font-display {
   font-family: var(--font-display);
-  letter-spacing: -0.022em;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .font-mono {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
+}
+
+/* Base interactive reset to remove Apple behaviors */
+button, a {
+  outline: none;
+}
+button:focus-visible, a:focus-visible, input:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }

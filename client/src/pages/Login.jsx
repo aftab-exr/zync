@@ -8,21 +8,20 @@ export default function Login() {
   const { loginWithGoogle, error, isLoggingIn, isAuthenticated, user } = useAuthStore();
   const navigate = useNavigate();
 
-  // ⚡ STICKING-BUTTON FIX: redirect the instant auth state flips to authenticated.
-  // New users (no Zync profile yet) go to setup; returning users go to the inbox.
+  // Redirect authenticated users to their inbox or profile setup
+  // New users without a profile go to setup, returning users go to inbox
   useEffect(() => {
     if (isAuthenticated) {
       navigate(user ? '/inbox' : '/setup-profile', { replace: true });
     }
   }, [isAuthenticated, user, navigate]);
 
-  // Algorithm: Handle the Auth State Machine. Loading state lives in the store
-  // and is guaranteed to release via its finally block, so the spinner can't hang.
+  // Process user login request using the global auth store
   const handleLogin = async () => {
     try {
       await loginWithGoogle();
     } catch {
-      // Errors surface via the store's `error` state; spinner already released.
+      // Login errors are handled within the auth store
     }
   };
 
@@ -40,30 +39,25 @@ export default function Login() {
 
   return (
     <div className="flex h-[100dvh] w-full">
-      <div className="hidden lg:flex w-[45%] flex-col justify-center px-16 border-r border-[var(--border)]">
+      <div className="hidden lg:flex w-[45%] flex-col justify-center px-16 border-r border-border bg-base">
         <motion.div variants={containerVariants} initial="hidden" animate="visible">
-          <motion.h1 variants={itemVariants} className="text-5xl font-display text-white mb-4">
-            ⚡ Zync
+          <motion.h1 variants={itemVariants} className="text-5xl font-display text-primary font-bold mb-4">
+            Zync
           </motion.h1>
-          <motion.p variants={itemVariants} className="text-xl text-[var(--text-secondary)] max-w-sm">
+          <motion.p variants={itemVariants} className="text-xl text-secondary max-w-sm">
             Chat at the speed of thought.
           </motion.p>
         </motion.div>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 relative">
-        <div className="w-full max-w-md bg-[var(--bg-surface)] p-6 sm:p-10 rounded-2xl border border-[var(--border)]">
-          <h2 className="text-xl sm:text-2xl font-display text-white mb-8 text-center">Welcome to Zync</h2>
+      <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 relative bg-base">
+        <div className="w-full max-w-md bg-surface p-6 sm:p-10 rounded-md border-3 border-border shadow-brutal">
+          <h2 className="text-xl sm:text-2xl font-display text-primary font-bold mb-8 text-center">Welcome to Zync</h2>
           
           <button 
             onClick={handleLogin}
             disabled={isLoading}
-            className="w-full h-12 flex items-center justify-center gap-3 rounded-lg font-medium transition-all duration-200 ease-in-out active:scale-95"
-            style={{ 
-              backgroundColor: isLoading ? 'var(--border)' : 'var(--accent)',
-              color: isLoading ? 'var(--text-secondary)' : '#fff',
-              pointerEvents: isLoading ? 'none' : 'auto'
-            }}
+            className={`w-full h-12 flex items-center justify-center gap-3 rounded-md border-3 border-border font-bold transition-all active:translate-x-1 active:translate-y-1 active:shadow-none ${isLoading ? 'bg-base text-secondary pointer-events-none' : 'bg-primary text-primary shadow-brutal hover:bg-primary-hover'}`}
           >
             {isLoading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -84,9 +78,9 @@ export default function Login() {
             <p className="mt-4 text-sm text-center text-red-400 font-medium">{error}</p>
           )}
 
-          <div className="mt-8 pt-6 border-t border-[var(--border)] flex justify-between text-xs text-[var(--text-secondary)]">
-            <span>Privacy Policy</span>
-            <span>Terms of Service</span>
+          <div className="mt-8 pt-6 border-t border-border flex justify-between text-xs text-secondary">
+            <span className="cursor-pointer hover:text-primary transition-colors">Privacy Policy</span>
+            <span className="cursor-pointer hover:text-primary transition-colors">Terms of Service</span>
           </div>
         </div>
       </div>

@@ -2,7 +2,7 @@ import CallOverlay from '../components/CallOverlay';
 import AISidecar from '../components/AISidecar';
 import { useCallStore } from '../store/useCallStore';
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Bell, MessageSquare, Plus, Users } from 'lucide-react';
+import { Search, Bell, Plus, Users } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useSocketStore } from '../store/useSocketStore';
@@ -19,13 +19,13 @@ export default function Inbox() {
   
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 
-  const { connect, disconnect, isConnected, socket } = useSocketStore();
+  const { connect, disconnect, socket } = useSocketStore();
   const { user, authUser } = useAuthStore();
   const currentUser = authUser || user;
 
   const { 
     conversations, 
-    fetchConversations, // ⚡ Aligned with your store
+    fetchConversations, // Synchronized with global store
     isFetchingConversations,
     subscribeToPresence,      
     unsubscribeFromPresence
@@ -69,51 +69,51 @@ export default function Inbox() {
   }, [conversations, currentUser?._id]);
 
   return (
-    <div className="flex flex-col h-[100dvh] w-full bg-[var(--bg-base)] text-[var(--text-primary)]">
+    <div className="flex flex-col h-[100dvh] w-full bg-base text-primary">
       
-      {/* ⚡ TOPBAR */}
-      <header className="h-12 border-b flex items-center justify-between px-6 z-40 sticky top-0 bg-[var(--bg-base)]" style={{ borderColor: 'var(--border)' }}>
+      {/* Top navigation bar */}
+      <header className="h-14 border-b-3 border-border flex items-center justify-between px-6 z-40 sticky top-0 bg-base">
         <div className="flex items-center gap-8">
-          <h1 className="text-lg font-display font-bold">⚡ Zync</h1>
+          <h1 className="text-xl font-display font-bold">Zync</h1>
           <div className="relative group hidden sm:block">
-            <Search className="w-4 h-4 absolute left-3 top-1.5 text-[var(--text-secondary)]" />
-            <input type="text" placeholder="Search…  ⌘K" className="w-60 h-8 bg-[var(--bg-surface)] border rounded-md pl-9 pr-3 text-sm focus:outline-none focus:border-[var(--accent-hover)] transition-all font-mono" style={{ borderColor: 'var(--border)' }} />
+            <Search className="w-4 h-4 absolute left-3 top-2 text-secondary" />
+            <input type="text" placeholder="Search…  ⌘K" className="w-60 h-9 bg-surface border-3 border-border rounded-sm pl-9 pr-3 text-sm focus:outline-none focus:border-accent transition-colors font-mono shadow-brutal-sm" />
           </div>
         </div>
 
         <div className="flex items-center gap-4">
-          <button className="text-[var(--text-secondary)] hover:text-white transition-all p-2 hover:bg-[var(--bg-surface)] rounded-lg">
+          <button className="text-secondary hover:text-primary transition-colors p-2 hover:bg-surface border-3 border-transparent hover:border-border rounded-sm">
             <Bell className="w-5 h-5" />
           </button>
           <AvatarDropdown avatarUrl={currentUser?.avatarUrl} />
         </div>
       </header>
 
-      {/* ⚡ MAIN LAYOUT */}
+      {/* Main inbox layout */}
       <div className="flex flex-1 overflow-hidden">
         
-        {/* SIDEBAR */}
-        <aside className={`border-r flex flex-col bg-[var(--bg-base)] z-10 overflow-hidden ${conversationId ? 'hidden md:flex md:w-80' : 'w-full md:w-80 flex'}`} style={{ borderColor: 'var(--border)' }}>
+        {/* Sidebar */}
+        <aside className={`border-r-3 border-border flex flex-col bg-base z-10 overflow-hidden ${conversationId ? 'hidden md:flex md:w-80' : 'w-full md:w-80 flex'}`}>
           <div className="p-4">
-            <button onClick={() => setIsSearchModalOpen(true)} className="w-full flex items-center justify-center gap-2 h-12 rounded-lg text-sm font-medium transition-all hover:brightness-110 active:scale-95" style={{ backgroundColor: 'var(--accent)', color: 'white' }}>
+            <button onClick={() => setIsSearchModalOpen(true)} className="w-full flex items-center justify-center gap-2 h-12 bg-accent text-inverse border-3 border-border rounded-sm shadow-brutal-sm font-bold transition-all active:translate-y-1 active:translate-x-1 active:shadow-none hover:bg-accent">
               <Plus className="w-4 h-4" /> <span className="hidden sm:inline">New Message</span> <span className="sm:hidden">New</span>
             </button>
           </div>
           
           <div className="flex-1 overflow-y-auto px-2 mt-2 space-y-1 overflow-x-hidden">
             {isFetchingConversations && conversations.length === 0 && (
-              <div className="flex justify-center mt-10"><div className="w-5 h-5 border-2 border-[var(--text-secondary)] border-t-[var(--accent)] rounded-full animate-spin"></div></div>
+              <div className="flex justify-center mt-10"><div className="w-6 h-6 border-3 border-border border-t-accent rounded-none animate-spin"></div></div>
             )}
 
             {!isFetchingConversations && conversations.length === 0 && (
-              <div className="flex flex-col items-center text-center mt-10 px-4"><p className="text-sm text-[var(--text-secondary)]">No conversations yet.</p></div>
+              <div className="flex flex-col items-center text-center mt-10 px-4"><p className="text-sm text-secondary">No conversations yet.</p></div>
             )}
 
             {processedConversations.map((conv, index) => {
               const isActive = conversationId === conv._id;
 
               return (
-                /* ⚡ THE FIX: motion.div handles physics, standard <button> handles clicks! */
+                /* Separate physics wrapper from clickable element */
                 <motion.div
                   key={conv._id}
                   initial={{ opacity: 0, x: -20 }}
@@ -122,30 +122,30 @@ export default function Inbox() {
                 >
                   <button
                     onClick={() => navigate(`/inbox/${conv._id}`)}
-                    className={`w-full flex items-center gap-3 p-3 sm:p-4 rounded-lg transition-all duration-200 ease-in-out text-left min-h-[56px] sm:min-h-[48px] active:scale-95 ${
-                      isActive ? 'bg-[var(--bg-surface)] border-[var(--border)] shadow-sm' : 'hover:bg-[var(--bg-surface)] border-transparent hover:transition-colors'
-                    } border`}
+                    className={`w-full flex items-center gap-3 p-3 sm:p-4 rounded-sm transition-all duration-200 ease-in-out text-left min-h-[56px] sm:min-h-[48px] active:translate-y-[2px] ${
+                      isActive ? 'bg-surface border-3 border-border shadow-brutal-sm' : 'hover:bg-surface border-3 border-transparent hover:border-border hover:shadow-brutal-sm'
+                    }`}
                   >
                     <div className="relative flex-shrink-0">
                       {conv.isGroup ? (
-                        <div className="w-10 h-10 rounded-full bg-[var(--accent-dim)] text-[var(--accent)] flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-sm border-2 border-border bg-primary text-primary flex items-center justify-center">
                           <Users className="w-5 h-5" />
                         </div>
                       ) : (
-                        <div className="w-10 h-10 rounded-full bg-[var(--border)] flex items-center justify-center font-display font-bold text-sm text-white">
+                        <div className="w-10 h-10 rounded-sm border-2 border-border bg-border flex items-center justify-center font-display font-bold text-sm text-inverse">
                           {conv.displayName.charAt(0).toUpperCase()}
                         </div>
                       )}
                       {!conv.isGroup && conv.isOnline && (
-                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-[var(--success)] border-2 border-[var(--bg-base)] rounded-full"></div>
+                        <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-success border-2 border-border rounded-full"></div>
                       )}
                     </div>
                     
                     <div className="flex-1 overflow-hidden">
                       <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-medium text-white truncate">{conv.displayName}</h4>
+                        <h4 className="text-sm font-medium text-primary truncate">{conv.displayName}</h4>
                       </div>
-                      <p className="text-xs text-[var(--text-secondary)] font-mono truncate mt-0.5">
+                      <p className="text-xs text-secondary truncate mt-0.5">
                         {conv.lastMsgText}
                       </p>
                     </div>
@@ -156,7 +156,7 @@ export default function Inbox() {
           </div>
         </aside>
 
-        {/* MAIN PANE */}
+        {/* Main conversation pane */}
         {conversationId ? (
           <ChatPane conversationId={conversationId} />
         ) : (
