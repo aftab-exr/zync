@@ -56,15 +56,15 @@ const EncryptedMedia = ({ url, type, mime, convKey }) => {
 
   if (failed) {
     return (
-      <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)] py-3 px-1">
-        <ShieldAlert className="w-4 h-4 text-[var(--warning)]" /> Unable to decrypt media
+      <div className="flex items-center gap-2 text-xs text-secondary py-3 px-1">
+        <ShieldAlert className="w-4 h-4 text-warning" /> Unable to decrypt media
       </div>
     );
   }
 
   if (!src) {
     return (
-      <div className="flex items-center justify-center gap-2 text-xs text-[var(--text-secondary)] py-8 px-6">
+      <div className="flex items-center justify-center gap-2 text-xs text-secondary py-8 px-6">
         <Loader2 className="w-4 h-4 animate-spin" /> Decrypting…
       </div>
     );
@@ -96,27 +96,27 @@ const CodeBlock = ({ inline, className, children, ...props }) => {
   if (!inline && match) {
     const codeText = String(children).replace(/\n$/, '');
     return (
-      <div className="relative mt-4 mb-4 rounded-xl overflow-hidden bg-[#1e1e2e] border border-zinc-800">
-        <div className="flex items-center justify-between px-4 py-2 bg-[#2a2a3c] border-b border-zinc-800">
-          <span className="text-xs font-mono text-gray-400 uppercase tracking-wider">{match[1]}</span>
+      <div className="relative mt-4 mb-4 rounded-xl overflow-hidden bg-surface border border-border">
+        <div className="flex items-center justify-between px-4 py-2 bg-raised border-b border-border">
+          <span className="text-xs font-mono text-secondary uppercase tracking-wider">{match[1]}</span>
           <div className="flex items-center gap-3">
             {/* ⚡ PHASE 5: Forward this code block into the AI Sidecar to debug/analyze it. */}
             <button
               onClick={() => useAIStore.getState().forwardToAi(codeText)}
               title="Forward to AI Sidecar"
-              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-[var(--accent)] transition-colors"
+              className="flex items-center gap-1.5 text-xs text-secondary hover:text-accent transition-colors"
             >
               <Bot className="w-3.5 h-3.5" />
               <span>Ask AI</span>
             </button>
             <button
               onClick={handleCopy}
-              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors"
+              className="flex items-center gap-1.5 text-xs text-secondary hover:text-primary transition-colors"
             >
               {copied ? (
                 <>
-                  <Check className="w-3.5 h-3.5 text-[var(--success)]" />
-                  <span className="text-[var(--success)]">Copied!</span>
+                  <Check className="w-3.5 h-3.5 text-success" />
+                  <span className="text-success">Copied!</span>
                 </>
               ) : (
                 <>
@@ -127,7 +127,7 @@ const CodeBlock = ({ inline, className, children, ...props }) => {
             </button>
           </div>
         </div>
-        <pre className="p-4 overflow-x-auto text-[13px] leading-relaxed text-gray-100 font-mono m-0">
+        <pre className="p-4 overflow-x-auto text-[13px] leading-relaxed text-primary font-mono m-0">
           <code className={className} {...props}>
             {children}
           </code>
@@ -137,7 +137,7 @@ const CodeBlock = ({ inline, className, children, ...props }) => {
   }
 
   return (
-    <code className="bg-[#2a2a3c] text-[#6BA3FF] px-1.5 py-0.5 rounded-md text-sm font-mono border border-zinc-800" {...props}>
+    <code className="bg-raised text-accent px-1.5 py-0.5 rounded-md text-sm font-mono border border-border" {...props}>
       {children}
     </code>
   );
@@ -364,22 +364,22 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
 
   if (isFetching && messages.length === 0) {
     return (
-      <div className="flex-1 flex flex-col h-full bg-[var(--bg-base)] items-center justify-center">
-        <Loader2 className="w-8 h-8 text-[var(--accent)] animate-spin" />
+      <div className="flex-1 flex flex-col h-full bg-base items-center justify-center">
+        <Loader2 className="w-8 h-8 text-accent animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[var(--bg-base)] overflow-hidden" style={backgroundStyle}>
+    <div className="flex-1 flex flex-col h-full bg-base overflow-hidden" style={backgroundStyle}>
 
       {/* ⚡ HEADER */}
-      <div className="h-14 flex items-center justify-between px-4 md:px-6 border-b border-zinc-800 bg-zinc-900/70 backdrop-blur-xl shrink-0 z-10 relative">
+      <div className="h-14 flex items-center justify-between px-4 md:px-6 border-b border-border bg-surface backdrop-blur-xl shrink-0 z-10 relative">
         <div className="flex items-center gap-3">
           {!isSidecar && (
             <button 
               onClick={() => navigate('/inbox')}
-              className="md:hidden p-2 -ml-2 text-[var(--text-secondary)] hover:text-white transition-colors"
+              className="md:hidden p-2 -ml-2 text-secondary hover:text-primary transition-colors"
             >
               <ChevronLeft className="w-6 h-6" />
             </button>
@@ -387,11 +387,11 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
 
           <div className="relative">
             {isGroup ? (
-              <div className="w-9 h-9 rounded-full bg-[var(--accent-dim)] text-[var(--accent)] flex items-center justify-center">
+              <div className="w-9 h-9 rounded-full bg-accent-dim text-accent flex items-center justify-center">
                 <Users className="w-4 h-4" />
               </div>
             ) : (
-              <div className="w-9 h-9 rounded-full bg-[var(--border)] flex items-center justify-center font-bold text-sm text-white overflow-hidden">
+              <div className="w-9 h-9 rounded-full bg-border flex items-center justify-center font-bold text-sm text-primary overflow-hidden">
                 {displayUser?.avatarUrl ? (
                   <img src={displayUser.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
                 ) : (
@@ -400,16 +400,16 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
               </div>
             )}
             {!isGroup && isOnline && (
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[var(--success)] border-2 border-[var(--bg-surface)] rounded-full"></span>
+              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-success border-2 border-surface rounded-full"></span>
             )}
           </div>
 
           <div>
-            <h2 className="text-[15px] font-semibold text-white flex items-center gap-1.5 leading-tight">
+            <h2 className="text-[15px] font-semibold text-primary flex items-center gap-1.5 leading-tight">
               {displayUser?.displayName || "Unknown"}
-              {!isGroup && displayUser?.isAI && <Sparkles className="w-3.5 h-3.5 text-[var(--accent)]" />}
+              {!isGroup && displayUser?.isAI && <Sparkles className="w-3.5 h-3.5 text-accent" />}
             </h2>
-            <p className="text-xs text-[var(--text-secondary)] font-mono">
+            <p className="text-xs text-secondary font-mono">
               {isGroup ? displayUser?.username : (displayUser?.isAI ? 'Quantum Processing Active' : (isOnline ? 'Online' : 'Offline'))}
             </p>
           </div>
@@ -421,7 +421,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
             {/* ⚡ PHASE 4: WebRTC Voice Call */}
             <button
               onClick={() => useCallStore.getState().initiateCall(displayUser, 'audio')}
-              className="p-2 w-9 h-9 rounded-full bg-[var(--bg-raised)] border border-zinc-800 text-[var(--text-secondary)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-all flex items-center justify-center active:scale-95"
+              className="p-2 w-9 h-9 rounded-full bg-raised border border-border text-secondary hover:text-accent hover:border-accent transition-all flex items-center justify-center active:scale-95"
               title="Start Voice Call"
             >
               <Phone className="w-4 h-4" />
@@ -430,13 +430,13 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
             {/* ⚡ PHASE 2.2 / 4: WebRTC Video Call */}
             <button
               onClick={() => useCallStore.getState().initiateCall(displayUser, 'video')}
-              className="p-2 w-9 h-9 rounded-full bg-[var(--bg-raised)] border border-zinc-800 text-[var(--text-secondary)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-all flex items-center justify-center active:scale-95"
+              className="p-2 w-9 h-9 rounded-full bg-raised border border-border text-secondary hover:text-accent hover:border-accent transition-all flex items-center justify-center active:scale-95"
               title="Start Video Call"
             >
               <Video className="w-4 h-4" />
             </button>
 
-            <div className="flex items-center gap-1.5 text-xs text-[var(--success)] px-3 py-1.5 rounded-full bg-[var(--bg-raised)] border border-zinc-800 hidden md:flex">
+            <div className="flex items-center gap-1.5 text-xs text-success px-3 py-1.5 rounded-full bg-raised border border-border hidden md:flex">
               <ShieldCheck className="w-4 h-4" />
               <span>End-to-End Encrypted</span>
             </div>
@@ -461,15 +461,15 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
               >
                 
                 {isGroup && !msg.isMine && msg.sender && (
-                  <span className="text-xs text-[var(--text-secondary)] mb-1 ml-1 font-medium">
+                  <span className="text-xs text-secondary mb-1 ml-1 font-medium">
                     {msg.sender.displayName}
                   </span>
                 )}
 
                 <div className={`max-w-[85%] md:max-w-[70%] rounded-xl p-2.5 transition-opacity ${
                   msg.isMine
-                    ? 'bg-[var(--accent)] text-white rounded-br-sm'
-                    : 'bg-[var(--bg-raised)] border border-zinc-800 text-white rounded-bl-sm'
+                    ? 'bg-accent text-primary rounded-br-sm'
+                    : 'bg-raised border border-border text-primary rounded-bl-sm'
                 } ${msg.status === 'pending' ? 'opacity-70' : ''}`}>
                   
                   {/* ⚡ PHASE 2: Encrypted attachment (image / video / voice note) */}
@@ -498,7 +498,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
 
                   {/* Render the text if it exists */}
                   {msg.text && (
-                    <div className={`px-2 pb-1 prose prose-sm max-w-none break-words ${msg.isMine ? 'prose-invert prose-p:text-white' : 'dark:prose-invert'}`}>
+                    <div className={`px-2 pb-1 prose prose-sm max-w-none break-words ${msg.isMine ? 'prose-invert prose-p:text-primary' : 'dark:prose-invert'}`}>
                       <ReactMarkdown 
                         remarkPlugins={[remarkGfm]} 
                         components={{ code: CodeBlock }}
@@ -509,13 +509,13 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                   )}
                 </div>
                 
-                <div className="flex items-center gap-1 mt-1 text-[11px] text-[var(--text-secondary)] font-mono">
+                <div className="flex items-center gap-1 mt-1 text-[11px] text-secondary font-mono">
                   {/* ⚡ PHASE 5: subtle "Forward to AI Sidecar" for code/long text. */}
                   {msg.text && (msg.text.length > 80 || msg.text.includes('```')) && (
                     <button
                       onClick={() => useAIStore.getState().forwardToAi(msg.text)}
                       title="Forward to AI Sidecar"
-                      className="mr-1 p-0.5 rounded text-[var(--text-secondary)] opacity-50 hover:opacity-100 hover:text-[var(--accent)] transition-all"
+                      className="mr-1 p-0.5 rounded text-secondary opacity-50 hover:opacity-100 hover:text-accent transition-all"
                     >
                       <Bot className="w-3.5 h-3.5" />
                     </button>
@@ -524,11 +524,11 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                   {msg.isMine && (
                     msg.status === 'pending' ? (
                       // ⚡ PHASE 3.5: queued offline — not yet on the server.
-                      <Clock className="w-3 h-3 text-[var(--text-secondary)] ml-1" title="Sending…" />
+                      <Clock className="w-3 h-3 text-secondary ml-1" title="Sending…" />
                     ) : msg.isRead ? (
-                      <CheckCheck className="w-3.5 h-3.5 text-[var(--accent)] ml-1 transition-colors duration-300" />
+                      <CheckCheck className="w-3.5 h-3.5 text-accent ml-1 transition-colors duration-300" />
                     ) : (
-                      <Check className="w-3 h-3 text-[var(--text-secondary)] ml-1 transition-colors duration-300" />
+                      <Check className="w-3 h-3 text-secondary ml-1 transition-colors duration-300" />
                     )
                   )}
                 </div>
@@ -542,7 +542,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={M.transition}
-            className="flex items-center gap-2 text-[var(--text-secondary)] text-sm p-2"
+            className="flex items-center gap-2 text-secondary text-sm p-2"
           >
             <div className="flex gap-1">
               <span className="w-1.5 h-1.5 bg-[var(--text-secondary)] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
@@ -557,7 +557,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
       </div>
 
       {/* ⚡ COMPOSER */}
-      <div className="p-3 md:p-4 bg-zinc-900/70 backdrop-blur-xl border-t border-zinc-800 shrink-0 relative z-20">
+      <div className="p-3 md:p-4 bg-surface backdrop-blur-xl border-t border-border shrink-0 relative z-20">
         <form onSubmit={handleSend} className="flex flex-col gap-2 max-w-4xl mx-auto relative">
 
           {/* ⚡ PHASE 2: Encrypt/upload status indicator */}
@@ -568,11 +568,11 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 6 }}
                 transition={M.transition}
-                className="w-full flex items-center gap-2 bg-[var(--bg-raised)] border border-zinc-800 rounded-2xl px-4 py-2.5 text-sm text-[var(--text-secondary)]"
+                className="w-full flex items-center gap-2 bg-raised border border-border rounded-2xl px-4 py-2.5 text-sm text-secondary"
               >
-                <Loader2 className="w-4 h-4 animate-spin text-[var(--accent)]" />
+                <Loader2 className="w-4 h-4 animate-spin text-accent" />
                 <span>{mediaStatus}</span>
-                <ShieldCheck className="w-4 h-4 text-[var(--success)] ml-auto" />
+                <ShieldCheck className="w-4 h-4 text-success ml-auto" />
               </motion.div>
             )}
           </AnimatePresence>
@@ -585,7 +585,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
             />
           ) : (
           <div className="flex items-end gap-2 w-full">
-            <div className="flex-1 bg-[var(--bg-base)] border border-zinc-800 rounded-xl p-1 flex items-center focus-within:border-[var(--accent)] transition-colors">
+            <div className="flex-1 bg-base border border-border rounded-xl p-1 flex items-center focus-within:border-accent transition-colors">
 
               {/* ⚡ PHASE 2: Encrypted attachment (image / video) */}
               <input
@@ -599,7 +599,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                 type="button"
                 title="Encrypted attachment"
                 disabled={!!mediaStatus}
-                className="p-3 text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors rounded-xl active:scale-95 disabled:opacity-40"
+                className="p-3 text-secondary hover:text-accent transition-colors rounded-xl active:scale-95 disabled:opacity-40"
                 onClick={() => attachInputRef.current?.click()}
               >
                 <Paperclip className="w-5 h-5" />
@@ -615,7 +615,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                   }
                 }}
                 placeholder={isGroup ? `Message ${displayUser?.displayName}...` : `Message @${displayUser?.username || ''}...`}
-                className="w-full max-h-32 min-h-[44px] bg-transparent text-sm text-white resize-none focus:outline-none py-3 px-2 font-body"
+                className="w-full max-h-32 min-h-[44px] bg-transparent text-sm text-primary resize-none focus:outline-none py-3 px-2 font-body"
                 rows={1}
               />
             </div>
@@ -627,7 +627,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                 title="Record voice note"
                 disabled={!!mediaStatus}
                 onClick={() => setIsRecording(true)}
-                className="w-12 h-12 rounded-full bg-[var(--bg-raised)] border border-zinc-800 text-[var(--text-secondary)] hover:text-[var(--accent)] hover:border-[var(--accent)] flex items-center justify-center transition-all flex-shrink-0 active:scale-95 disabled:opacity-50"
+                className="w-12 h-12 rounded-full bg-raised border border-border text-secondary hover:text-accent hover:border-accent flex items-center justify-center transition-all flex-shrink-0 active:scale-95 disabled:opacity-50"
               >
                 <Mic className="w-5 h-5" />
               </button>
@@ -635,7 +635,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
               <button
                 type="submit"
                 disabled={!text.trim() || isSending}
-                className="w-12 h-12 rounded-full bg-[var(--accent)] text-white flex items-center justify-center hover:bg-[var(--accent-hover)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 active:scale-95"
+                className="w-12 h-12 rounded-full bg-accent text-primary flex items-center justify-center hover:bg-accent-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 active:scale-95"
               >
                 {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 ml-1" />}
               </button>

@@ -14,11 +14,6 @@ export default {
           DEFAULT: "var(--border)",
           active: "var(--border-active)",
         },
-        text: {
-          primary: "var(--text-primary)",
-          secondary: "var(--text-secondary)",
-          disabled: "var(--text-disabled)",
-        },
         accent: {
           DEFAULT: "var(--accent)",
           hover: "var(--accent-hover)",
@@ -27,6 +22,11 @@ export default {
         success: "var(--success)",
         warning: "var(--warning)",
         error: "var(--error)",
+      },
+      textColor: {
+        primary: "var(--text-primary)",
+        secondary: "var(--text-secondary)",
+        disabled: "var(--text-disabled)",
       },
       fontFamily: {
         body: ["var(--font-body)"],

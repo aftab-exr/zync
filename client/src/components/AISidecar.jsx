@@ -41,14 +41,14 @@ function PrismBlock({ language, code }) {
   };
 
   return (
-    <div className="relative my-3 rounded-lg overflow-hidden border border-zinc-800 bg-[#1e1e2e]">
-      <div className="flex items-center justify-between px-3 py-1.5 bg-[#2a2a3c] border-b border-zinc-800">
-        <span className="text-[10px] font-mono uppercase tracking-wider text-gray-400">{lang}</span>
+    <div className="relative my-3 rounded-lg overflow-hidden border border-border bg-surface">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-raised border-b border-border">
+        <span className="text-[10px] font-mono uppercase tracking-wider text-secondary">{lang}</span>
         <button
           onClick={handleCopy}
-          className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-white transition-colors"
+          className="flex items-center gap-1 text-[10px] text-secondary hover:text-primary transition-colors"
         >
-          {copied ? <Check className="w-3 h-3 text-[var(--success)]" /> : <Copy className="w-3 h-3" />}
+          {copied ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
           {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
@@ -72,7 +72,7 @@ const markdownComponents = {
       return <PrismBlock language={match[1]} code={raw.replace(/\n$/, '')} />;
     }
     return (
-      <code className="bg-[#2a2a3c] text-[#6BA3FF] px-1.5 py-0.5 rounded text-[12.5px] font-mono border border-zinc-800" {...props}>
+      <code className="bg-raised text-accent px-1.5 py-0.5 rounded text-[12.5px] font-mono border border-border" {...props}>
         {children}
       </code>
     );
@@ -83,10 +83,10 @@ function MessageBubble({ role, content, streaming }) {
   const isUser = role === 'user';
   return (
     <div className={`flex gap-2.5 ${isUser ? 'flex-row-reverse' : ''}`}>
-      <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${isUser ? 'bg-[var(--accent)]' : 'bg-[var(--bg-raised)] border border-zinc-800'}`}>
-        {isUser ? <User className="w-3.5 h-3.5 text-white" /> : <Bot className="w-3.5 h-3.5 text-[var(--accent)]" />}
+      <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${isUser ? 'bg-accent' : 'bg-raised border border-border'}`}>
+        {isUser ? <User className="w-3.5 h-3.5 text-primary" /> : <Bot className="w-3.5 h-3.5 text-accent" />}
       </div>
-      <div className={`max-w-[85%] rounded-xl px-3.5 py-2 text-sm ${isUser ? 'bg-[var(--accent)] text-white rounded-tr-sm' : 'bg-[var(--bg-raised)] border border-zinc-800 text-white rounded-tl-sm'}`}>
+      <div className={`max-w-[85%] rounded-xl px-3.5 py-2 text-sm ${isUser ? 'bg-accent text-primary rounded-tr-sm' : 'bg-raised border border-border text-primary rounded-tl-sm'}`}>
         {content ? (
           <div className="prose prose-sm prose-invert max-w-none break-words prose-p:my-1 prose-pre:my-0 prose-pre:bg-transparent prose-pre:p-0">
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
@@ -157,26 +157,26 @@ export default function AISidecar() {
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="fixed top-0 right-0 z-50 h-[100dvh] w-full max-w-md flex flex-col bg-zinc-900/70 backdrop-blur-xl border-l border-zinc-800"
+            className="fixed top-0 right-0 z-50 h-[100dvh] w-full max-w-md flex flex-col bg-surface backdrop-blur-xl border-l border-border"
           >
             {/* Header */}
-            <header className="h-14 flex items-center justify-between px-4 border-b border-zinc-800 shrink-0">
+            <header className="h-14 flex items-center justify-between px-4 border-b border-border shrink-0">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[var(--accent)]" />
-                <h2 className="text-sm font-display font-bold tracking-wide text-white uppercase">AI Sidecar</h2>
+                <Sparkles className="w-4 h-4 text-accent" />
+                <h2 className="text-sm font-display font-bold tracking-wide text-primary uppercase">AI Sidecar</h2>
               </div>
               <div className="flex items-center gap-1">
                 <button
                   onClick={clearAiHistory}
                   title="Clear AI history"
-                  className="p-2 rounded-lg text-[var(--text-secondary)] hover:text-[var(--error)] transition-colors"
+                  className="p-2 rounded-lg text-secondary hover:text-error transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={closePanel}
                   title="Close"
-                  className="p-2 rounded-lg text-[var(--text-secondary)] hover:text-white transition-colors"
+                  className="p-2 rounded-lg text-secondary hover:text-primary transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -187,15 +187,15 @@ export default function AISidecar() {
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
               {aiMessages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center px-6 gap-3">
-                  <div className="w-14 h-14 rounded-2xl bg-[var(--bg-raised)] border border-zinc-800 flex items-center justify-center">
-                    <Bot className="w-7 h-7 text-[var(--accent)]" />
+                  <div className="w-14 h-14 rounded-2xl bg-raised border border-border flex items-center justify-center">
+                    <Bot className="w-7 h-7 text-accent" />
                   </div>
-                  <p className="text-sm text-white font-medium">Your private coding companion</p>
-                  <p className="text-xs text-[var(--text-secondary)] max-w-xs">
+                  <p className="text-sm text-primary font-medium">Your private coding companion</p>
+                  <p className="text-xs text-secondary max-w-xs">
                     Ask anything, or forward a code block from a chat to debug it instantly.
                   </p>
                   {!aiApiKey && (
-                    <p className="text-[11px] text-[var(--warning)] mt-1">
+                    <p className="text-[11px] text-warning mt-1">
                       ⚙️ Add an API key in Settings → AI Sidecar to begin.
                     </p>
                   )}
@@ -212,13 +212,13 @@ export default function AISidecar() {
               )}
 
               {aiError && (
-                <p className="text-[11px] text-[var(--error)] font-mono text-center">{aiError}</p>
+                <p className="text-[11px] text-error font-mono text-center">{aiError}</p>
               )}
             </div>
 
             {/* Composer */}
-            <div className="p-3 border-t border-zinc-800 shrink-0">
-              <div className="flex items-end gap-2 bg-[var(--bg-base)] border border-zinc-800 rounded-2xl p-1.5 focus-within:border-[var(--accent)] transition-colors">
+            <div className="p-3 border-t border-border shrink-0">
+              <div className="flex items-end gap-2 bg-base border border-border rounded-2xl p-1.5 focus-within:border-accent transition-colors">
                 <textarea
                   ref={taRef}
                   value={inputDraft}
@@ -231,13 +231,13 @@ export default function AISidecar() {
                   }}
                   rows={1}
                   placeholder="Ask the AI Sidecar…"
-                  className="flex-1 max-h-40 min-h-[40px] bg-transparent text-sm text-white resize-none focus:outline-none py-2 px-2 font-body"
+                  className="flex-1 max-h-40 min-h-[40px] bg-transparent text-sm text-primary resize-none focus:outline-none py-2 px-2 font-body"
                 />
                 {isStreaming ? (
                   <button
                     onClick={stopStreaming}
                     title="Stop generating"
-                    className="w-10 h-10 rounded-full bg-[var(--bg-raised)] border border-zinc-800 text-white flex items-center justify-center hover:border-[var(--error)] hover:text-[var(--error)] transition-all flex-shrink-0 active:scale-95"
+                    className="w-10 h-10 rounded-full bg-raised border border-border text-primary flex items-center justify-center hover:border-error hover:text-error transition-all flex-shrink-0 active:scale-95"
                   >
                     <Square className="w-4 h-4" />
                   </button>
@@ -245,7 +245,7 @@ export default function AISidecar() {
                   <button
                     onClick={handleSend}
                     disabled={!inputDraft.trim()}
-                    className="w-10 h-10 rounded-full bg-[var(--accent)] text-white flex items-center justify-center hover:bg-[var(--accent-hover)] transition-all disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0 active:scale-95"
+                    className="w-10 h-10 rounded-full bg-accent text-primary flex items-center justify-center hover:bg-accent-hover transition-all disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0 active:scale-95"
                   >
                     {isStreaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   </button>
