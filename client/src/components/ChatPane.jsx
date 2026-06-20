@@ -141,6 +141,19 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
   const M = useMotion();
   const [text, setText] = useState("");
 
+  const getMessageText = (msg) => {
+    if (msg.isDecrypted === true) return msg.text;
+    if (!msg.text) return "";
+    try {
+      if (msg.text.includes('"iv"') && msg.text.includes('"ciphertext"')) {
+        return "🔒 [Encrypted Message - Awaiting Key Sync]";
+      }
+    } catch (e) {
+      console.error("Defensive Guard: Failed to parse structural heuristics:", e);
+    }
+    return msg.text;
+  };
+
   const attachInputRef = useRef(null);
   const [mediaStatus, setMediaStatus] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
