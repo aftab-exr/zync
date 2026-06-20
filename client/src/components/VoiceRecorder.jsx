@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Mic, Trash2, Send, Loader2, AlertCircle } from "lucide-react";
 
-// Pick the best-supported container/codec for this browser (Opus where possible).
 const pickMimeType = () => {
   const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
   for (const c of candidates) {
@@ -11,9 +10,6 @@ const pickMimeType = () => {
   return "";
 };
 
-// ⚡ Voice note recorder. Auto-starts capture on mount; hands the final audio Blob
-// up via onSend(blob, mime) so the parent can run it through the encrypt→upload
-// pipeline. `busy` reflects that downstream work so we can show a spinner.
 export default function VoiceRecorder({ onSend, onCancel, busy = false }) {
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState(false);
@@ -76,7 +72,6 @@ export default function VoiceRecorder({ onSend, onCancel, busy = false }) {
       } catch { /* already stopped */ }
       teardown();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const stopRecorder = () => {
@@ -105,15 +100,15 @@ export default function VoiceRecorder({ onSend, onCancel, busy = false }) {
 
   if (error) {
     return (
-      <div className="w-full flex items-center justify-between gap-3 bg-[var(--bg-raised)] border border-[var(--border)] rounded-2xl px-4 py-3">
-        <div className="flex items-center gap-2 text-sm text-[var(--error)]">
-          <AlertCircle className="w-4 h-4" />
+      <div className="w-full flex items-center justify-between gap-3 bg-surface border-3 border-border rounded-lg shadow-brutal-sm px-4 py-3">
+        <div className="flex items-center gap-2 text-sm text-secondary font-bold">
+          <AlertCircle className="w-4 h-4 text-secondary" />
           Microphone access denied
         </div>
         <button
           type="button"
           onClick={onCancel}
-          className="text-xs text-[var(--text-tx-secondary)] hover:text-white transition-colors"
+          className="text-xs text-tx-secondary hover:text-tx-primary font-bold transition-colors underline"
         >
           Close
         </button>
@@ -125,14 +120,14 @@ export default function VoiceRecorder({ onSend, onCancel, busy = false }) {
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="w-full flex items-center gap-3 bg-[var(--bg-raised)] border border-[var(--border)] rounded-2xl px-3 py-2"
+      className="w-full flex items-center gap-3 bg-surface border-3 border-border rounded-lg shadow-brutal-sm px-3 py-2"
     >
       {/* Cancel / discard */}
       <button
         type="button"
         onClick={handleCancel}
         disabled={busy}
-        className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--text-tx-secondary)] hover:text-[var(--error)] transition-colors active:scale-95 disabled:opacity-50"
+        className="w-10 h-10 rounded-lg border-3 border-transparent hover:border-border hover:bg-base flex items-center justify-center text-tx-secondary hover:text-secondary hover:shadow-brutal-sm transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:opacity-50"
         title="Discard"
       >
         <Trash2 className="w-5 h-5" />
@@ -141,11 +136,11 @@ export default function VoiceRecorder({ onSend, onCancel, busy = false }) {
       {/* Live status */}
       <div className="flex-1 flex items-center gap-2.5">
         <span className="relative flex h-3 w-3">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--error)] opacity-60" />
-          <span className="relative inline-flex rounded-full h-3 w-3 bg-[var(--error)]" />
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-60" />
+          <span className="relative inline-flex rounded-full h-3 w-3 bg-secondary" />
         </span>
-        <span className="text-sm font-mono text-white tabular-nums">{mm}:{ss}</span>
-        <span className="text-xs text-[var(--text-tx-secondary)]">{busy ? "Securing…" : "Recording"}</span>
+        <span className="text-sm font-mono text-tx-primary font-bold tabular-nums">{mm}:{ss}</span>
+        <span className="text-xs text-tx-secondary font-bold">{busy ? "Securing…" : "Recording"}</span>
       </div>
 
       {/* Send */}
@@ -153,14 +148,13 @@ export default function VoiceRecorder({ onSend, onCancel, busy = false }) {
         type="button"
         onClick={handleSend}
         disabled={busy}
-        className="w-10 h-10 rounded-full bg-[var(--accent)] text-white flex items-center justify-center hover:bg-[var(--accent-hover)] transition-all active:scale-95 disabled:opacity-60"
+        className="w-10 h-10 rounded-lg bg-accent text-tx-primary border-3 border-border shadow-brutal-sm flex items-center justify-center hover:bg-accent-hover transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:opacity-60"
         title="Send voice note"
       >
         {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-4 h-4 ml-0.5" />}
       </button>
 
-      {/* Tiny idle mic glyph for affordance */}
-      <Mic className="w-4 h-4 text-[var(--text-tx-secondary)] hidden sm:block" />
+      <Mic className="w-4 h-4 text-tx-secondary hidden sm:block" />
     </motion.div>
   );
 }

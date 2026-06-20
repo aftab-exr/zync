@@ -18,16 +18,15 @@ import {
   resolveBackgroundStyle,
 } from "../store/useSettingsStore";
 
-// ⚡ Deep, elegant canvas presets (kept intentionally dark to sit behind chat bubbles).
+// ⚡ Neubrutalist Color Presets
 const COLOR_PRESETS = [
-  { name: "Slate", value: "#0f172a" },
-  { name: "Emerald", value: "#064e3b" },
-  { name: "Violet", value: "#4c1d95" },
-  { name: "Rose", value: "#881337" },
-  { name: "Indigo", value: "#1e1b4b" },
+  { name: "Yellow", value: "#FFEB3B" },
+  { name: "Red", value: "#FF5252" },
+  { name: "Blue", value: "#2196F3" },
+  { name: "Off-White", value: "#F4F4F5" },
+  { name: "White", value: "#FFFFFF" },
 ];
 
-// Rate-limit copy surfaced in the edit modals (matches the server-side lockouts).
 const FIELD_CONFIG = {
   displayName: {
     title: "Display Name",
@@ -51,7 +50,6 @@ const FIELD_CONFIG = {
   },
 };
 
-// Lightweight client-side downscale + JPEG compression before we ship bytes over the wire.
 const compressImage = (file, maxSize = 512, quality = 0.85) =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -76,7 +74,7 @@ const compressImage = (file, maxSize = 512, quality = 0.85) =>
   });
 
 // ──────────────────────────────────────────────────────────────────────────
-// Shared modal shell — backdrop + spring-in panel (mobile sheet feel)
+// Shared modal shell
 // ──────────────────────────────────────────────────────────────────────────
 function ModalShell({ onClose, children }) {
   return (
@@ -93,8 +91,7 @@ function ModalShell({ onClose, children }) {
         exit={{ y: 40, opacity: 0, scale: 0.98 }}
         transition={{ type: "spring", stiffness: 380, damping: 32 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full sm:max-w-md bg-[var(--bg-surface)] border-t sm:border rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl"
-        style={{ borderColor: "var(--border)" }}
+        className="w-full sm:max-w-md bg-surface border-3 border-border rounded-lg p-6 shadow-brutal text-tx-primary"
       >
         {children}
       </motion.div>
@@ -103,7 +100,7 @@ function ModalShell({ onClose, children }) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// Edit field modal (display name / username)
+// Edit field modal
 // ──────────────────────────────────────────────────────────────────────────
 function EditFieldModal({ field, currentValue, onClose, onSaved }) {
   const cfg = FIELD_CONFIG[field];
@@ -128,7 +125,6 @@ function EditFieldModal({ field, currentValue, onClose, onSaved }) {
       onSaved?.(res.data.data);
       onClose();
     } catch (error) {
-      // 429 → server hands back the precise "Please wait X days…" message.
       const msg = error.response?.data?.message || "Could not update. Please try again.";
       toast.error(msg);
     } finally {
@@ -138,22 +134,21 @@ function EditFieldModal({ field, currentValue, onClose, onSaved }) {
 
   return (
     <ModalShell onClose={onClose}>
-      <div className="flex items-center justify-between mb-1">
-        <h3 className="text-lg font-display font-semibold text-white">Edit {cfg.title}</h3>
-        <button onClick={onClose} className="text-[var(--text-tx-secondary)] hover:text-white transition-colors">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-lg font-display font-bold text-tx-primary">Edit {cfg.title}</h3>
+        <button onClick={onClose} className="p-1 rounded-lg border-2 border-transparent hover:border-border text-tx-secondary hover:text-tx-primary transition-all">
           <X className="w-5 h-5" />
         </button>
       </div>
 
-      {/* ⚡ Rate-limit helper text */}
-      <div className="flex items-start gap-2 mb-5 text-xs text-[var(--text-tx-secondary)] bg-[var(--bg-raised)] rounded-lg px-3 py-2 border" style={{ borderColor: "var(--border)" }}>
-        <ShieldAlert className="w-4 h-4 mt-0.5 flex-shrink-0 text-[var(--warning)]" />
+      <div className="flex items-start gap-2 mb-5 text-xs text-tx-secondary bg-base rounded-lg px-3 py-2 border-2 border-border font-bold">
+        <ShieldAlert className="w-4 h-4 mt-0.5 flex-shrink-0 text-warning" />
         <span>{cfg.helper}</span>
       </div>
 
       <div className="relative">
         {field === "username" && (
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-tx-secondary)]">@</span>
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-tx-secondary font-bold font-mono">@</span>
         )}
         <input
           autoFocus
@@ -163,27 +158,24 @@ function EditFieldModal({ field, currentValue, onClose, onSaved }) {
           onKeyDown={(e) => e.key === "Enter" && handleSave()}
           placeholder={cfg.placeholder}
           maxLength={cfg.maxLength}
-          className={`w-full bg-[var(--bg-base)] border rounded-lg py-3 text-white focus:outline-none focus:border-[var(--accent)] transition-colors ${field === "username" ? "pl-9 pr-4 font-mono" : "px-4"}`}
-          style={{ borderColor: "var(--border)" }}
+          className={`w-full bg-base border-3 border-border rounded-lg py-3 text-tx-primary placeholder-tx-secondary font-bold focus:outline-none focus:border-accent transition-colors ${field === "username" ? "pl-9 pr-4 font-mono" : "px-4"}`}
         />
       </div>
-      <p className="text-xs text-[var(--text-tx-secondary)] mt-2 h-4">
+      <p className="text-xs text-secondary font-bold mt-2 h-4">
         {value.length > 0 && !isValid ? cfg.hint : ""}
       </p>
 
       <div className="flex gap-3 mt-5">
         <button
           onClick={onClose}
-          className="flex-1 h-11 rounded-lg border text-sm font-medium text-[var(--text-tx-secondary)] hover:text-white transition-colors active:scale-95"
-          style={{ borderColor: "var(--border)" }}
+          className="flex-1 h-11 rounded-lg border-3 border-border bg-surface text-sm font-bold text-tx-primary hover:bg-base transition-colors active:translate-x-0.5 active:translate-y-0.5 active:shadow-none shadow-brutal-sm"
         >
           Cancel
         </button>
         <button
           onClick={handleSave}
           disabled={!isValid || isUnchanged || saving}
-          className="flex-1 h-11 rounded-lg text-sm font-medium text-white flex items-center justify-center transition-all active:scale-95 disabled:opacity-40 disabled:active:scale-100"
-          style={{ backgroundColor: "var(--accent)" }}
+          className="flex-1 h-11 rounded-lg bg-accent text-tx-primary border-3 border-border text-sm font-bold flex items-center justify-center transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none shadow-brutal-sm disabled:opacity-40"
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save changes"}
         </button>
@@ -193,7 +185,7 @@ function EditFieldModal({ field, currentValue, onClose, onSaved }) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// Destructive confirmation modal (Clear All Chats)
+// Destructive confirmation modal
 // ──────────────────────────────────────────────────────────────────────────
 function ConfirmClearModal({ onClose }) {
   const [clearing, setClearing] = useState(false);
@@ -203,7 +195,6 @@ function ConfirmClearModal({ onClose }) {
     setClearing(true);
     const ok = await useMessageStore.getState().clearAllMessages();
     if (ok) {
-      // Refresh the inbox previews so cleared threads stop showing stale text.
       useChatStore.getState().getConversations?.();
       toast.success("All chats cleared.");
       onClose();
@@ -216,14 +207,14 @@ function ConfirmClearModal({ onClose }) {
   return (
     <ModalShell onClose={onClose}>
       <div className="flex flex-col items-center text-center">
-        <div className="w-14 h-14 rounded-full bg-[rgba(229,72,77,0.12)] flex items-center justify-center mb-4">
-          <Trash2 className="w-7 h-7 text-[var(--error)]" />
+        <div className="w-14 h-14 rounded-lg bg-red-50 border-3 border-secondary flex items-center justify-center mb-4 shadow-brutal-sm">
+          <Trash2 className="w-7 h-7 text-secondary" />
         </div>
-        <h3 className="text-lg font-display font-semibold text-white mb-1">Clear all chats?</h3>
-        <p className="text-sm text-[var(--text-tx-secondary)] mb-1">
-          Are you sure? This <span className="text-white font-medium">cannot be undone.</span>
+        <h3 className="text-lg font-display font-bold text-tx-primary mb-1">Clear all chats?</h3>
+        <p className="text-sm text-tx-secondary font-bold mb-1">
+          Are you sure? This <span className="text-secondary font-bold">cannot be undone.</span>
         </p>
-        <p className="text-xs text-[var(--text-tx-secondary)] mb-6">
+        <p className="text-xs text-tx-secondary font-semibold mb-6">
           Your encryption identity stays intact — only the messages are permanently deleted.
         </p>
       </div>
@@ -231,18 +222,16 @@ function ConfirmClearModal({ onClose }) {
       <div className="flex gap-3">
         <button
           onClick={onClose}
-          className="flex-1 h-11 rounded-lg border text-sm font-medium text-[var(--text-tx-secondary)] hover:text-white transition-colors active:scale-95"
-          style={{ borderColor: "var(--border)" }}
+          className="flex-1 h-11 rounded-lg border-3 border-border bg-surface text-sm font-bold text-tx-primary hover:bg-base transition-colors active:translate-x-0.5 active:translate-y-0.5 active:shadow-none shadow-brutal-sm"
         >
           Cancel
         </button>
         <button
           onClick={handleClear}
           disabled={clearing}
-          className="flex-1 h-11 rounded-lg text-sm font-semibold text-white flex items-center justify-center transition-all active:scale-95 disabled:opacity-60"
-          style={{ backgroundColor: "var(--error)" }}
+          className="flex-1 h-11 rounded-lg bg-secondary text-tx-primary border-3 border-border text-sm font-bold flex items-center justify-center transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none shadow-brutal-sm disabled:opacity-60"
         >
-          {clearing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete everything"}
+          {clearing ? <Loader2 className="w-4 h-4 animate-spin text-tx-primary" /> : "Delete everything"}
         </button>
       </div>
     </ModalShell>
@@ -255,10 +244,10 @@ function ConfirmClearModal({ onClose }) {
 function Section({ title, children }) {
   return (
     <section className="mb-6">
-      <h2 className="text-xs uppercase tracking-wider text-[var(--text-tx-secondary)] font-semibold px-1 mb-2">
+      <h2 className="text-xs uppercase tracking-wider text-tx-secondary font-bold px-1 mb-2">
         {title}
       </h2>
-      <div className="bg-[var(--bg-surface)] border rounded-2xl overflow-hidden" style={{ borderColor: "var(--border)" }}>
+      <div className="bg-surface border-3 border-border rounded-lg overflow-hidden shadow-brutal-sm">
         {children}
       </div>
     </section>
@@ -266,19 +255,19 @@ function Section({ title, children }) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// AI Sidecar developer configuration (base URL / key / model)
+// AI Sidecar developer configuration
 // ──────────────────────────────────────────────────────────────────────────
 function AISidecarConfig() {
   const { aiBaseUrl, aiApiKey, aiModel, setAiConfig } = useAIStore();
   const [showKey, setShowKey] = useState(false);
 
   const fieldClass =
-    "w-full bg-[var(--bg-base)] border rounded-lg px-3 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-[var(--accent)] transition-colors";
+    "w-full bg-base border-3 border-border rounded-lg px-3 py-2.5 text-sm text-tx-primary placeholder-tx-secondary font-mono font-bold focus:outline-none focus:border-accent transition-colors shadow-brutal-sm";
 
   return (
     <div className="p-4 space-y-4">
-      <div className="flex items-start gap-2 text-xs text-[var(--text-tx-secondary)] bg-[var(--bg-raised)] rounded-lg px-3 py-2 border" style={{ borderColor: "var(--border)" }}>
-        <Bot className="w-4 h-4 mt-0.5 flex-shrink-0 text-[var(--accent)]" />
+      <div className="flex items-start gap-2 text-xs text-tx-secondary bg-base rounded-lg px-3 py-2 border-2 border-border font-bold">
+        <Bot className="w-4 h-4 mt-0.5 flex-shrink-0 text-accent" />
         <span>
           To run a private local model, host an OpenAI-compatible server (LM Studio / Ollama)
           on your machine and enter your local network IP endpoint here.
@@ -287,7 +276,7 @@ function AISidecarConfig() {
 
       {/* Base URL */}
       <div>
-        <label className="block text-xs text-[var(--text-tx-secondary)] mb-1.5 font-medium">AI Base URL</label>
+        <label className="block text-xs text-tx-secondary mb-1.5 font-bold">AI Base URL</label>
         <input
           type="text"
           value={aiBaseUrl}
@@ -296,45 +285,43 @@ function AISidecarConfig() {
           spellCheck={false}
           autoCapitalize="none"
           className={fieldClass}
-          style={{ borderColor: "var(--border)" }}
         />
-        <p className="text-[11px] text-[var(--text-tx-secondary)] mt-1">
-          e.g. <span className="font-mono">http://192.168.1.20:1234/v1</span> for a local model.
+        <p className="text-[11px] text-tx-secondary mt-1 font-semibold">
+          e.g. <span className="font-mono font-bold">http://192.168.1.20:1234/v1</span> for a local model.
         </p>
       </div>
 
       {/* API Key */}
       <div>
-        <label className="block text-xs text-[var(--text-tx-secondary)] mb-1.5 font-medium">API Key</label>
+        <label className="block text-xs text-tx-secondary mb-1.5 font-bold">API Key</label>
         <div className="relative">
           <input
             type={showKey ? "text" : "password"}
             value={aiApiKey}
             onChange={(e) => setAiConfig({ aiApiKey: e.target.value })}
-            placeholder="sk-… (or any token your local server accepts)"
+            placeholder="sk-…"
             spellCheck={false}
             autoCapitalize="none"
             autoComplete="off"
             className={`${fieldClass} pr-10`}
-            style={{ borderColor: "var(--border)" }}
           />
           <button
             type="button"
             onClick={() => setShowKey((v) => !v)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-[var(--text-tx-secondary)] hover:text-white transition-colors"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-tx-secondary hover:text-tx-primary transition-colors"
             title={showKey ? "Hide key" : "Show key"}
           >
-            {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            {showKey ? <EyeOff className="w-4 h-4 text-tx-secondary" /> : <Eye className="w-4 h-4 text-tx-secondary" />}
           </button>
         </div>
-        <p className="text-[11px] text-[var(--text-tx-secondary)] mt-1">
+        <p className="text-[11px] text-tx-secondary mt-1 font-semibold">
           Stored only in this browser's localStorage — never sent to Zync servers.
         </p>
       </div>
 
       {/* Model */}
       <div>
-        <label className="block text-xs text-[var(--text-tx-secondary)] mb-1.5 font-medium">Model Name</label>
+        <label className="block text-xs text-tx-secondary mb-1.5 font-bold">Model Name</label>
         <input
           type="text"
           value={aiModel}
@@ -343,7 +330,6 @@ function AISidecarConfig() {
           spellCheck={false}
           autoCapitalize="none"
           className={fieldClass}
-          style={{ borderColor: "var(--border)" }}
         />
       </div>
     </div>
@@ -360,13 +346,13 @@ export default function Settings() {
   const { user, authUser } = useAuthStore();
   const currentUser = authUser || user;
 
-  const { chatBackground, backgroundType, updateBackground, motionProfile, setMotionProfile } = useSettingsStore();
+  const { chatBackground, updateBackground, motionProfile, setMotionProfile } = useSettingsStore();
   const previewStyle = useMemo(
-    () => resolveBackgroundStyle(chatBackground, backgroundType),
-    [chatBackground, backgroundType]
+    () => resolveBackgroundStyle(chatBackground),
+    [chatBackground]
   );
 
-  const [editingField, setEditingField] = useState(null); // 'displayName' | 'username'
+  const [editingField, setEditingField] = useState(null);
   const [showClearModal, setShowClearModal] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
@@ -400,28 +386,25 @@ export default function Settings() {
   }, []);
 
   return (
-    <div className="h-[100dvh] w-full bg-[var(--bg-base)] text-[var(--text-tx-primary)] overflow-y-auto">
+    <div className="h-[100dvh] w-full bg-base text-tx-primary overflow-y-auto font-body">
       {/* ⚡ HEADER */}
-      <header
-        className="h-14 border-b flex items-center gap-3 px-4 sticky top-0 z-30 bg-[var(--bg-base)]/95 backdrop-blur"
-        style={{ borderColor: "var(--border)" }}
-      >
+      <header className="h-14 border-b-3 border-border flex items-center gap-3 px-4 sticky top-0 z-30 bg-surface">
         <button
           onClick={() => navigate("/inbox")}
-          className="p-2 -ml-2 text-[var(--text-tx-secondary)] hover:text-white transition-colors active:scale-90"
+          className="p-2 -ml-2 text-tx-secondary hover:text-tx-primary border-3 border-transparent hover:border-border hover:bg-base rounded-lg transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none hover:shadow-brutal-sm"
         >
           <ChevronLeft className="w-6 h-6" />
         </button>
-        <h1 className="text-lg font-display font-bold">Settings</h1>
+        <h1 className="text-lg font-display font-bold text-tx-primary">Settings</h1>
       </header>
 
       <div className="max-w-2xl mx-auto px-4 py-6">
         {/* ⚡ PROFILE */}
         <Section title="Profile">
           {/* Avatar */}
-          <div className="flex flex-col items-center py-7 border-b" style={{ borderColor: "var(--border)" }}>
+          <div className="flex flex-col items-center py-7 border-b-3 border-border bg-base">
             <div className="relative">
-              <div className="w-24 h-24 rounded-full bg-[var(--border)] overflow-hidden flex items-center justify-center font-display font-bold text-3xl text-white">
+              <div className="w-24 h-24 rounded-lg bg-primary border-3 border-border shadow-brutal overflow-hidden flex items-center justify-center font-display font-bold text-3xl text-tx-primary">
                 {currentUser?.avatarUrl ? (
                   <img src={currentUser.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
                 ) : (
@@ -433,10 +416,10 @@ export default function Settings() {
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploadingAvatar}
-                className="absolute bottom-0 right-0 w-9 h-9 rounded-full bg-[var(--accent)] border-4 border-[var(--bg-surface)] flex items-center justify-center text-white hover:bg-[var(--accent-hover)] transition-colors active:scale-90 disabled:opacity-70"
+                className="absolute -bottom-2 -right-2 w-9 h-9 rounded-lg bg-accent border-3 border-border flex items-center justify-center text-tx-primary hover:bg-accent-hover shadow-brutal-sm transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:opacity-70"
                 title="Change photo"
               >
-                {uploadingAvatar ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+                {uploadingAvatar ? <Loader2 className="w-4 h-4 animate-spin text-tx-primary" /> : <Camera className="w-4 h-4 text-tx-primary" />}
               </button>
 
               <input
@@ -447,47 +430,46 @@ export default function Settings() {
                 onChange={handleAvatarSelect}
               />
             </div>
-            <p className="mt-3 text-xs text-[var(--text-tx-secondary)]">Tap the camera to change your photo</p>
+            <p className="mt-4 text-xs text-tx-secondary font-bold">Tap the camera to change your photo</p>
           </div>
 
           {/* Display Name row */}
           <button
             onClick={() => setEditingField("displayName")}
-            className="w-full flex items-center gap-4 px-4 py-4 hover:bg-[var(--bg-raised)] transition-colors text-left active:scale-[0.99] border-b"
-            style={{ borderColor: "var(--border)" }}
+            className="w-full flex items-center gap-4 px-4 py-4 hover:bg-base transition-colors text-left border-b-3 border-border active:translate-x-0.5 active:translate-y-0.5 active:shadow-none hover:shadow-brutal-sm"
           >
-            <User className="w-5 h-5 text-[var(--text-tx-secondary)] flex-shrink-0" />
+            <User className="w-5 h-5 text-tx-secondary flex-shrink-0" />
             <div className="flex-1 overflow-hidden">
-              <p className="text-xs text-[var(--text-tx-secondary)]">Display Name</p>
-              <p className="text-sm text-white font-medium truncate">{currentUser?.displayName || "—"}</p>
+              <p className="text-xs text-tx-secondary font-bold">Display Name</p>
+              <p className="text-sm text-tx-primary font-bold truncate">{currentUser?.displayName || "—"}</p>
             </div>
-            <Pencil className="w-4 h-4 text-[var(--text-tx-secondary)] flex-shrink-0" />
+            <Pencil className="w-4 h-4 text-tx-secondary flex-shrink-0" />
           </button>
 
           {/* Username row */}
           <button
             onClick={() => setEditingField("username")}
-            className="w-full flex items-center gap-4 px-4 py-4 hover:bg-[var(--bg-raised)] transition-colors text-left active:scale-[0.99]"
+            className="w-full flex items-center gap-4 px-4 py-4 hover:bg-base transition-colors text-left active:translate-x-0.5 active:translate-y-0.5 active:shadow-none hover:shadow-brutal-sm"
           >
-            <AtSign className="w-5 h-5 text-[var(--text-tx-secondary)] flex-shrink-0" />
+            <AtSign className="w-5 h-5 text-tx-secondary flex-shrink-0" />
             <div className="flex-1 overflow-hidden">
-              <p className="text-xs text-[var(--text-tx-secondary)]">Username</p>
-              <p className="text-sm text-white font-medium font-mono truncate">@{currentUser?.username || "—"}</p>
+              <p className="text-xs text-tx-secondary font-bold">Username</p>
+              <p className="text-sm text-tx-primary font-bold font-mono truncate">@{currentUser?.username || "—"}</p>
             </div>
-            <Pencil className="w-4 h-4 text-[var(--text-tx-secondary)] flex-shrink-0" />
+            <Pencil className="w-4 h-4 text-tx-secondary flex-shrink-0" />
           </button>
         </Section>
 
         {/* ⚡ APPEARANCE */}
         <Section title="Appearance">
-          <div className="p-4">
+          <div className="p-4 bg-surface">
             <div className="flex items-center gap-2 mb-4">
-              <Palette className="w-4 h-4 text-[var(--text-tx-secondary)]" />
-              <span className="text-sm text-white font-medium">Chat background</span>
+              <Palette className="w-4 h-4 text-tx-secondary" />
+              <span className="text-sm text-tx-primary font-bold">Chat background</span>
             </div>
 
             {/* Color presets */}
-            <div className="flex flex-wrap gap-3 mb-5">
+            <div className="flex flex-wrap gap-4 mb-5">
               {COLOR_PRESETS.map((preset) => {
                 const active = chatBackground === preset.value;
                 return (
@@ -498,12 +480,12 @@ export default function Settings() {
                     title={preset.name}
                   >
                     <span
-                      className={`w-11 h-11 rounded-full border-2 flex items-center justify-center transition-all group-active:scale-90 ${active ? "border-[var(--accent)]" : "border-transparent"}`}
-                      style={resolveBackgroundStyle(preset.value, backgroundType)}
+                      className={`w-11 h-11 rounded-lg border-3 flex items-center justify-center transition-all group-active:scale-95 ${active ? "border-accent shadow-brutal-sm bg-accent" : "border-border shadow-none"}`}
+                      style={resolveBackgroundStyle(preset.value)}
                     >
-                      {active && <Check className="w-5 h-5 text-white drop-shadow" />}
+                      {active && <Check className="w-5 h-5 text-tx-primary font-bold" />}
                     </span>
-                    <span className={`text-[11px] ${active ? "text-white" : "text-[var(--text-tx-secondary)]"}`}>
+                    <span className={`text-[11px] font-bold ${active ? "text-tx-primary" : "text-tx-secondary"}`}>
                       {preset.name}
                     </span>
                   </button>
@@ -511,46 +493,23 @@ export default function Settings() {
               })}
             </div>
 
-            {/* Solid / Gradient toggle */}
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-white font-medium">Style</span>
-              <div className="flex bg-[var(--bg-base)] rounded-full p-1 border" style={{ borderColor: "var(--border)" }}>
-                {["solid", "gradient"].map((type) => (
-                  <button
-                    key={type}
-                    onClick={() => updateBackground({ backgroundType: type })}
-                    className={`relative px-4 py-1.5 text-xs font-medium rounded-full transition-colors capitalize ${backgroundType === type ? "text-white" : "text-[var(--text-tx-secondary)]"}`}
-                  >
-                    {backgroundType === type && (
-                      <motion.span
-                        layoutId="bgTypePill"
-                        className="absolute inset-0 rounded-full bg-[var(--accent)]"
-                        transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                      />
-                    )}
-                    <span className="relative z-10">{type}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Live preview */}
             <div
-              className="mt-5 h-20 rounded-xl border flex items-center justify-center"
-              style={{ ...previewStyle, borderColor: "var(--border)" }}
+              className="mt-5 h-20 rounded-lg border-3 border-border flex items-center justify-center shadow-brutal-sm"
+              style={{ ...previewStyle }}
             >
-              <span className="text-xs text-white/70 font-mono">Preview</span>
+              <span className="text-xs text-tx-secondary font-mono font-bold bg-surface px-2.5 py-1 border-2 border-border rounded shadow-brutal-sm">Preview</span>
             </div>
           </div>
         </Section>
 
         {/* ⚡ MOTION & ACCESSIBILITY */}
         <Section title="Motion & Accessibility">
-          <div className="p-4 space-y-4">
-            <p className="text-xs text-[var(--text-tx-secondary)]">
+          <div className="p-4 space-y-4 bg-surface">
+            <p className="text-xs text-tx-secondary font-bold">
               Choose the physics profile for transitions and animations.
             </p>
-            <div className="flex bg-[var(--bg-base)] rounded-full p-1 border" style={{ borderColor: "var(--border)" }}>
+            <div className="flex bg-base rounded-lg p-1 border-3 border-border shadow-brutal-sm">
               {[
                 { id: "fluid", name: "Fluid", desc: "HIG Spring" },
                 { id: "snappy", name: "Snappy", desc: "Linear" },
@@ -561,17 +520,17 @@ export default function Settings() {
                   <button
                     key={profile.id}
                     onClick={() => setMotionProfile(profile.id)}
-                    className={`relative flex-1 py-2 text-xs font-medium rounded-full transition-colors ${active ? "text-white" : "text-[var(--text-tx-secondary)]"}`}
+                    className={`relative flex-1 py-2 text-xs font-bold rounded-lg transition-all ${active ? "text-tx-primary" : "text-tx-secondary"}`}
                   >
                     {active && (
                       <motion.span
                         layoutId="motionProfilePill"
-                        className="absolute inset-0 rounded-full bg-[var(--accent)]"
+                        className="absolute inset-0 rounded-lg bg-accent border-2 border-border shadow-brutal-sm"
                         transition={{ type: "spring", stiffness: 400, damping: 32 }}
                       />
                     )}
-                    <span className="relative z-10 block font-semibold">{profile.name}</span>
-                    <span className="relative z-10 block text-[9px] opacity-70 mt-0.5">{profile.desc}</span>
+                    <span className="relative z-10 block font-bold">{profile.name}</span>
+                    <span className="relative z-10 block text-[9px] opacity-80 mt-0.5">{profile.desc}</span>
                   </button>
                 );
               })}
@@ -579,8 +538,7 @@ export default function Settings() {
           </div>
         </Section>
 
-
-        {/* ⚡ PHASE 5: AI SIDECAR DEVELOPER CONFIGURATION */}
+        {/* ⚡ AI SIDECAR DEVELOPER CONFIGURATION */}
         <Section title="AI Sidecar Developer Configuration">
           <AISidecarConfig />
         </Section>
@@ -589,17 +547,17 @@ export default function Settings() {
         <Section title="Privacy & Data">
           <button
             onClick={() => setShowClearModal(true)}
-            className="w-full flex items-center gap-4 px-4 py-4 hover:bg-[rgba(229,72,77,0.08)] transition-colors text-left active:scale-[0.99]"
+            className="w-full flex items-center gap-4 px-4 py-4 hover:bg-red-50 transition-colors text-left active:translate-x-0.5 active:translate-y-0.5 active:shadow-none hover:shadow-brutal-sm border-t-3 border-transparent"
           >
-            <Trash2 className="w-5 h-5 text-[var(--error)] flex-shrink-0" />
+            <Trash2 className="w-5 h-5 text-secondary flex-shrink-0" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-[var(--error)]">Clear All Chats</p>
-              <p className="text-xs text-[var(--text-tx-secondary)]">Permanently delete your message history</p>
+              <p className="text-sm font-bold text-secondary">Clear All Chats</p>
+              <p className="text-xs text-tx-secondary font-semibold">Permanently delete your message history</p>
             </div>
           </button>
         </Section>
 
-        <p className="text-center text-xs text-[var(--text-tx-secondary)] mt-2">
+        <p className="text-center text-xs text-tx-secondary mt-4 font-bold">
           🔒 Your encryption keys never leave this device.
         </p>
       </div>

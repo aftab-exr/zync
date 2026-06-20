@@ -7,10 +7,6 @@ import { useAuthStore } from "../store/useAuthStore";
 import { useSocketStore } from "../store/useSocketStore";
 import { useMotion } from "../lib/motion";
 
-// ⚡ Reusable avatar + dropdown menu. Gateway to Settings and the secure logout.
-// `avatarUrl` is an optional override; otherwise we read the live profile from
-// the store. (The schema has no `profilePic` field — the photo lives on
-// `avatarUrl`, which the whole app reads.)
 export default function AvatarDropdown({ avatarUrl }) {
   const M = useMotion();
   const navigate = useNavigate();
@@ -23,7 +19,6 @@ export default function AvatarDropdown({ avatarUrl }) {
   const photo = avatarUrl || currentUser?.avatarUrl;
   const initial = currentUser?.displayName?.charAt(0).toUpperCase() || "Z";
 
-  // Close the menu on any click/tap outside the container.
   useEffect(() => {
     if (!open) return;
     const handleClickOutside = (e) => {
@@ -42,9 +37,6 @@ export default function AvatarDropdown({ avatarUrl }) {
 
   const handleLogout = async () => {
     setOpen(false);
-    // 🔒 IDENTITY-SAFE: useAuthStore.logout NEVER deletes `zync_private_key`
-    // (locked in during the E2E stabilization phase). Here we only tear down the
-    // live socket and let the store clear session state.
     useSocketStore.getState().disconnect?.();
     await logout();
   };
@@ -55,7 +47,7 @@ export default function AvatarDropdown({ avatarUrl }) {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="w-10 h-10 rounded-full bg-[var(--border)] border-2 border-[var(--border-active)] overflow-hidden flex items-center justify-center font-display font-bold text-xs text-white hover:brightness-110 transition-all focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+        className="w-10 h-10 rounded-lg bg-primary border-3 border-border overflow-hidden flex items-center justify-center font-display font-bold text-sm text-tx-primary hover:brightness-110 shadow-brutal-sm transition-all focus:outline-none focus:ring-2 focus:ring-accent active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
       >
         {photo ? (
           <img src={photo} alt="Your avatar" className="w-full h-full object-cover" />
@@ -72,14 +64,14 @@ export default function AvatarDropdown({ avatarUrl }) {
             animate="visible"
             exit="exit"
             role="menu"
-            className="absolute right-0 mt-2 w-52 origin-top-right rounded-xl border border-zinc-800 bg-zinc-900/70 backdrop-blur-xl py-1.5 z-[60] overflow-hidden"
+            className="absolute right-0 mt-3 w-52 origin-top-right rounded-lg border-3 border-border bg-surface py-1.5 z-[60] overflow-hidden shadow-brutal"
           >
             {/* Identity header */}
-            <div className="px-4 py-2 border-b border-zinc-800 mb-1">
-              <p className="text-sm font-medium text-white truncate">
+            <div className="px-4 py-2 border-b-3 border-border mb-1 bg-base">
+              <p className="text-sm font-bold text-tx-primary truncate">
                 {currentUser?.displayName || "Zync User"}
               </p>
-              <p className="text-xs text-slate-400 font-mono truncate">
+              <p className="text-xs text-tx-secondary font-mono truncate">
                 @{currentUser?.username || "unknown"}
               </p>
             </div>
@@ -87,17 +79,17 @@ export default function AvatarDropdown({ avatarUrl }) {
             <button
               role="menuitem"
               onClick={goToSettings}
-              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-100 hover:bg-zinc-800/50 transition-colors text-left active:scale-[0.98]"
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-tx-primary hover:bg-base transition-colors text-left font-semibold active:translate-x-0.5 active:translate-y-0.5"
             >
-              <Settings className="w-4 h-4" /> Profile / Settings
+              <Settings className="w-4 h-4 text-tx-secondary" /> Profile / Settings
             </button>
 
             <button
               role="menuitem"
               onClick={handleLogout}
-              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-400 hover:bg-zinc-800/50 transition-colors text-left active:scale-[0.98]"
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-secondary hover:bg-red-50 transition-colors text-left font-semibold border-t border-border active:translate-x-0.5 active:translate-y-0.5"
             >
-              <LogOut className="w-4 h-4" /> Logout
+              <LogOut className="w-4 h-4 text-secondary" /> Logout
             </button>
           </motion.div>
         )}

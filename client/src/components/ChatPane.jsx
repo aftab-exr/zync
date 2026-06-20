@@ -18,12 +18,8 @@ import { deriveConversationKey } from "../lib/mediaKeys";
 import VoiceRecorder from "./VoiceRecorder";
 import { useMotion } from "../lib/motion";
 
-// ⚡ PHASE 2: Strict ceiling for any encrypted attachment (image / video / voice).
 const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024; // 50MB
 
-// ⚡ PHASE 2: Renders an encrypted attachment. Fetches the raw ciphertext blob
-// from Cloudinary, decrypts it locally with the conversation key, and renders a
-// `blob:` URL as <img>/<video>/<audio>. The plaintext never touches the network.
 const EncryptedMedia = ({ url, type, mime, convKey }) => {
   const [src, setSrc] = useState(null);
   const [failed, setFailed] = useState(false);
@@ -56,33 +52,32 @@ const EncryptedMedia = ({ url, type, mime, convKey }) => {
 
   if (failed) {
     return (
-      <div className="flex items-center gap-2 text-xs text-tx-secondary py-3 px-1">
-        <ShieldAlert className="w-4 h-4 text-warning" /> Unable to decrypt media
+      <div className="flex items-center gap-2 text-xs text-tx-secondary py-3 px-1 font-bold">
+        <ShieldAlert className="w-4 h-4 text-secondary" /> Unable to decrypt media
       </div>
     );
   }
 
   if (!src) {
     return (
-      <div className="flex items-center justify-center gap-2 text-xs text-tx-secondary py-8 px-6">
+      <div className="flex items-center justify-center gap-2 text-xs text-tx-secondary py-8 px-6 font-bold">
         <Loader2 className="w-4 h-4 animate-spin" /> Decrypting…
       </div>
     );
   }
 
   if (type === "image") {
-    return <img src={src} alt="Encrypted attachment" className="w-full h-auto max-h-[320px] object-cover rounded-xl" loading="lazy" />;
+    return <img src={src} alt="Encrypted attachment" className="w-full h-auto max-h-[320px] object-cover rounded-lg border-3 border-border shadow-brutal-sm" loading="lazy" />;
   }
   if (type === "video") {
-    return <video src={src} controls className="w-full max-h-[320px] rounded-xl bg-black" />;
+    return <video src={src} controls className="w-full max-h-[320px] rounded-lg bg-black border-3 border-border shadow-brutal-sm" />;
   }
   if (type === "audio") {
-    return <audio src={src} controls className="w-[230px] max-w-full" />;
+    return <audio src={src} controls className="w-[230px] max-w-full rounded-lg border-3 border-border bg-base p-1.5 shadow-brutal-sm" />;
   }
-  return <a href={src} download className="text-sm underline">Download file</a>;
+  return <a href={src} download className="text-sm underline font-bold text-tx-primary">Download file</a>;
 };
 
-// ⚡ Premium AI Code Block Renderer
 const CodeBlock = ({ inline, className, children, ...props }) => {
   const [copied, setCopied] = useState(false);
   const match = /language-(\w+)/.exec(className || '');
@@ -96,38 +91,37 @@ const CodeBlock = ({ inline, className, children, ...props }) => {
   if (!inline && match) {
     const codeText = String(children).replace(/\n$/, '');
     return (
-      <div className="relative mt-4 mb-4 rounded-xl overflow-hidden bg-surface border border-border">
-        <div className="flex items-center justify-between px-4 py-2 bg-raised border-b border-border">
-          <span className="text-xs font-mono text-tx-secondary uppercase tracking-wider">{match[1]}</span>
-          <div className="flex items-center gap-3">
-            {/* ⚡ PHASE 5: Forward this code block into the AI Sidecar to debug/analyze it. */}
+      <div className="relative mt-4 mb-4 rounded-lg overflow-hidden bg-surface border-3 border-border shadow-brutal-sm">
+        <div className="flex items-center justify-between px-4 py-2 bg-base border-b-3 border-border">
+          <span className="text-xs font-mono text-tx-secondary uppercase tracking-wider font-bold">{match[1]}</span>
+          <div className="flex items-center gap-3 font-bold">
             <button
               onClick={() => useAIStore.getState().forwardToAi(codeText)}
               title="Forward to AI Sidecar"
-              className="flex items-center gap-1.5 text-xs text-tx-secondary hover:text-accent transition-colors"
+              className="flex items-center gap-1.5 text-xs text-tx-secondary hover:text-accent transition-colors font-bold"
             >
               <Bot className="w-3.5 h-3.5" />
               <span>Ask AI</span>
             </button>
             <button
               onClick={handleCopy}
-              className="flex items-center gap-1.5 text-xs text-tx-secondary hover:text-tx-primary transition-colors"
+              className="flex items-center gap-1.5 text-xs text-tx-secondary hover:text-tx-primary transition-colors font-bold"
             >
               {copied ? (
                 <>
-                  <Check className="w-3.5 h-3.5 text-success" />
-                  <span className="text-success">Copied!</span>
+                  <Check className="w-3.5 h-3.5 text-success font-bold" />
+                  <span className="text-success font-bold">Copied!</span>
                 </>
               ) : (
                 <>
-                  <Copy className="w-3.5 h-3.5" />
+                  <Copy className="w-3.5 h-3.5 text-tx-secondary" />
                   <span>Copy</span>
                 </>
               )}
             </button>
           </div>
         </div>
-        <pre className="p-4 overflow-x-auto text-[13px] leading-relaxed text-tx-primary font-mono m-0">
+        <pre className="p-4 overflow-x-auto text-[13px] leading-relaxed text-tx-primary font-mono m-0 bg-zinc-900 text-zinc-100">
           <code className={className} {...props}>
             {children}
           </code>
@@ -137,7 +131,7 @@ const CodeBlock = ({ inline, className, children, ...props }) => {
   }
 
   return (
-    <code className="bg-raised text-accent px-1.5 py-0.5 rounded-lg text-sm font-mono border border-border" {...props}>
+    <code className="bg-base text-accent px-1.5 py-0.5 rounded-lg text-sm font-mono border-2 border-border font-bold" {...props}>
       {children}
     </code>
   );
@@ -147,14 +141,12 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
   const M = useMotion();
   const [text, setText] = useState("");
 
-  // ⚡ PHASE 2: Encrypted media state
   const attachInputRef = useRef(null);
-  const [mediaStatus, setMediaStatus] = useState(null); // "Encrypting…" | "Uploading…" | "Sending…"
+  const [mediaStatus, setMediaStatus] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
-  const [convKey, setConvKey] = useState(null); // AES-GCM CryptoKey for this conversation
+  const [convKey, setConvKey] = useState(null);
 
   const messagesEndRef = useRef(null);
-  // ✅ BLUE TICK PROTOCOL: feed container + per-conversation dedupe set
   const feedRef = useRef(null);
   const markedReadRef = useRef(new Set());
   const navigate = useNavigate();
@@ -162,30 +154,10 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
   const { authUser, user } = useAuthStore();
   const currentUser = authUser || user;
 
-  // Pseudo-guard: Only attempt decryption if the text looks like an encrypted payload
-  const getMessageText = (msg) => {
-    // 1. Safe guard for already decrypted plain text
-    if (msg.isDecrypted === true) return msg.text;
-    if (!msg.text) return "";
-
-    // 2. Structural heuristic guard: If the text matches the encrypted schema, 
-    // we return a safe fallback rather than crashing the React element tree.
-    try {
-      if (msg.text.includes('"iv"') && msg.text.includes('"ciphertext"')) {
-        return "🔒 [Encrypted Message - Awaiting Key Sync]";
-      }
-    } catch (e) {
-      console.error("🔴 Defensive Guard: Failed to parse structural heuristics:", e);
-    }
-
-    return msg.text;
-  };
-
-  // ⚡ ZERO-COST UI: locally-persisted chat background (no backend involved).
-  const { chatBackground, backgroundType } = useSettingsStore();
+  const { chatBackground } = useSettingsStore();
   const backgroundStyle = useMemo(
-    () => resolveBackgroundStyle(chatBackground, backgroundType),
-    [chatBackground, backgroundType]
+    () => resolveBackgroundStyle(chatBackground),
+    [chatBackground]
   );
 
   const { conversations } = useChatStore();
@@ -202,7 +174,6 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
     typingConversations
   } = useMessageStore();
 
-  // ⚡ Extract Context & Dynamically find the other user
   const activeConversation = conversations.find(c => c._id === conversationId);
   const displayUser = activeConversation?.otherUser || activeConversation?.participants?.find(p => p._id !== currentUser?._id);
   const isGroup = activeConversation?.isGroup;
@@ -223,12 +194,8 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
     });
   }, [messages, currentUser?._id, activeConversation, isGroup]);
 
-  // ⚡ PHASE 2: Derive the conversation's AES-GCM key (same key used for text) so
-  // we can encrypt outgoing media and decrypt incoming media locally.
   useEffect(() => {
     let active = true;
-    // Reset so we never decrypt the new conversation's media with a stale key.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setConvKey(null);
     if (activeConversation && currentUser) {
       deriveConversationKey(activeConversation, currentUser)
@@ -238,14 +205,11 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
     return () => { active = false; };
   }, [activeConversation, currentUser]);
 
-  // ⚡ PHASE 2: The encrypt → upload → send pipeline for any binary attachment.
   const processAndSend = useCallback(async (file, type) => {
     if (!convKey) {
       toast.error("Secure channel isn't ready yet. Try again in a moment.");
       return;
     }
-    // ⚡ HARD CAP: reject oversized payloads BEFORE encryptFile loads the whole
-    // file into memory — guards mobile browsers from OOM crashes on large media.
     if (file.size > MAX_ATTACHMENT_BYTES) {
       toast.error("File exceeds 50MB limit");
       return;
@@ -284,7 +248,6 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
       toast.error("Only images and videos are supported.");
       return;
     }
-    // Size enforcement is centralized in processAndSend (also covers voice notes).
     await processAndSend(file, isImage ? "image" : "video");
   }, [processAndSend]);
 
@@ -299,19 +262,10 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
     if (!text.trim() || isSending) return;
 
     const currentText = text.trim();
-
-    // Clear the composer immediately — the message now lives in the feed as an
-    // optimistic bubble (rendered before the network call inside sendMessage).
     setText("");
-
-    // ⚡ PHASE 3.5: a falsy result means the send failed (e.g. offline). We do NOT
-    // restore the composer text anymore — the message is already painted as a
-    // `pending` bubble and will auto-replay on reconnect, so re-inserting it here
-    // would duplicate it. Send the encrypted text payload (media → processAndSend).
     await sendMessage(conversationId, currentText, null, displayUser?._id);
   }, [text, isSending, sendMessage, conversationId, displayUser?._id]);
 
-  // Lifecycle
   useEffect(() => {
     if (conversationId) {
       fetchMessages(conversationId);
@@ -324,13 +278,10 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isSomeoneTyping]);
 
-  // ✅ BLUE TICK PROTOCOL: reset the dedupe set when the chat changes
   useEffect(() => {
     markedReadRef.current = new Set();
   }, [conversationId]);
 
-  // ✅ BLUE TICK PROTOCOL: The Viewport Interceptor
-  // Watches unread incoming bubbles; when one scrolls into view, fire the read event.
   useEffect(() => {
     if (!conversationId || !feedRef.current) return;
 
@@ -355,7 +306,6 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
       { root: feedRef.current, threshold: 0.6 }
     );
 
-    // Only observe the other user's still-unread bubbles.
     const nodes = feedRef.current.querySelectorAll('[data-unread="true"]');
     nodes.forEach((node) => observer.observe(node));
 
@@ -374,12 +324,12 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
     <div className="flex-1 flex flex-col h-full bg-base overflow-hidden" style={backgroundStyle}>
 
       {/* ⚡ HEADER */}
-      <div className="h-14 flex items-center justify-between px-4 md:px-6 border-b border-border bg-surface backdrop-blur-xl shrink-0 z-10 relative">
+      <div className="h-14 flex items-center justify-between px-4 md:px-6 border-b-3 border-border bg-surface shrink-0 z-10 relative">
         <div className="flex items-center gap-3">
           {!isSidecar && (
             <button 
               onClick={() => navigate('/inbox')}
-              className="md:hidden p-2 -ml-2 text-tx-secondary hover:text-tx-primary transition-colors"
+              className="md:hidden p-2 -ml-2 text-tx-secondary hover:text-tx-primary border-3 border-transparent hover:border-border hover:bg-base rounded-lg transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none hover:shadow-brutal-sm"
             >
               <ChevronLeft className="w-6 h-6" />
             </button>
@@ -387,11 +337,11 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
 
           <div className="relative">
             {isGroup ? (
-              <div className="w-9 h-9 rounded-full bg-accent-dim text-accent flex items-center justify-center">
-                <Users className="w-4 h-4" />
+              <div className="w-9 h-9 rounded-lg bg-accent border-2 border-border text-tx-primary flex items-center justify-center shadow-brutal-sm">
+                <Users className="w-4 h-4 text-tx-primary" />
               </div>
             ) : (
-              <div className="w-9 h-9 rounded-full bg-border flex items-center justify-center font-bold text-sm text-tx-primary overflow-hidden">
+              <div className="w-9 h-9 rounded-lg bg-primary border-2 border-border flex items-center justify-center font-display font-bold text-sm text-tx-primary overflow-hidden shadow-brutal-sm">
                 {displayUser?.avatarUrl ? (
                   <img src={displayUser.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
                 ) : (
@@ -400,16 +350,16 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
               </div>
             )}
             {!isGroup && isOnline && (
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-success border-2 border-surface rounded-full"></span>
+              <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-success border-2 border-border rounded-full"></span>
             )}
           </div>
 
           <div>
-            <h2 className="text-[15px] font-semibold text-tx-primary flex items-center gap-1.5 leading-tight">
+            <h2 className="text-[15px] font-bold text-tx-primary flex items-center gap-1.5 leading-tight">
               {displayUser?.displayName || "Unknown"}
-              {!isGroup && displayUser?.isAI && <Sparkles className="w-3.5 h-3.5 text-accent" />}
+              {!isGroup && displayUser?.isAI && <Sparkles className="w-3.5 h-3.5 text-accent animate-pulse" />}
             </h2>
-            <p className="text-xs text-tx-secondary font-mono">
+            <p className="text-xs text-tx-secondary font-mono font-bold">
               {isGroup ? displayUser?.username : (displayUser?.isAI ? 'Quantum Processing Active' : (isOnline ? 'Online' : 'Offline'))}
             </p>
           </div>
@@ -418,27 +368,27 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
         {!isGroup && !displayUser?.isAI && (
           <div className="flex items-center gap-2 md:gap-4">
             
-            {/* ⚡ PHASE 4: WebRTC Voice Call */}
+            {/* Call Voice button */}
             <button
               onClick={() => useCallStore.getState().initiateCall(displayUser, 'audio')}
-              className="p-2 w-9 h-9 rounded-full bg-raised border border-border text-tx-secondary hover:text-accent hover:border-accent transition-all flex items-center justify-center active:scale-95"
+              className="p-2 w-9 h-9 rounded-lg bg-surface border-3 border-border text-tx-primary hover:bg-base hover:shadow-brutal-sm transition-all flex items-center justify-center active:translate-x-0.5 active:translate-y-0.5 active:shadow-none shadow-brutal-sm"
               title="Start Voice Call"
             >
-              <Phone className="w-4 h-4" />
+              <Phone className="w-4 h-4 text-tx-primary" />
             </button>
 
-            {/* ⚡ PHASE 2.2 / 4: WebRTC Video Call */}
+            {/* Call Video button */}
             <button
               onClick={() => useCallStore.getState().initiateCall(displayUser, 'video')}
-              className="p-2 w-9 h-9 rounded-full bg-raised border border-border text-tx-secondary hover:text-accent hover:border-accent transition-all flex items-center justify-center active:scale-95"
+              className="p-2 w-9 h-9 rounded-lg bg-surface border-3 border-border text-tx-primary hover:bg-base hover:shadow-brutal-sm transition-all flex items-center justify-center active:translate-x-0.5 active:translate-y-0.5 active:shadow-none shadow-brutal-sm"
               title="Start Video Call"
             >
-              <Video className="w-4 h-4" />
+              <Video className="w-4 h-4 text-tx-primary" />
             </button>
 
-            <div className="flex items-center gap-1.5 text-xs text-success px-3 py-1.5 rounded-full bg-raised border border-border hidden md:flex">
-              <ShieldCheck className="w-4 h-4" />
-              <span>End-to-End Encrypted</span>
+            <div className="flex items-center gap-1.5 text-xs text-success px-3 py-1.5 rounded-lg bg-surface border-3 border-border font-bold shadow-brutal-sm hidden md:flex">
+              <ShieldCheck className="w-4 h-4 text-success" />
+              <span>E2EE Secure</span>
             </div>
           </div>
         )}
@@ -461,20 +411,19 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
               >
                 
                 {isGroup && !msg.isMine && msg.sender && (
-                  <span className="text-xs text-tx-secondary mb-1 ml-1 font-medium">
+                  <span className="text-xs text-tx-secondary mb-1 ml-1 font-bold">
                     {msg.sender.displayName}
                   </span>
                 )}
 
-                <div className={`max-w-[85%] md:max-w-[70%] rounded-xl p-2.5 transition-opacity ${
+                <div className={`max-w-[85%] md:max-w-[70%] rounded-lg p-2.5 border-3 border-border shadow-brutal-sm transition-all font-semibold ${
                   msg.isMine
-                    ? 'bg-accent text-tx-primary rounded-br-sm'
-                    : 'bg-raised border border-border text-tx-primary rounded-bl-sm'
+                    ? 'bg-accent text-tx-primary'
+                    : 'bg-surface text-tx-primary'
                 } ${msg.status === 'pending' ? 'opacity-70' : ''}`}>
                   
-                  {/* ⚡ PHASE 2: Encrypted attachment (image / video / voice note) */}
                   {msg.attachmentUrl && (
-                    <div className="relative rounded-xl overflow-hidden mb-2 min-w-[180px]">
+                    <div className="relative rounded-lg overflow-hidden mb-2 min-w-[180px]">
                       <EncryptedMedia
                         url={msg.attachmentUrl}
                         type={msg.attachmentType}
@@ -484,9 +433,8 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                     </div>
                   )}
 
-                  {/* ⚡ PHASE 2.1: Render the image if it exists */}
                   {msg.imageUrl && (
-                    <div className="relative rounded-xl overflow-hidden mb-2 border border-black/10">
+                    <div className="relative rounded-lg overflow-hidden mb-2 border-3 border-border shadow-brutal-sm bg-base">
                       <img
                         src={msg.imageUrl}
                         alt="Attachment"
@@ -496,9 +444,8 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                     </div>
                   )}
 
-                  {/* Render the text if it exists */}
                   {msg.text && (
-                    <div className={`px-2 pb-1 prose prose-sm max-w-none break-words ${msg.isMine ? 'prose-invert prose-p:text-tx-primary' : 'dark:prose-invert'}`}>
+                    <div className="px-2 pb-1 prose prose-sm max-w-none break-words prose-p:text-tx-primary prose-strong:font-bold prose-strong:text-tx-primary">
                       <ReactMarkdown 
                         remarkPlugins={[remarkGfm]} 
                         components={{ code: CodeBlock }}
@@ -509,13 +456,12 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                   )}
                 </div>
                 
-                <div className="flex items-center gap-1 mt-1 text-[11px] text-tx-secondary font-mono">
-                  {/* ⚡ PHASE 5: subtle "Forward to AI Sidecar" for code/long text. */}
+                <div className="flex items-center gap-1 mt-1 text-[11px] text-tx-secondary font-mono font-bold">
                   {msg.text && (msg.text.length > 80 || msg.text.includes('```')) && (
                     <button
                       onClick={() => useAIStore.getState().forwardToAi(msg.text)}
                       title="Forward to AI Sidecar"
-                      className="mr-1 p-0.5 rounded text-tx-secondary opacity-50 hover:opacity-100 hover:text-accent transition-all"
+                      className="mr-1 p-0.5 rounded text-tx-secondary opacity-60 hover:opacity-100 hover:text-accent transition-all"
                     >
                       <Bot className="w-3.5 h-3.5" />
                     </button>
@@ -523,7 +469,6 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                   {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   {msg.isMine && (
                     msg.status === 'pending' ? (
-                      // ⚡ PHASE 3.5: queued offline — not yet on the server.
                       <Clock className="w-3 h-3 text-tx-secondary ml-1" title="Sending…" />
                     ) : msg.isRead ? (
                       <CheckCheck className="w-3.5 h-3.5 text-accent ml-1 transition-colors duration-300" />
@@ -545,11 +490,11 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
             className="flex items-center gap-2 text-tx-secondary text-sm p-2"
           >
             <div className="flex gap-1">
-              <span className="w-1.5 h-1.5 bg-[var(--text-tx-secondary)] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-1.5 h-1.5 bg-[var(--text-tx-secondary)] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-1.5 h-1.5 bg-[var(--text-tx-secondary)] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              <span className="w-1.5 h-1.5 bg-tx-secondary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-1.5 h-1.5 bg-tx-secondary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-1.5 h-1.5 bg-tx-secondary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
-            <span className="text-xs font-medium">typing...</span>
+            <span className="text-xs font-bold">typing...</span>
           </motion.div>
         )}
 
@@ -557,10 +502,9 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
       </div>
 
       {/* ⚡ COMPOSER */}
-      <div className="p-3 md:p-4 bg-surface backdrop-blur-xl border-t border-border shrink-0 relative z-20">
+      <div className="p-3 md:p-4 bg-surface border-t-3 border-border shrink-0 relative z-20 shadow-brutal-lg">
         <form onSubmit={handleSend} className="flex flex-col gap-2 max-w-4xl mx-auto relative">
 
-          {/* ⚡ PHASE 2: Encrypt/upload status indicator */}
           <AnimatePresence>
             {mediaStatus && (
               <motion.div
@@ -568,7 +512,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 6 }}
                 transition={M.transition}
-                className="w-full flex items-center gap-2 bg-raised border border-border rounded-2xl px-4 py-2.5 text-sm text-tx-secondary"
+                className="w-full flex items-center gap-2 bg-base border-3 border-border rounded-lg px-4 py-2.5 text-sm text-tx-secondary font-bold shadow-brutal-sm"
               >
                 <Loader2 className="w-4 h-4 animate-spin text-accent" />
                 <span>{mediaStatus}</span>
@@ -585,9 +529,8 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
             />
           ) : (
           <div className="flex items-end gap-2 w-full">
-            <div className="flex-1 bg-base border border-border rounded-xl p-1 flex items-center focus-within:border-accent transition-colors">
+            <div className="flex-1 bg-base border-3 border-border rounded-lg p-1 flex items-center focus-within:border-accent transition-colors shadow-brutal-sm">
 
-              {/* ⚡ PHASE 2: Encrypted attachment (image / video) */}
               <input
                 type="file"
                 accept="image/*,video/*"
@@ -599,7 +542,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                 type="button"
                 title="Encrypted attachment"
                 disabled={!!mediaStatus}
-                className="p-3 text-tx-secondary hover:text-accent transition-colors rounded-xl active:scale-95 disabled:opacity-40"
+                className="p-3 text-tx-secondary hover:text-tx-primary hover:bg-surface border-2 border-transparent hover:border-border hover:shadow-brutal-sm transition-all rounded-lg active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:opacity-40"
                 onClick={() => attachInputRef.current?.click()}
               >
                 <Paperclip className="w-5 h-5" />
@@ -615,19 +558,18 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                   }
                 }}
                 placeholder={isGroup ? `Message ${displayUser?.displayName}...` : `Message @${displayUser?.username || ''}...`}
-                className="w-full max-h-32 min-h-[44px] bg-transparent text-sm text-tx-primary resize-none focus:outline-none py-3 px-2 font-body"
+                className="w-full max-h-32 min-h-[44px] bg-transparent text-sm text-tx-primary placeholder-tx-secondary resize-none focus:outline-none py-3 px-2 font-body font-semibold"
                 rows={1}
               />
             </div>
 
-            {/* ⚡ PHASE 2: Voice note when empty, Send when composing */}
             {!text.trim() ? (
               <button
                 type="button"
                 title="Record voice note"
                 disabled={!!mediaStatus}
                 onClick={() => setIsRecording(true)}
-                className="w-12 h-12 rounded-full bg-raised border border-border text-tx-secondary hover:text-accent hover:border-accent flex items-center justify-center transition-all flex-shrink-0 active:scale-95 disabled:opacity-50"
+                className="w-12 h-12 rounded-lg bg-surface border-3 border-border text-tx-primary hover:bg-base flex items-center justify-center transition-all flex-shrink-0 shadow-brutal-sm active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:opacity-50"
               >
                 <Mic className="w-5 h-5" />
               </button>
@@ -635,9 +577,9 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
               <button
                 type="submit"
                 disabled={!text.trim() || isSending}
-                className="w-12 h-12 rounded-full bg-accent text-tx-primary flex items-center justify-center hover:bg-accent-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 active:scale-95"
+                className="w-12 h-12 rounded-lg bg-accent text-tx-primary border-3 border-border flex items-center justify-center hover:bg-accent-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 shadow-brutal-sm active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
               >
-                {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 ml-1" />}
+                {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 ml-1 text-tx-primary" />}
               </button>
             )}
           </div>
