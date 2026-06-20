@@ -11,18 +11,26 @@ export default {
         surface: "var(--bg-surface)",
         raised: "var(--bg-raised)",
         border: {
-          DEFAULT: "var(--border)",
+          DEFAULT: "var(--border-color)",
           active: "var(--border-active)",
         },
-        text: {
+        tx: {
           primary: "var(--text-primary)",
           secondary: "var(--text-secondary)",
-          disabled: "var(--text-disabled)",
+          muted: "var(--text-muted)",
+          inverse: "var(--text-inverse)",
+        },
+        primary: {
+          DEFAULT: "var(--color-primary)",
+          hover: "var(--color-primary-hover)",
+        },
+        secondary: {
+          DEFAULT: "var(--color-secondary)",
+          hover: "var(--color-secondary-hover)",
         },
         accent: {
-          DEFAULT: "var(--accent)",
-          hover: "var(--accent-hover)",
-          dim: "var(--accent-dim)",
+          DEFAULT: "var(--color-accent)",
+          hover: "var(--color-accent-hover)",
         },
         success: "var(--success)",
         warning: "var(--warning)",
@@ -31,6 +39,15 @@ export default {
       fontFamily: {
         body: ["var(--font-body)"],
         display: ["var(--font-display)"],
+        mono: ["var(--font-mono)"],
+      },
+      borderWidth: {
+        '3': '3px',
+      },
+      boxShadow: {
+        'brutal': '4px 4px 0px var(--border-color)',
+        'brutal-sm': '2px 2px 0px var(--border-color)',
+        'brutal-lg': '8px 8px 0px var(--border-color)',
       }
     },
   },

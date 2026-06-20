@@ -10,10 +10,10 @@
 
   /* Neubrutalism Colors */
   --bg-base:          #F4F4F5; /* Neutral off-white for background */
-  --bg-surface:       #FFFFFF; /* White for cards */
-  --bg-raised:        #FAFAFC; 
+  --bg-surface:       #FFFFFF; /* White for cards/containers */
+  --bg-raised:        #FAFAFC;
   
-  --border:           #111111; /* Off-black for borders and shadows */
+  --border-color:     #111111; /* Off-black for borders and shadows to avoid pure black */
   --border-active:    #333333;
   
   --text-primary:     #111111; 
@@ -24,11 +24,13 @@
   --color-primary:    #FFEB3B; /* Brutalist Yellow */
   --color-primary-hover: #FDD835; 
   --color-secondary:  #FF5252; /* Brutalist Red */
+  --color-secondary-hover: #E53935;
   --color-accent:     #2196F3; /* Brutalist Blue */
+  --color-accent-hover: #1E88E5;
   
   --success:          #4CAF50;
   --warning:          #FFC107;
-  --error:            #F44336;
+  --error:            #FF5252;
 }
 
 html, body, #root {
@@ -44,16 +46,16 @@ html, body, #root {
 
 /* Minimalist scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 12px;
+  height: 12px;
 }
 ::-webkit-scrollbar-track {
   background: var(--bg-base);
-  border-left: 2px solid var(--border);
+  border-left: 3px solid var(--border-color);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border: 2px solid var(--bg-base);
+  background: var(--border-color);
+  border: 3px solid var(--bg-base);
   border-radius: 0px;
 }
 ::-webkit-scrollbar-thumb:hover {
@@ -75,6 +77,6 @@ button, a {
   outline: none;
 }
 button:focus-visible, a:focus-visible, input:focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 3px solid var(--color-accent);
   outline-offset: 2px;
 }

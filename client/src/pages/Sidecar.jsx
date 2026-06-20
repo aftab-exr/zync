@@ -81,7 +81,7 @@ export default function Sidecar() {
         </div>
         <div className="flex items-center gap-2">
           <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-[var(--success)] shadow-[0_0_8px_var(--success)]' : 'bg-[var(--warning)] animate-ping'}`} />
-          <span className="text-[10px] font-mono text-[var(--text-secondary)] tracking-widest uppercase">
+          <span className="text-[10px] font-mono text-[var(--text-tx-secondary)] tracking-widest uppercase">
             {isConnected ? 'STABLE_CONN' : 'RECONNECTING'}
           </span>
         </div>
@@ -92,7 +92,7 @@ export default function Sidecar() {
         {loadingAI ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--bg-base)] gap-3">
             <Loader2 className="w-8 h-8 text-[var(--accent)] animate-spin" />
-            <p className="text-xs font-mono text-[var(--text-secondary)] uppercase tracking-widest">
+            <p className="text-xs font-mono text-[var(--text-tx-secondary)] uppercase tracking-widest">
               Initializing AI Session...
             </p>
           </div>
@@ -101,7 +101,7 @@ export default function Sidecar() {
             <p className="text-sm font-mono text-[var(--error)] uppercase tracking-wide mb-2">
               SYSTEM_ALERT: Fault Detected
             </p>
-            <p className="text-xs text-[var(--text-secondary)] mb-4">{errorMsg}</p>
+            <p className="text-xs text-[var(--text-tx-secondary)] mb-4">{errorMsg}</p>
             <button 
               onClick={() => {
                 setErrorMsg(null);

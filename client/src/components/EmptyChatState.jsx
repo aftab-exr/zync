@@ -24,7 +24,7 @@ export default function EmptyChatState({ hasChats }) {
         <h2 className="text-lg font-display font-semibold text-white mb-2 tracking-tight">
           {hasChats ? "Secure Workspace" : "No Conversations"}
         </h2>
-        <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+        <p className="text-sm text-[var(--text-tx-secondary)] leading-relaxed">
           {hasChats
             ? "Your connection is encrypted. Select a chat from the sidebar or start a new one."
             : "Zync is a secure peer-to-peer workspace. Start a new conversation from the sidebar."}

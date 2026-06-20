@@ -140,20 +140,20 @@ function EditFieldModal({ field, currentValue, onClose, onSaved }) {
     <ModalShell onClose={onClose}>
       <div className="flex items-center justify-between mb-1">
         <h3 className="text-lg font-display font-semibold text-white">Edit {cfg.title}</h3>
-        <button onClick={onClose} className="text-[var(--text-secondary)] hover:text-white transition-colors">
+        <button onClick={onClose} className="text-[var(--text-tx-secondary)] hover:text-white transition-colors">
           <X className="w-5 h-5" />
         </button>
       </div>
 
       {/* ⚡ Rate-limit helper text */}
-      <div className="flex items-start gap-2 mb-5 text-xs text-[var(--text-secondary)] bg-[var(--bg-raised)] rounded-lg px-3 py-2 border" style={{ borderColor: "var(--border)" }}>
+      <div className="flex items-start gap-2 mb-5 text-xs text-[var(--text-tx-secondary)] bg-[var(--bg-raised)] rounded-lg px-3 py-2 border" style={{ borderColor: "var(--border)" }}>
         <ShieldAlert className="w-4 h-4 mt-0.5 flex-shrink-0 text-[var(--warning)]" />
         <span>{cfg.helper}</span>
       </div>
 
       <div className="relative">
         {field === "username" && (
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]">@</span>
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-tx-secondary)]">@</span>
         )}
         <input
           autoFocus
@@ -167,14 +167,14 @@ function EditFieldModal({ field, currentValue, onClose, onSaved }) {
           style={{ borderColor: "var(--border)" }}
         />
       </div>
-      <p className="text-xs text-[var(--text-secondary)] mt-2 h-4">
+      <p className="text-xs text-[var(--text-tx-secondary)] mt-2 h-4">
         {value.length > 0 && !isValid ? cfg.hint : ""}
       </p>
 
       <div className="flex gap-3 mt-5">
         <button
           onClick={onClose}
-          className="flex-1 h-11 rounded-lg border text-sm font-medium text-[var(--text-secondary)] hover:text-white transition-colors active:scale-95"
+          className="flex-1 h-11 rounded-lg border text-sm font-medium text-[var(--text-tx-secondary)] hover:text-white transition-colors active:scale-95"
           style={{ borderColor: "var(--border)" }}
         >
           Cancel
@@ -220,10 +220,10 @@ function ConfirmClearModal({ onClose }) {
           <Trash2 className="w-7 h-7 text-[var(--error)]" />
         </div>
         <h3 className="text-lg font-display font-semibold text-white mb-1">Clear all chats?</h3>
-        <p className="text-sm text-[var(--text-secondary)] mb-1">
+        <p className="text-sm text-[var(--text-tx-secondary)] mb-1">
           Are you sure? This <span className="text-white font-medium">cannot be undone.</span>
         </p>
-        <p className="text-xs text-[var(--text-secondary)] mb-6">
+        <p className="text-xs text-[var(--text-tx-secondary)] mb-6">
           Your encryption identity stays intact — only the messages are permanently deleted.
         </p>
       </div>
@@ -231,7 +231,7 @@ function ConfirmClearModal({ onClose }) {
       <div className="flex gap-3">
         <button
           onClick={onClose}
-          className="flex-1 h-11 rounded-lg border text-sm font-medium text-[var(--text-secondary)] hover:text-white transition-colors active:scale-95"
+          className="flex-1 h-11 rounded-lg border text-sm font-medium text-[var(--text-tx-secondary)] hover:text-white transition-colors active:scale-95"
           style={{ borderColor: "var(--border)" }}
         >
           Cancel
@@ -255,7 +255,7 @@ function ConfirmClearModal({ onClose }) {
 function Section({ title, children }) {
   return (
     <section className="mb-6">
-      <h2 className="text-xs uppercase tracking-wider text-[var(--text-secondary)] font-semibold px-1 mb-2">
+      <h2 className="text-xs uppercase tracking-wider text-[var(--text-tx-secondary)] font-semibold px-1 mb-2">
         {title}
       </h2>
       <div className="bg-[var(--bg-surface)] border rounded-2xl overflow-hidden" style={{ borderColor: "var(--border)" }}>
@@ -277,7 +277,7 @@ function AISidecarConfig() {
 
   return (
     <div className="p-4 space-y-4">
-      <div className="flex items-start gap-2 text-xs text-[var(--text-secondary)] bg-[var(--bg-raised)] rounded-lg px-3 py-2 border" style={{ borderColor: "var(--border)" }}>
+      <div className="flex items-start gap-2 text-xs text-[var(--text-tx-secondary)] bg-[var(--bg-raised)] rounded-lg px-3 py-2 border" style={{ borderColor: "var(--border)" }}>
         <Bot className="w-4 h-4 mt-0.5 flex-shrink-0 text-[var(--accent)]" />
         <span>
           To run a private local model, host an OpenAI-compatible server (LM Studio / Ollama)
@@ -287,7 +287,7 @@ function AISidecarConfig() {
 
       {/* Base URL */}
       <div>
-        <label className="block text-xs text-[var(--text-secondary)] mb-1.5 font-medium">AI Base URL</label>
+        <label className="block text-xs text-[var(--text-tx-secondary)] mb-1.5 font-medium">AI Base URL</label>
         <input
           type="text"
           value={aiBaseUrl}
@@ -298,14 +298,14 @@ function AISidecarConfig() {
           className={fieldClass}
           style={{ borderColor: "var(--border)" }}
         />
-        <p className="text-[11px] text-[var(--text-secondary)] mt-1">
+        <p className="text-[11px] text-[var(--text-tx-secondary)] mt-1">
           e.g. <span className="font-mono">http://192.168.1.20:1234/v1</span> for a local model.
         </p>
       </div>
 
       {/* API Key */}
       <div>
-        <label className="block text-xs text-[var(--text-secondary)] mb-1.5 font-medium">API Key</label>
+        <label className="block text-xs text-[var(--text-tx-secondary)] mb-1.5 font-medium">API Key</label>
         <div className="relative">
           <input
             type={showKey ? "text" : "password"}
@@ -321,20 +321,20 @@ function AISidecarConfig() {
           <button
             type="button"
             onClick={() => setShowKey((v) => !v)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-[var(--text-secondary)] hover:text-white transition-colors"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-[var(--text-tx-secondary)] hover:text-white transition-colors"
             title={showKey ? "Hide key" : "Show key"}
           >
             {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
         </div>
-        <p className="text-[11px] text-[var(--text-secondary)] mt-1">
+        <p className="text-[11px] text-[var(--text-tx-secondary)] mt-1">
           Stored only in this browser's localStorage — never sent to Zync servers.
         </p>
       </div>
 
       {/* Model */}
       <div>
-        <label className="block text-xs text-[var(--text-secondary)] mb-1.5 font-medium">Model Name</label>
+        <label className="block text-xs text-[var(--text-tx-secondary)] mb-1.5 font-medium">Model Name</label>
         <input
           type="text"
           value={aiModel}
@@ -400,7 +400,7 @@ export default function Settings() {
   }, []);
 
   return (
-    <div className="h-[100dvh] w-full bg-[var(--bg-base)] text-[var(--text-primary)] overflow-y-auto">
+    <div className="h-[100dvh] w-full bg-[var(--bg-base)] text-[var(--text-tx-primary)] overflow-y-auto">
       {/* ⚡ HEADER */}
       <header
         className="h-14 border-b flex items-center gap-3 px-4 sticky top-0 z-30 bg-[var(--bg-base)]/95 backdrop-blur"
@@ -408,7 +408,7 @@ export default function Settings() {
       >
         <button
           onClick={() => navigate("/inbox")}
-          className="p-2 -ml-2 text-[var(--text-secondary)] hover:text-white transition-colors active:scale-90"
+          className="p-2 -ml-2 text-[var(--text-tx-secondary)] hover:text-white transition-colors active:scale-90"
         >
           <ChevronLeft className="w-6 h-6" />
         </button>
@@ -447,7 +447,7 @@ export default function Settings() {
                 onChange={handleAvatarSelect}
               />
             </div>
-            <p className="mt-3 text-xs text-[var(--text-secondary)]">Tap the camera to change your photo</p>
+            <p className="mt-3 text-xs text-[var(--text-tx-secondary)]">Tap the camera to change your photo</p>
           </div>
 
           {/* Display Name row */}
@@ -456,12 +456,12 @@ export default function Settings() {
             className="w-full flex items-center gap-4 px-4 py-4 hover:bg-[var(--bg-raised)] transition-colors text-left active:scale-[0.99] border-b"
             style={{ borderColor: "var(--border)" }}
           >
-            <User className="w-5 h-5 text-[var(--text-secondary)] flex-shrink-0" />
+            <User className="w-5 h-5 text-[var(--text-tx-secondary)] flex-shrink-0" />
             <div className="flex-1 overflow-hidden">
-              <p className="text-xs text-[var(--text-secondary)]">Display Name</p>
+              <p className="text-xs text-[var(--text-tx-secondary)]">Display Name</p>
               <p className="text-sm text-white font-medium truncate">{currentUser?.displayName || "—"}</p>
             </div>
-            <Pencil className="w-4 h-4 text-[var(--text-secondary)] flex-shrink-0" />
+            <Pencil className="w-4 h-4 text-[var(--text-tx-secondary)] flex-shrink-0" />
           </button>
 
           {/* Username row */}
@@ -469,12 +469,12 @@ export default function Settings() {
             onClick={() => setEditingField("username")}
             className="w-full flex items-center gap-4 px-4 py-4 hover:bg-[var(--bg-raised)] transition-colors text-left active:scale-[0.99]"
           >
-            <AtSign className="w-5 h-5 text-[var(--text-secondary)] flex-shrink-0" />
+            <AtSign className="w-5 h-5 text-[var(--text-tx-secondary)] flex-shrink-0" />
             <div className="flex-1 overflow-hidden">
-              <p className="text-xs text-[var(--text-secondary)]">Username</p>
+              <p className="text-xs text-[var(--text-tx-secondary)]">Username</p>
               <p className="text-sm text-white font-medium font-mono truncate">@{currentUser?.username || "—"}</p>
             </div>
-            <Pencil className="w-4 h-4 text-[var(--text-secondary)] flex-shrink-0" />
+            <Pencil className="w-4 h-4 text-[var(--text-tx-secondary)] flex-shrink-0" />
           </button>
         </Section>
 
@@ -482,7 +482,7 @@ export default function Settings() {
         <Section title="Appearance">
           <div className="p-4">
             <div className="flex items-center gap-2 mb-4">
-              <Palette className="w-4 h-4 text-[var(--text-secondary)]" />
+              <Palette className="w-4 h-4 text-[var(--text-tx-secondary)]" />
               <span className="text-sm text-white font-medium">Chat background</span>
             </div>
 
@@ -503,7 +503,7 @@ export default function Settings() {
                     >
                       {active && <Check className="w-5 h-5 text-white drop-shadow" />}
                     </span>
-                    <span className={`text-[11px] ${active ? "text-white" : "text-[var(--text-secondary)]"}`}>
+                    <span className={`text-[11px] ${active ? "text-white" : "text-[var(--text-tx-secondary)]"}`}>
                       {preset.name}
                     </span>
                   </button>
@@ -519,7 +519,7 @@ export default function Settings() {
                   <button
                     key={type}
                     onClick={() => updateBackground({ backgroundType: type })}
-                    className={`relative px-4 py-1.5 text-xs font-medium rounded-full transition-colors capitalize ${backgroundType === type ? "text-white" : "text-[var(--text-secondary)]"}`}
+                    className={`relative px-4 py-1.5 text-xs font-medium rounded-full transition-colors capitalize ${backgroundType === type ? "text-white" : "text-[var(--text-tx-secondary)]"}`}
                   >
                     {backgroundType === type && (
                       <motion.span
@@ -547,7 +547,7 @@ export default function Settings() {
         {/* ⚡ MOTION & ACCESSIBILITY */}
         <Section title="Motion & Accessibility">
           <div className="p-4 space-y-4">
-            <p className="text-xs text-[var(--text-secondary)]">
+            <p className="text-xs text-[var(--text-tx-secondary)]">
               Choose the physics profile for transitions and animations.
             </p>
             <div className="flex bg-[var(--bg-base)] rounded-full p-1 border" style={{ borderColor: "var(--border)" }}>
@@ -561,7 +561,7 @@ export default function Settings() {
                   <button
                     key={profile.id}
                     onClick={() => setMotionProfile(profile.id)}
-                    className={`relative flex-1 py-2 text-xs font-medium rounded-full transition-colors ${active ? "text-white" : "text-[var(--text-secondary)]"}`}
+                    className={`relative flex-1 py-2 text-xs font-medium rounded-full transition-colors ${active ? "text-white" : "text-[var(--text-tx-secondary)]"}`}
                   >
                     {active && (
                       <motion.span
@@ -594,12 +594,12 @@ export default function Settings() {
             <Trash2 className="w-5 h-5 text-[var(--error)] flex-shrink-0" />
             <div className="flex-1">
               <p className="text-sm font-medium text-[var(--error)]">Clear All Chats</p>
-              <p className="text-xs text-[var(--text-secondary)]">Permanently delete your message history</p>
+              <p className="text-xs text-[var(--text-tx-secondary)]">Permanently delete your message history</p>
             </div>
           </button>
         </Section>
 
-        <p className="text-center text-xs text-[var(--text-secondary)] mt-2">
+        <p className="text-center text-xs text-[var(--text-tx-secondary)] mt-2">
           🔒 Your encryption keys never leave this device.
         </p>
       </div>

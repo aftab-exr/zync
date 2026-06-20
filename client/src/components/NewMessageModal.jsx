@@ -106,7 +106,7 @@ export default function NewMessageModal({ isOpen, onClose, onSelectConversation 
               <h2 className="text-lg font-display font-bold text-white">
                 {isGroupMode ? 'Create Group' : 'New Message'}
               </h2>
-              <button onClick={handleClose} className="p-2 rounded-lg text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-base)] transition-colors">
+              <button onClick={handleClose} className="p-2 rounded-lg text-[var(--text-tx-secondary)] hover:text-white hover:bg-[var(--bg-base)] transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -115,14 +115,14 @@ export default function NewMessageModal({ isOpen, onClose, onSelectConversation 
             <div className="p-4 border-b border-[var(--border)] space-y-4">
               <button
                 onClick={() => setIsGroupMode(!isGroupMode)}
-                className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-[var(--bg-base)] text-[var(--text-primary)] transition-colors"
+                className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-[var(--bg-base)] text-[var(--text-tx-primary)] transition-colors"
               >
                 <div className="w-10 h-10 rounded-full bg-[var(--accent-dim)] text-[var(--accent)] flex items-center justify-center">
                   <Users className="w-5 h-5" />
                 </div>
                 <div className="text-left flex-1">
                   <h3 className="text-sm font-medium">New Group</h3>
-                  <p className="text-xs text-[var(--text-secondary)]">Create a conversation with multiple people</p>
+                  <p className="text-xs text-[var(--text-tx-secondary)]">Create a conversation with multiple people</p>
                 </div>
                 {isGroupMode && <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}><Check className="w-5 h-5 text-[var(--accent)]" /></motion.div>}
               </button>
@@ -150,7 +150,7 @@ export default function NewMessageModal({ isOpen, onClose, onSelectConversation 
                             className="flex items-center gap-1.5 bg-[var(--bg-raised)] border border-[var(--border)] px-3 py-1.5 rounded-full text-xs text-white"
                           >
                             {u.displayName}
-                            <X className="w-3 h-3 cursor-pointer text-[var(--text-secondary)] hover:text-[var(--error)] transition-colors" onClick={() => handleUserClick(u)} />
+                            <X className="w-3 h-3 cursor-pointer text-[var(--text-tx-secondary)] hover:text-[var(--error)] transition-colors" onClick={() => handleUserClick(u)} />
                           </motion.div>
                         ))}
                       </AnimatePresence>
@@ -161,7 +161,7 @@ export default function NewMessageModal({ isOpen, onClose, onSelectConversation 
 
               {/* Search Input */}
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tx-secondary)]" />
                 <input
                   type="text"
                   placeholder="Search users by username..."
@@ -192,11 +192,11 @@ export default function NewMessageModal({ isOpen, onClose, onSelectConversation 
                           </div>
                           <div className="text-left">
                             <h4 className="text-sm font-medium text-white">{user.displayName}</h4>
-                            <p className="text-xs text-[var(--text-secondary)]">@{user.username}</p>
+                            <p className="text-xs text-[var(--text-tx-secondary)]">@{user.username}</p>
                           </div>
                         </div>
                         {isGroupMode && (
-                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${isSelected ? 'bg-[var(--accent)] border-[var(--accent)]' : 'border-[var(--text-secondary)]'}`}>
+                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${isSelected ? 'bg-[var(--accent)] border-[var(--accent)]' : 'border-[var(--text-tx-secondary)]'}`}>
                             {isSelected && <Check className="w-3 h-3 text-white" />}
                           </div>
                         )}
@@ -205,7 +205,7 @@ export default function NewMessageModal({ isOpen, onClose, onSelectConversation 
                   })}
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-full text-[var(--text-secondary)] p-8 text-center">
+                <div className="flex flex-col items-center justify-center h-full text-[var(--text-tx-secondary)] p-8 text-center">
                   <Users className="w-8 h-8 mb-3 opacity-50" />
                   <p className="text-sm">Search for users to start a conversation</p>
                 </div>

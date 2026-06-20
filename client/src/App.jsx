@@ -34,7 +34,7 @@ function App() {
         toastOptions={{
           style: {
             background: 'var(--bg-surface)',
-            color: 'var(--text-primary)',
+            color: 'var(--text-tx-primary)',
             border: '3px solid var(--border)',
             boxShadow: '4px 4px 0px var(--border)',
             borderRadius: '0px',

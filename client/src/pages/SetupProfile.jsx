@@ -56,17 +56,17 @@ export default function SetupProfile() {
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
-        className="w-full max-w-md bg-surface p-6 sm:p-8 rounded-md border-3 border-border shadow-brutal"
+        className="w-full max-w-md bg-surface p-6 sm:p-8 rounded-lg border-3 border-border shadow-brutal"
       >
-        <h2 className="text-xl sm:text-2xl font-display text-primary font-bold mb-2">Claim your identity</h2>
-        <p className="text-sm text-secondary mb-8">
+        <h2 className="text-xl sm:text-2xl font-display text-tx-primary font-bold mb-2">Claim your identity</h2>
+        <p className="text-sm text-tx-secondary mb-8">
           Your username is unique. Choose wisely.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Display Name Input */}
           <div className="space-y-2">
-            <label className="text-xs uppercase tracking-wider text-secondary font-semibold">
+            <label className="text-xs uppercase tracking-wider text-tx-secondary font-semibold">
               Display Name
             </label>
             <input
@@ -75,24 +75,24 @@ export default function SetupProfile() {
               onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
               placeholder="e.g. Aaftab"
               maxLength={50}
-              className="w-full bg-base border-3 border-border rounded-sm px-4 py-3 sm:py-4 text-primary focus:outline-none focus:border-accent transition-colors"
+              className="w-full bg-base border-3 border-border rounded-sm px-4 py-3 sm:py-4 text-tx-primary focus:outline-none focus:border-accent transition-colors"
             />
           </div>
 
           {/* Username Input with Live Validation */}
           <div className="space-y-2">
-            <label className="text-xs uppercase tracking-wider text-secondary font-semibold">
+            <label className="text-xs uppercase tracking-wider text-tx-secondary font-semibold">
               Username
             </label>
             <div className="relative">
-              <span className="absolute left-4 top-3 sm:top-4 text-secondary">@</span>
+              <span className="absolute left-4 top-3 sm:top-4 text-tx-secondary">@</span>
               <input
                 type="text"
                 value={formData.username}
                 onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase().replace(/\s/g, '') })}
                 placeholder="aaftab_dev"
                 maxLength={30}
-                className="w-full bg-base border-3 border-border rounded-sm pl-9 pr-10 py-3 sm:py-4 text-primary focus:outline-none focus:border-accent transition-colors font-mono"
+                className="w-full bg-base border-3 border-border rounded-sm pl-9 pr-10 py-3 sm:py-4 text-tx-primary focus:outline-none focus:border-accent transition-colors font-mono"
               />
               <div className="absolute right-3 sm:right-4 top-3 sm:top-4">
                 {formData.username.length > 0 && (
@@ -102,7 +102,7 @@ export default function SetupProfile() {
                 )}
               </div>
             </div>
-            <p className="text-xs text-secondary h-4">
+            <p className="text-xs text-tx-secondary h-4">
               {formData.username.length > 0 && !isValidUsername && "Only letters, numbers, and underscores (3-30 chars)."}
             </p>
           </div>
@@ -118,7 +118,7 @@ export default function SetupProfile() {
           <button 
             type="submit"
             disabled={status.loading || !isValidUsername || !formData.displayName}
-            className="w-full h-12 flex items-center justify-center rounded-md border-3 border-border bg-primary text-primary font-bold shadow-brutal transition-all active:translate-x-1 active:translate-y-1 active:shadow-none disabled:opacity-50 disabled:active:translate-x-0 disabled:active:translate-y-0 disabled:active:shadow-brutal hover:bg-primary-hover"
+            className="w-full h-12 flex items-center justify-center rounded-lg border-3 border-border bg-primary text-tx-primary font-bold shadow-brutal transition-all active:translate-x-1 active:translate-y-1 active:shadow-none disabled:opacity-50 disabled:active:translate-x-0 disabled:active:translate-y-0 disabled:active:shadow-brutal hover:bg-primary-hover"
           >
             {status.loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Save & Continue"}
           </button>

@@ -56,7 +56,7 @@ const EncryptedMedia = ({ url, type, mime, convKey }) => {
 
   if (failed) {
     return (
-      <div className="flex items-center gap-2 text-xs text-secondary py-3 px-1">
+      <div className="flex items-center gap-2 text-xs text-tx-secondary py-3 px-1">
         <ShieldAlert className="w-4 h-4 text-warning" /> Unable to decrypt media
       </div>
     );
@@ -64,7 +64,7 @@ const EncryptedMedia = ({ url, type, mime, convKey }) => {
 
   if (!src) {
     return (
-      <div className="flex items-center justify-center gap-2 text-xs text-secondary py-8 px-6">
+      <div className="flex items-center justify-center gap-2 text-xs text-tx-secondary py-8 px-6">
         <Loader2 className="w-4 h-4 animate-spin" /> Decrypting…
       </div>
     );
@@ -98,20 +98,20 @@ const CodeBlock = ({ inline, className, children, ...props }) => {
     return (
       <div className="relative mt-4 mb-4 rounded-xl overflow-hidden bg-surface border border-border">
         <div className="flex items-center justify-between px-4 py-2 bg-raised border-b border-border">
-          <span className="text-xs font-mono text-secondary uppercase tracking-wider">{match[1]}</span>
+          <span className="text-xs font-mono text-tx-secondary uppercase tracking-wider">{match[1]}</span>
           <div className="flex items-center gap-3">
             {/* ⚡ PHASE 5: Forward this code block into the AI Sidecar to debug/analyze it. */}
             <button
               onClick={() => useAIStore.getState().forwardToAi(codeText)}
               title="Forward to AI Sidecar"
-              className="flex items-center gap-1.5 text-xs text-secondary hover:text-accent transition-colors"
+              className="flex items-center gap-1.5 text-xs text-tx-secondary hover:text-accent transition-colors"
             >
               <Bot className="w-3.5 h-3.5" />
               <span>Ask AI</span>
             </button>
             <button
               onClick={handleCopy}
-              className="flex items-center gap-1.5 text-xs text-secondary hover:text-primary transition-colors"
+              className="flex items-center gap-1.5 text-xs text-tx-secondary hover:text-tx-primary transition-colors"
             >
               {copied ? (
                 <>
@@ -127,7 +127,7 @@ const CodeBlock = ({ inline, className, children, ...props }) => {
             </button>
           </div>
         </div>
-        <pre className="p-4 overflow-x-auto text-[13px] leading-relaxed text-primary font-mono m-0">
+        <pre className="p-4 overflow-x-auto text-[13px] leading-relaxed text-tx-primary font-mono m-0">
           <code className={className} {...props}>
             {children}
           </code>
@@ -137,7 +137,7 @@ const CodeBlock = ({ inline, className, children, ...props }) => {
   }
 
   return (
-    <code className="bg-raised text-accent px-1.5 py-0.5 rounded-md text-sm font-mono border border-border" {...props}>
+    <code className="bg-raised text-accent px-1.5 py-0.5 rounded-lg text-sm font-mono border border-border" {...props}>
       {children}
     </code>
   );
@@ -379,7 +379,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
           {!isSidecar && (
             <button 
               onClick={() => navigate('/inbox')}
-              className="md:hidden p-2 -ml-2 text-secondary hover:text-primary transition-colors"
+              className="md:hidden p-2 -ml-2 text-tx-secondary hover:text-tx-primary transition-colors"
             >
               <ChevronLeft className="w-6 h-6" />
             </button>
@@ -391,7 +391,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                 <Users className="w-4 h-4" />
               </div>
             ) : (
-              <div className="w-9 h-9 rounded-full bg-border flex items-center justify-center font-bold text-sm text-primary overflow-hidden">
+              <div className="w-9 h-9 rounded-full bg-border flex items-center justify-center font-bold text-sm text-tx-primary overflow-hidden">
                 {displayUser?.avatarUrl ? (
                   <img src={displayUser.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
                 ) : (
@@ -405,11 +405,11 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
           </div>
 
           <div>
-            <h2 className="text-[15px] font-semibold text-primary flex items-center gap-1.5 leading-tight">
+            <h2 className="text-[15px] font-semibold text-tx-primary flex items-center gap-1.5 leading-tight">
               {displayUser?.displayName || "Unknown"}
               {!isGroup && displayUser?.isAI && <Sparkles className="w-3.5 h-3.5 text-accent" />}
             </h2>
-            <p className="text-xs text-secondary font-mono">
+            <p className="text-xs text-tx-secondary font-mono">
               {isGroup ? displayUser?.username : (displayUser?.isAI ? 'Quantum Processing Active' : (isOnline ? 'Online' : 'Offline'))}
             </p>
           </div>
@@ -421,7 +421,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
             {/* ⚡ PHASE 4: WebRTC Voice Call */}
             <button
               onClick={() => useCallStore.getState().initiateCall(displayUser, 'audio')}
-              className="p-2 w-9 h-9 rounded-full bg-raised border border-border text-secondary hover:text-accent hover:border-accent transition-all flex items-center justify-center active:scale-95"
+              className="p-2 w-9 h-9 rounded-full bg-raised border border-border text-tx-secondary hover:text-accent hover:border-accent transition-all flex items-center justify-center active:scale-95"
               title="Start Voice Call"
             >
               <Phone className="w-4 h-4" />
@@ -430,7 +430,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
             {/* ⚡ PHASE 2.2 / 4: WebRTC Video Call */}
             <button
               onClick={() => useCallStore.getState().initiateCall(displayUser, 'video')}
-              className="p-2 w-9 h-9 rounded-full bg-raised border border-border text-secondary hover:text-accent hover:border-accent transition-all flex items-center justify-center active:scale-95"
+              className="p-2 w-9 h-9 rounded-full bg-raised border border-border text-tx-secondary hover:text-accent hover:border-accent transition-all flex items-center justify-center active:scale-95"
               title="Start Video Call"
             >
               <Video className="w-4 h-4" />
@@ -461,15 +461,15 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
               >
                 
                 {isGroup && !msg.isMine && msg.sender && (
-                  <span className="text-xs text-secondary mb-1 ml-1 font-medium">
+                  <span className="text-xs text-tx-secondary mb-1 ml-1 font-medium">
                     {msg.sender.displayName}
                   </span>
                 )}
 
                 <div className={`max-w-[85%] md:max-w-[70%] rounded-xl p-2.5 transition-opacity ${
                   msg.isMine
-                    ? 'bg-accent text-primary rounded-br-sm'
-                    : 'bg-raised border border-border text-primary rounded-bl-sm'
+                    ? 'bg-accent text-tx-primary rounded-br-sm'
+                    : 'bg-raised border border-border text-tx-primary rounded-bl-sm'
                 } ${msg.status === 'pending' ? 'opacity-70' : ''}`}>
                   
                   {/* ⚡ PHASE 2: Encrypted attachment (image / video / voice note) */}
@@ -498,7 +498,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
 
                   {/* Render the text if it exists */}
                   {msg.text && (
-                    <div className={`px-2 pb-1 prose prose-sm max-w-none break-words ${msg.isMine ? 'prose-invert prose-p:text-primary' : 'dark:prose-invert'}`}>
+                    <div className={`px-2 pb-1 prose prose-sm max-w-none break-words ${msg.isMine ? 'prose-invert prose-p:text-tx-primary' : 'dark:prose-invert'}`}>
                       <ReactMarkdown 
                         remarkPlugins={[remarkGfm]} 
                         components={{ code: CodeBlock }}
@@ -509,13 +509,13 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                   )}
                 </div>
                 
-                <div className="flex items-center gap-1 mt-1 text-[11px] text-secondary font-mono">
+                <div className="flex items-center gap-1 mt-1 text-[11px] text-tx-secondary font-mono">
                   {/* ⚡ PHASE 5: subtle "Forward to AI Sidecar" for code/long text. */}
                   {msg.text && (msg.text.length > 80 || msg.text.includes('```')) && (
                     <button
                       onClick={() => useAIStore.getState().forwardToAi(msg.text)}
                       title="Forward to AI Sidecar"
-                      className="mr-1 p-0.5 rounded text-secondary opacity-50 hover:opacity-100 hover:text-accent transition-all"
+                      className="mr-1 p-0.5 rounded text-tx-secondary opacity-50 hover:opacity-100 hover:text-accent transition-all"
                     >
                       <Bot className="w-3.5 h-3.5" />
                     </button>
@@ -524,11 +524,11 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                   {msg.isMine && (
                     msg.status === 'pending' ? (
                       // ⚡ PHASE 3.5: queued offline — not yet on the server.
-                      <Clock className="w-3 h-3 text-secondary ml-1" title="Sending…" />
+                      <Clock className="w-3 h-3 text-tx-secondary ml-1" title="Sending…" />
                     ) : msg.isRead ? (
                       <CheckCheck className="w-3.5 h-3.5 text-accent ml-1 transition-colors duration-300" />
                     ) : (
-                      <Check className="w-3 h-3 text-secondary ml-1 transition-colors duration-300" />
+                      <Check className="w-3 h-3 text-tx-secondary ml-1 transition-colors duration-300" />
                     )
                   )}
                 </div>
@@ -542,12 +542,12 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={M.transition}
-            className="flex items-center gap-2 text-secondary text-sm p-2"
+            className="flex items-center gap-2 text-tx-secondary text-sm p-2"
           >
             <div className="flex gap-1">
-              <span className="w-1.5 h-1.5 bg-[var(--text-secondary)] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-1.5 h-1.5 bg-[var(--text-secondary)] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-1.5 h-1.5 bg-[var(--text-secondary)] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              <span className="w-1.5 h-1.5 bg-[var(--text-tx-secondary)] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-1.5 h-1.5 bg-[var(--text-tx-secondary)] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-1.5 h-1.5 bg-[var(--text-tx-secondary)] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
             <span className="text-xs font-medium">typing...</span>
           </motion.div>
@@ -568,7 +568,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 6 }}
                 transition={M.transition}
-                className="w-full flex items-center gap-2 bg-raised border border-border rounded-2xl px-4 py-2.5 text-sm text-secondary"
+                className="w-full flex items-center gap-2 bg-raised border border-border rounded-2xl px-4 py-2.5 text-sm text-tx-secondary"
               >
                 <Loader2 className="w-4 h-4 animate-spin text-accent" />
                 <span>{mediaStatus}</span>
@@ -599,7 +599,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                 type="button"
                 title="Encrypted attachment"
                 disabled={!!mediaStatus}
-                className="p-3 text-secondary hover:text-accent transition-colors rounded-xl active:scale-95 disabled:opacity-40"
+                className="p-3 text-tx-secondary hover:text-accent transition-colors rounded-xl active:scale-95 disabled:opacity-40"
                 onClick={() => attachInputRef.current?.click()}
               >
                 <Paperclip className="w-5 h-5" />
@@ -615,7 +615,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                   }
                 }}
                 placeholder={isGroup ? `Message ${displayUser?.displayName}...` : `Message @${displayUser?.username || ''}...`}
-                className="w-full max-h-32 min-h-[44px] bg-transparent text-sm text-primary resize-none focus:outline-none py-3 px-2 font-body"
+                className="w-full max-h-32 min-h-[44px] bg-transparent text-sm text-tx-primary resize-none focus:outline-none py-3 px-2 font-body"
                 rows={1}
               />
             </div>
@@ -627,7 +627,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                 title="Record voice note"
                 disabled={!!mediaStatus}
                 onClick={() => setIsRecording(true)}
-                className="w-12 h-12 rounded-full bg-raised border border-border text-secondary hover:text-accent hover:border-accent flex items-center justify-center transition-all flex-shrink-0 active:scale-95 disabled:opacity-50"
+                className="w-12 h-12 rounded-full bg-raised border border-border text-tx-secondary hover:text-accent hover:border-accent flex items-center justify-center transition-all flex-shrink-0 active:scale-95 disabled:opacity-50"
               >
                 <Mic className="w-5 h-5" />
               </button>
@@ -635,7 +635,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
               <button
                 type="submit"
                 disabled={!text.trim() || isSending}
-                className="w-12 h-12 rounded-full bg-accent text-primary flex items-center justify-center hover:bg-accent-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 active:scale-95"
+                className="w-12 h-12 rounded-full bg-accent text-tx-primary flex items-center justify-center hover:bg-accent-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 active:scale-95"
               >
                 {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 ml-1" />}
               </button>

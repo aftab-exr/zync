@@ -43,10 +43,10 @@ function PrismBlock({ language, code }) {
   return (
     <div className="relative my-3 rounded-lg overflow-hidden border border-border bg-surface">
       <div className="flex items-center justify-between px-3 py-1.5 bg-raised border-b border-border">
-        <span className="text-[10px] font-mono uppercase tracking-wider text-secondary">{lang}</span>
+        <span className="text-[10px] font-mono uppercase tracking-wider text-tx-secondary">{lang}</span>
         <button
           onClick={handleCopy}
-          className="flex items-center gap-1 text-[10px] text-secondary hover:text-primary transition-colors"
+          className="flex items-center gap-1 text-[10px] text-tx-secondary hover:text-tx-primary transition-colors"
         >
           {copied ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
           {copied ? 'Copied' : 'Copy'}
@@ -84,9 +84,9 @@ function MessageBubble({ role, content, streaming }) {
   return (
     <div className={`flex gap-2.5 ${isUser ? 'flex-row-reverse' : ''}`}>
       <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${isUser ? 'bg-accent' : 'bg-raised border border-border'}`}>
-        {isUser ? <User className="w-3.5 h-3.5 text-primary" /> : <Bot className="w-3.5 h-3.5 text-accent" />}
+        {isUser ? <User className="w-3.5 h-3.5 text-tx-primary" /> : <Bot className="w-3.5 h-3.5 text-accent" />}
       </div>
-      <div className={`max-w-[85%] rounded-xl px-3.5 py-2 text-sm ${isUser ? 'bg-accent text-primary rounded-tr-sm' : 'bg-raised border border-border text-primary rounded-tl-sm'}`}>
+      <div className={`max-w-[85%] rounded-xl px-3.5 py-2 text-sm ${isUser ? 'bg-accent text-tx-primary rounded-tr-sm' : 'bg-raised border border-border text-tx-primary rounded-tl-sm'}`}>
         {content ? (
           <div className="prose prose-sm prose-invert max-w-none break-words prose-p:my-1 prose-pre:my-0 prose-pre:bg-transparent prose-pre:p-0">
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
@@ -96,9 +96,9 @@ function MessageBubble({ role, content, streaming }) {
         ) : (
           streaming && (
             <span className="inline-flex gap-1 py-1">
-              <span className="w-1.5 h-1.5 bg-[var(--text-secondary)] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-1.5 h-1.5 bg-[var(--text-secondary)] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-1.5 h-1.5 bg-[var(--text-secondary)] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              <span className="w-1.5 h-1.5 bg-[var(--text-tx-secondary)] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-1.5 h-1.5 bg-[var(--text-tx-secondary)] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-1.5 h-1.5 bg-[var(--text-tx-secondary)] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
             </span>
           )
         )}
@@ -163,20 +163,20 @@ export default function AISidecar() {
             <header className="h-14 flex items-center justify-between px-4 border-b border-border shrink-0">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-accent" />
-                <h2 className="text-sm font-display font-bold tracking-wide text-primary uppercase">AI Sidecar</h2>
+                <h2 className="text-sm font-display font-bold tracking-wide text-tx-primary uppercase">AI Sidecar</h2>
               </div>
               <div className="flex items-center gap-1">
                 <button
                   onClick={clearAiHistory}
                   title="Clear AI history"
-                  className="p-2 rounded-lg text-secondary hover:text-error transition-colors"
+                  className="p-2 rounded-lg text-tx-secondary hover:text-error transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={closePanel}
                   title="Close"
-                  className="p-2 rounded-lg text-secondary hover:text-primary transition-colors"
+                  className="p-2 rounded-lg text-tx-secondary hover:text-tx-primary transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -190,8 +190,8 @@ export default function AISidecar() {
                   <div className="w-14 h-14 rounded-2xl bg-raised border border-border flex items-center justify-center">
                     <Bot className="w-7 h-7 text-accent" />
                   </div>
-                  <p className="text-sm text-primary font-medium">Your private coding companion</p>
-                  <p className="text-xs text-secondary max-w-xs">
+                  <p className="text-sm text-tx-primary font-medium">Your private coding companion</p>
+                  <p className="text-xs text-tx-secondary max-w-xs">
                     Ask anything, or forward a code block from a chat to debug it instantly.
                   </p>
                   {!aiApiKey && (
@@ -231,13 +231,13 @@ export default function AISidecar() {
                   }}
                   rows={1}
                   placeholder="Ask the AI Sidecar…"
-                  className="flex-1 max-h-40 min-h-[40px] bg-transparent text-sm text-primary resize-none focus:outline-none py-2 px-2 font-body"
+                  className="flex-1 max-h-40 min-h-[40px] bg-transparent text-sm text-tx-primary resize-none focus:outline-none py-2 px-2 font-body"
                 />
                 {isStreaming ? (
                   <button
                     onClick={stopStreaming}
                     title="Stop generating"
-                    className="w-10 h-10 rounded-full bg-raised border border-border text-primary flex items-center justify-center hover:border-error hover:text-error transition-all flex-shrink-0 active:scale-95"
+                    className="w-10 h-10 rounded-full bg-raised border border-border text-tx-primary flex items-center justify-center hover:border-error hover:text-error transition-all flex-shrink-0 active:scale-95"
                   >
                     <Square className="w-4 h-4" />
                   </button>
@@ -245,7 +245,7 @@ export default function AISidecar() {
                   <button
                     onClick={handleSend}
                     disabled={!inputDraft.trim()}
-                    className="w-10 h-10 rounded-full bg-accent text-primary flex items-center justify-center hover:bg-accent-hover transition-all disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0 active:scale-95"
+                    className="w-10 h-10 rounded-full bg-accent text-tx-primary flex items-center justify-center hover:bg-accent-hover transition-all disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0 active:scale-95"
                   >
                     {isStreaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   </button>

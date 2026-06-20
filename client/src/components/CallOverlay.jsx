@@ -74,9 +74,9 @@ export default function CallOverlay() {
           <div className="px-6 py-4 flex items-center justify-between border-b border-border z-10 bg-transparent">
             <div className="flex items-center gap-3">
               <div className="w-3 h-3 rounded-full bg-success animate-pulse" />
-              <h3 className="font-display font-semibold text-primary">{headerLabel}</h3>
+              <h3 className="font-display font-semibold text-tx-primary">{headerLabel}</h3>
             </div>
-            <p className="font-mono text-sm text-secondary">{remoteUser?.displayName || "Unknown"}</p>
+            <p className="font-mono text-sm text-tx-secondary">{remoteUser?.displayName || "Unknown"}</p>
           </div>
 
           {/* Video Grid */}
@@ -89,10 +89,10 @@ export default function CallOverlay() {
               // RINGING / CALLING — caller card
               <div className="flex flex-col items-center">
                 <div className="w-24 h-24 rounded-full bg-accent mb-4 flex items-center justify-center">
-                  {isVideoCall ? <Video className="w-10 h-10 text-primary" /> : <Phone className="w-10 h-10 text-primary" />}
+                  {isVideoCall ? <Video className="w-10 h-10 text-tx-primary" /> : <Phone className="w-10 h-10 text-tx-primary" />}
                 </div>
-                <h2 className="text-xl font-medium text-primary mb-2">{remoteUser?.displayName}</h2>
-                <p className="text-secondary">@{remoteUser?.username}</p>
+                <h2 className="text-xl font-medium text-tx-primary mb-2">{remoteUser?.displayName}</h2>
+                <p className="text-tx-secondary">@{remoteUser?.username}</p>
               </div>
             ) : isVideoCall ? (
               // CONNECTED — video call
@@ -115,7 +115,7 @@ export default function CallOverlay() {
                   <video playsInline autoPlay muted ref={localVideoRef} className="w-full h-full object-cover scale-x-[-1]" />
                   {isCameraOff && (
                     <div className="absolute inset-0 bg-raised flex items-center justify-center">
-                      <VideoOff className="w-6 h-6 text-secondary" />
+                      <VideoOff className="w-6 h-6 text-tx-secondary" />
                     </div>
                   )}
                 </motion.div>
@@ -127,11 +127,11 @@ export default function CallOverlay() {
                   {remoteUser?.avatarUrl ? (
                     <img src={remoteUser.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
                   ) : (
-                    <User className="w-12 h-12 text-secondary" />
+                    <User className="w-12 h-12 text-tx-secondary" />
                   )}
                 </div>
-                <h2 className="text-xl font-medium text-primary mb-1">{remoteUser?.displayName}</h2>
-                <p className="text-sm text-secondary font-mono">Voice connected</p>
+                <h2 className="text-xl font-medium text-tx-primary mb-1">{remoteUser?.displayName}</h2>
+                <p className="text-sm text-tx-secondary font-mono">Voice connected</p>
               </div>
             )}
           </div>
@@ -147,7 +147,7 @@ export default function CallOverlay() {
                   title={isMicMuted ? 'Unmute microphone' : 'Mute microphone'}
                   className="w-14 h-14 rounded-full bg-raised border border-border flex items-center justify-center hover:brightness-110 active:scale-95 transition-all"
                 >
-                  {isMicMuted ? <MicOff className="w-6 h-6 text-error" /> : <Mic className="w-6 h-6 text-primary" />}
+                  {isMicMuted ? <MicOff className="w-6 h-6 text-error" /> : <Mic className="w-6 h-6 text-tx-primary" />}
                 </button>
 
                 {isVideoCall && (
@@ -156,7 +156,7 @@ export default function CallOverlay() {
                     title={isCameraOff ? 'Turn camera on' : 'Turn camera off'}
                     className="w-14 h-14 rounded-full bg-raised border border-border flex items-center justify-center hover:brightness-110 active:scale-95 transition-all"
                   >
-                    {isCameraOff ? <VideoOff className="w-6 h-6 text-error" /> : <Video className="w-6 h-6 text-primary" />}
+                    {isCameraOff ? <VideoOff className="w-6 h-6 text-error" /> : <Video className="w-6 h-6 text-tx-primary" />}
                   </button>
                 )}
               </>
@@ -165,13 +165,13 @@ export default function CallOverlay() {
             {/* Answer (only while ringing) */}
             {callState === 'RINGING' && (
               <button onClick={answerCall} className="w-14 h-14 rounded-full bg-success flex items-center justify-center hover:brightness-110 active:scale-95 transition-all">
-                <Phone className="w-6 h-6 text-primary" />
+                <Phone className="w-6 h-6 text-tx-primary" />
               </button>
             )}
 
             {/* Reject / End */}
             <button onClick={callState === 'RINGING' ? rejectCall : endCall} className="w-14 h-14 rounded-full bg-error flex items-center justify-center hover:brightness-110 active:scale-95 transition-all">
-              <PhoneOff className="w-6 h-6 text-primary" />
+              <PhoneOff className="w-6 h-6 text-tx-primary" />
             </button>
           </div>
 

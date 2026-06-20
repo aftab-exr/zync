@@ -41,23 +41,23 @@ export default function Login() {
     <div className="flex h-[100dvh] w-full">
       <div className="hidden lg:flex w-[45%] flex-col justify-center px-16 border-r border-border bg-base">
         <motion.div variants={containerVariants} initial="hidden" animate="visible">
-          <motion.h1 variants={itemVariants} className="text-5xl font-display text-primary font-bold mb-4">
+          <motion.h1 variants={itemVariants} className="text-5xl font-display text-tx-primary font-bold mb-4">
             Zync
           </motion.h1>
-          <motion.p variants={itemVariants} className="text-xl text-secondary max-w-sm">
+          <motion.p variants={itemVariants} className="text-xl text-tx-secondary max-w-sm">
             Chat at the speed of thought.
           </motion.p>
         </motion.div>
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 relative bg-base">
-        <div className="w-full max-w-md bg-surface p-6 sm:p-10 rounded-md border-3 border-border shadow-brutal">
-          <h2 className="text-xl sm:text-2xl font-display text-primary font-bold mb-8 text-center">Welcome to Zync</h2>
+        <div className="w-full max-w-md bg-surface p-6 sm:p-10 rounded-lg border-3 border-border shadow-brutal">
+          <h2 className="text-xl sm:text-2xl font-display text-tx-primary font-bold mb-8 text-center">Welcome to Zync</h2>
           
           <button 
             onClick={handleLogin}
             disabled={isLoading}
-            className={`w-full h-12 flex items-center justify-center gap-3 rounded-md border-3 border-border font-bold transition-all active:translate-x-1 active:translate-y-1 active:shadow-none ${isLoading ? 'bg-base text-secondary pointer-events-none' : 'bg-primary text-primary shadow-brutal hover:bg-primary-hover'}`}
+            className={`w-full h-12 flex items-center justify-center gap-3 rounded-lg border-3 border-border font-bold transition-all active:translate-x-1 active:translate-y-1 active:shadow-none ${isLoading ? 'bg-base text-tx-secondary pointer-events-none' : 'bg-primary text-tx-primary shadow-brutal hover:bg-primary-hover'}`}
           >
             {isLoading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -78,9 +78,9 @@ export default function Login() {
             <p className="mt-4 text-sm text-center text-red-400 font-medium">{error}</p>
           )}
 
-          <div className="mt-8 pt-6 border-t border-border flex justify-between text-xs text-secondary">
-            <span className="cursor-pointer hover:text-primary transition-colors">Privacy Policy</span>
-            <span className="cursor-pointer hover:text-primary transition-colors">Terms of Service</span>
+          <div className="mt-8 pt-6 border-t border-border flex justify-between text-xs text-tx-secondary">
+            <span className="cursor-pointer hover:text-tx-primary transition-colors">Privacy Policy</span>
+            <span className="cursor-pointer hover:text-tx-primary transition-colors">Terms of Service</span>
           </div>
         </div>
       </div>

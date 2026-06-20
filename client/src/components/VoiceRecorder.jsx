@@ -113,7 +113,7 @@ export default function VoiceRecorder({ onSend, onCancel, busy = false }) {
         <button
           type="button"
           onClick={onCancel}
-          className="text-xs text-[var(--text-secondary)] hover:text-white transition-colors"
+          className="text-xs text-[var(--text-tx-secondary)] hover:text-white transition-colors"
         >
           Close
         </button>
@@ -132,7 +132,7 @@ export default function VoiceRecorder({ onSend, onCancel, busy = false }) {
         type="button"
         onClick={handleCancel}
         disabled={busy}
-        className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--error)] transition-colors active:scale-95 disabled:opacity-50"
+        className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--text-tx-secondary)] hover:text-[var(--error)] transition-colors active:scale-95 disabled:opacity-50"
         title="Discard"
       >
         <Trash2 className="w-5 h-5" />
@@ -145,7 +145,7 @@ export default function VoiceRecorder({ onSend, onCancel, busy = false }) {
           <span className="relative inline-flex rounded-full h-3 w-3 bg-[var(--error)]" />
         </span>
         <span className="text-sm font-mono text-white tabular-nums">{mm}:{ss}</span>
-        <span className="text-xs text-[var(--text-secondary)]">{busy ? "Securing…" : "Recording"}</span>
+        <span className="text-xs text-[var(--text-tx-secondary)]">{busy ? "Securing…" : "Recording"}</span>
       </div>
 
       {/* Send */}
@@ -160,7 +160,7 @@ export default function VoiceRecorder({ onSend, onCancel, busy = false }) {
       </button>
 
       {/* Tiny idle mic glyph for affordance */}
-      <Mic className="w-4 h-4 text-[var(--text-secondary)] hidden sm:block" />
+      <Mic className="w-4 h-4 text-[var(--text-tx-secondary)] hidden sm:block" />
     </motion.div>
   );
 }
