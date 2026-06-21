@@ -1,5 +1,13 @@
 {
   "appId": "com.zync.app",
   "appName": "Zync",
-  "webDir": "dist"
+  "webDir": "dist",
+  "server": {
+    "allowNavigation": [
+      "*.firebaseapp.com",
+      "*.firebase.com",
+      "*.googleapis.com",
+      "accounts.google.com"
+    ]
+  }
 }

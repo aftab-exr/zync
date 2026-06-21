@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { generateKeyPair } from '../lib/crypto';
-import { signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "firebase/auth";
+import { signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "firebase/auth";
 import { auth, googleProvider } from "../lib/firebase";
 import { api } from "../lib/axios";
 
@@ -218,35 +218,13 @@ export const useAuthStore = create((set, get) => ({
     loginWithGoogle: async () => {
         try {
             set({ error: null, isLoggingIn: true });
-
-            // ⚡ ENTERPRISE FIX: Hybrid Auth Flow - Try Popup First, Fallback to Redirect
-            // Step 1: Attempt popup (works on most browsers, bypasses third-party cookies)
-            try {
-                await signInWithPopup(auth, googleProvider);
-                // Success! Auth state listener (checkAuth) hydrates the user; the
-                // Login page's effect on `isAuthenticated` performs the redirect.
-                return;
-            } catch (popupError) {
-                // Step 2: If popup is blocked by privacy browser, fallback to redirect
-                if (popupError.code === 'auth/popup-closed-by-user' ||
-                    popupError.code === 'auth/cancelled-popup-request' ||
-                    popupError.code === 'auth/operation-not-supported-in-this-environment') {
-
-                    // Fallback to redirect for strict privacy browsers (Safari, Brave, Firefox)
-                    await signInWithRedirect(auth, googleProvider);
-                    // Note: Browser will navigate away; no code below executes
-                    return;
-                }
-                // Re-throw unexpected errors
-                throw popupError;
-            }
+            await signInWithRedirect(auth, googleProvider);
         } catch (error) {
             console.error("Login failed:", error);
             set({ error: error.message });
             throw error;
         } finally {
-            // ⚡ STICKING-BUTTON FIX: always release the spinner, even on the
-            // popup success path — the navigation effect handles the redirect.
+            // ⚡ STICKING-BUTTON FIX: always release the spinner
             set({ isLoggingIn: false });
         }
     },
