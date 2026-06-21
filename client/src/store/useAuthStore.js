@@ -195,14 +195,19 @@ export const useAuthStore = create((set, get) => ({
                 }
 
                 // Profile exists! Hydrate the state.
+                const profileData = res.data?.data;
+                if (!res.data || typeof res.data !== 'object' || !profileData) {
+                    throw new Error("Invalid profile response format from server");
+                }
+
                 // ⚡ PWA OFFLINE MIRROR: persist the live profile for offline boots.
                 try {
-                    localStorage.setItem("zync_user_cache", JSON.stringify(res.data.data));
+                    localStorage.setItem("zync_user_cache", JSON.stringify(profileData));
                 } catch (cacheErr) {
                     console.error("🔴 Failed to mirror profile to local cache:", cacheErr);
                 }
-                set({ user: res.data.data, isAuthenticated: true, isCheckingAuth: false });
-                await get().initializeE2E(token, res.data.data.publicKey);
+                set({ user: profileData, isAuthenticated: true, isCheckingAuth: false });
+                await get().initializeE2E(token, profileData.publicKey);
 
             } catch (error) {
                 if (error.response?.status === 404 || error.response?.status === 403) {
