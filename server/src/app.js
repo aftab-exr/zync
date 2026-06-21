@@ -9,6 +9,7 @@ import apiResponse from "./utils/apiResponse.js";
 import userRoutes from "./routes/user.route.js";
 import conversationRoutes from "./routes/conversation.routes.js";
 import messageRoutes from "./routes/message.routes.js";
+import aiRoutes from "./routes/ai.routes.js";
 
 const app = express();
 
@@ -57,6 +58,7 @@ app.use(cookieparser());
 app.use("/api/v1/users",userRoutes);
 app.use("/api/v1/conversations",conversationRoutes);
 app.use("/api/v1/messages", messageRoutes);
+app.use("/api/v1/ai",aiRoutes)
 
 // Health Checking Endpoint
 app.get("/health",(req,res)=>{

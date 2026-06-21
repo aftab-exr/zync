@@ -20,7 +20,7 @@ const LS_MODEL = 'zync_ai_model';
 // Cloud fallback defaults — point at Groq's OpenAI-compatible gateway with a
 // fast, lightweight chat/coding model. A developer can override all three in
 // Settings → AI Sidecar to target a local model instead.
-const DEFAULT_BASE_URL = 'https://api.groq.com/openai/v1';
+const DEFAULT_BASE_URL = '/api/v1/ai';
 const DEFAULT_MODEL = 'llama-3.1-8b-instant';
 
 const readLS = (key, fallback) => {
@@ -117,13 +117,14 @@ export const useAIStore = create((set, get) => ({
     activeController = controller;
 
     try {
+      // Inside sendAiMessage:
       const endpoint = `${aiBaseUrl.replace(/\/+$/, '')}/chat/completions`;
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${aiApiKey}`,
         },
+        credentials: 'include',
         body: JSON.stringify({ model: aiModel, messages: outgoing, stream: true }),
         signal: controller.signal,
       });
