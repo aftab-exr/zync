@@ -4,12 +4,12 @@ importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-comp
 
 // TODO: Replace these with your actual Firebase config variables from client/src/lib/firebase.js
 const firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID    
+  apiKey: "AIzaSyANfY46JKcZolz5mBccLR0qV_F6h0-r6Dw",
+  authDomain: "zync-2a0c4.firebaseapp.com",
+  projectId: "zync-2a0c4",
+  storageBucket: "zync-2a0c4.firebasestorage.app",
+  messagingSenderId: "534738604794",
+  appId: "1:534738604794:web:d6388ea2108032d848ef43"
 };
 
 // Initialize the Firebase app in the service worker
