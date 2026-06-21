@@ -3,6 +3,15 @@ import Peer from 'simple-peer';
 import { useSocketStore } from './useSocketStore';
 import { useAuthStore } from './useAuthStore';
 
+const webrtcConfig = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:global.stun.twilio.com:3478' } // Enterprise fallback
+  ]
+};
+
 export const useCallStore = create((set, get) => ({
   localStream: null,
   remoteStream: null,
@@ -38,8 +47,8 @@ export const useCallStore = create((set, get) => ({
     socket.on("webrtc:call-accepted", (signal) => {
       const { peer } = get();
       if (peer) {
-         peer.signal(signal);
-         set({ callState: 'CONNECTED' });
+        peer.signal(signal);
+        set({ callState: 'CONNECTED' });
       }
     });
 
@@ -77,6 +86,7 @@ export const useCallStore = create((set, get) => ({
         initiator: true,
         trickle: false, // Disabling trickle packages the entire SDP into one fast payload
         stream: stream,
+        config:webrtcConfig,
       });
 
       peer.on('signal', (data) => {
@@ -118,6 +128,7 @@ export const useCallStore = create((set, get) => ({
         initiator: false,
         trickle: false,
         stream: stream,
+        config:webrtcConfig,
       });
 
       peer.on('signal', (data) => {
@@ -176,7 +187,7 @@ export const useCallStore = create((set, get) => ({
     const { localStream, peer } = get();
     if (localStream) localStream.getTracks().forEach(track => track.stop());
     if (peer) peer.destroy();
-    
+
     set({
       localStream: null,
       remoteStream: null,
