@@ -23,11 +23,11 @@ jobs:
         with:
           version: 8
 
-      - name: ☕ Setup Java 17 (Cloud LTS)
+      - name: ☕ Setup Java 21 (Cloud LTS)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
       - name: 🏗️ Build Web App
         working-directory: ./client
