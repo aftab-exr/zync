@@ -158,7 +158,7 @@ export const updateProfile = asyncHandler(async (req, res, next) => {
     const updatedUser = await User.findByIdAndUpdate(
         user._id,
         { $set: updates },
-        { new: true, runValidators: true }
+        { returnDocument: 'after', runValidators: true }
     );
 
     return res.status(200).json(new apiResponse(200, "Profile updated successfully.", updatedUser));
@@ -226,7 +226,7 @@ export const updateFCMToken = asyncHandler(async (req, res, next) => {
     const user = await User.findByIdAndUpdate(
         userId,
         { fcmToken: fcmToken || null },
-        { new: true }
+        { returnDocument: 'after' } // ⚡ CHANGED HERE
     );
 
     if (!user) {
