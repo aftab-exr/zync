@@ -32,6 +32,7 @@ jobs:
       - name: 🏗️ Build Web App
         working-directory: ./client
         run: |
+          echo "${{ secrets.FRONTEND_ENV }}" > .env
           pnpm install
           pnpm run build
           npx cap sync android
