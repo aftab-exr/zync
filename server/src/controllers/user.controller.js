@@ -218,3 +218,20 @@ export const updatePublicKey = asyncHandler(async (req, res, next) => {
 
     res.status(200).json(new apiResponse(200, "Public key updated successfully", user.publicKey));
 });
+
+export const updateFCMToken = asyncHandler(async (req, res, next) => {
+    const { fcmToken } = req.body;
+    const userId = req.user._id;
+
+    const user = await User.findByIdAndUpdate(
+        userId,
+        { fcmToken: fcmToken || null },
+        { new: true }
+    );
+
+    if (!user) {
+        throw new apiError(404, "User not found");
+    }
+
+    res.status(200).json(new apiResponse(200, "FCM token updated successfully", { fcmToken: user.fcmToken }));
+});

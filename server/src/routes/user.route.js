@@ -6,7 +6,8 @@ import {
   getMe,
   updateProfile,
   updateAvatar,
-  updatePublicKey
+  updatePublicKey,
+  updateFCMToken
 } from "../controllers/user.controller.js";
 
 const router = Router();
@@ -23,5 +24,8 @@ router.patch("/avatar", authenticateUser, updateAvatar);
 
 // ⚡ PHASE 3.0: Register the Key Upload Route
 router.post("/keys", authenticateUser, updatePublicKey);
+
+// ⚡ Silent push notification token update route
+router.patch("/update-fcm", authenticateUser, updateFCMToken);
 
 export default router;

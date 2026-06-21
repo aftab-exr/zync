@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { requestPushPermission } from '../lib/firebase';
+import { api } from '../lib/axios';
 
 export default function AuthGuard() {
   const { isAuthenticated, user } = useAuthStore();
@@ -13,7 +14,13 @@ export default function AuthGuard() {
         const token = await requestPushPermission();
         if (token) {
           console.log("🚀 READY FOR PUSH. Device Token:", token);
-          // Soon we will wire a backend endpoint to save this token to your MongoDB profile!
+          try {
+            // Send the token to the new Render endpoint!
+            await api.patch('/users/update-fcm', { fcmToken: token });
+            console.log("✅ FCM Token locked into MongoDB.");
+          } catch (error) {
+            console.error("Failed to save token to DB:", error);
+          }
         }
       };
       

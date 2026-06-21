@@ -48,6 +48,7 @@ const userSchema = new Schema({
   // --- Security & Audit ---
   lastIp: { type: String }, // 30-day TTL index applied later
   deletedAt: { type: Date, default: null }, // Soft delete flag
+  fcmToken: { type: String, default: null },
 },{
     timestamps:true
 });

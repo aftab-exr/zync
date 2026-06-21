@@ -2,6 +2,24 @@ import mongoose from "mongoose";
 import Message from "../models/message.model.js";
 import Conversation from "../models/conversation.model.js";
 import User from "../models/user.model.js";
+import admin from "../config/firebase.js";
+
+const sendSilentPush = async (token, senderName, ciphertext) => {
+    if (!token) return;
+    try {
+        const payload = {
+            data: {
+                senderName,
+                ciphertext: ciphertext || ""
+            },
+            token
+        };
+        await admin.messaging().send(payload);
+        console.log(`✅ Silent push notification sent to token: ${token.substring(0, 10)}...`);
+    } catch (pushError) {
+        console.error("🔴 Failed to send silent push notification:", pushError);
+    }
+};
 
 // ⚡ PHASE 2.1: Cloudinary Import
 import cloudinary from "../config/cloudinary.js"; 
@@ -248,6 +266,15 @@ export const sendMessage = asyncHandler(async (req, res, next) => {
                 // Emit directly back to the human sender
                 io.to(senderId.toString()).emit("newMessage", aiPayload);
             }
+
+            // Send silent push back to human sender (original message sender)
+            if (req.user && req.user.fcmToken) {
+                await sendSilentPush(
+                    req.user.fcmToken,
+                    receiver.displayName || receiver.username || "AI Assistant",
+                    aiMessage.text
+                );
+            }
         } 
         // 👤 Human Socket Routing
         else {
@@ -258,6 +285,15 @@ export const sendMessage = asyncHandler(async (req, res, next) => {
                     senderId: newMessage.senderId.toString(),
                 };
                 io.to(receiver._id.toString()).emit("newMessage", payload);
+            }
+
+            // Send silent push to human receiver
+            if (receiver.fcmToken) {
+                await sendSilentPush(
+                    receiver.fcmToken,
+                    req.user.displayName || req.user.username || "Someone",
+                    newMessage.text
+                );
             }
         }
     }
