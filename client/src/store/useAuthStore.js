@@ -73,14 +73,27 @@ export const useAuthStore = create((set, get) => ({
             let privateKey = localStorage.getItem("zync_private_key");
 
             // ⚡ HARDENED SYNC-CHECKER (non-destructive):
-            // Local private key exists but the DB has no public key for us. The old
-            // code wiped the private key and regenerated — permanently destroying the
-            // ability to decrypt all prior messages. Instead, we RE-DERIVE the public
-            // key from the existing private key and RE-UPLOAD it. The private key is
-            // never touched.
-            if (privateKey && !dbPublicKey) {
+            // Local private key exists but the DB has no public key for us (or it is desynced).
+            // Instead of wiping the private key and regenerating (which destroys old history),
+            // we RE-DERIVE the public key from the existing private key and RE-UPLOAD it.
+            let isKeyDesynced = false;
+            if (privateKey && dbPublicKey) {
+                try {
+                    const pubFromPriv = derivePublicKeyFromPrivate(privateKey);
+                    const parsedDerived = JSON.parse(pubFromPriv);
+                    const parsedDb = JSON.parse(dbPublicKey);
+                    if (parsedDerived.x !== parsedDb.x || parsedDerived.y !== parsedDb.y) {
+                        isKeyDesynced = true;
+                    }
+                } catch (e) {
+                    console.error("🔴 Failed to compare keys for sync-check:", e);
+                    isKeyDesynced = true; 
+                }
+            }
+
+            if (privateKey && (!dbPublicKey || isKeyDesynced)) {
                 // Safety guard: only act on a CONFIRMED profile that genuinely lacks a
-                // public key — not a transient/partial read. checkAuth only reaches
+                // matching public key — not a transient/partial read. checkAuth only reaches
                 // here after a successful /users/me, and `dbPublicKey` is read from
                 // that profile; if there's no user object yet, treat it as untrusted
                 // and bail without changing anything.
@@ -89,7 +102,7 @@ export const useAuthStore = create((set, get) => ({
                     return;
                 }
 
-                console.warn("🟡 Key desync detected: DB missing public key. Re-deriving from local private key and re-uploading (private key preserved)...");
+                console.warn("🟡 Key desync detected: DB public key does not match local private key. Re-deriving from local private key and re-uploading (private key preserved)...");
                 try {
                     const pubKeyStr = derivePublicKeyFromPrivate(privateKey);
                     const ok = await uploadPublicKeyWithRetry(pubKeyStr, token);
@@ -98,7 +111,7 @@ export const useAuthStore = create((set, get) => ({
                         set((state) => ({ user: state.user ? { ...state.user, publicKey: pubKeyStr } : state.user }));
                     }
                     // If !ok, the pending flag is set; the next boot re-enters this same
-                    // branch (DB still lacks the key) and retries. No data lost either way.
+                    // branch (DB still lacks/mismatches the key) and retries. No data lost either way.
                 } catch (err) {
                     // Malformed local private key — surface it, but NEVER delete it.
                     console.error("🔴 Could not derive public key from local private key:", err);
