@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
-import { requestPushPermission } from '../lib/firebase';
+import { auth, requestPushPermission } from '../lib/firebase';
 import { api } from '../lib/axios';
 
 export default function AuthGuard() {
@@ -15,8 +15,15 @@ export default function AuthGuard() {
         if (token) {
           console.log("🚀 READY FOR PUSH. Device Token:", token);
           try {
+            const idToken = await auth.currentUser?.getIdToken();
+            if (!idToken) {
+              console.error("No auth token available to update FCM token.");
+              return;
+            }
             // Send the token to the new Render endpoint!
-            await api.patch('/users/update-fcm', { fcmToken: token });
+            await api.patch('/users/update-fcm', { fcmToken: token }, {
+              headers: { Authorization: `Bearer ${idToken}` }
+            });
             console.log("✅ FCM Token locked into MongoDB.");
           } catch (error) {
             console.error("Failed to save token to DB:", error);
