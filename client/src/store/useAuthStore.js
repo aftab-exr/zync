@@ -1,8 +1,6 @@
 import { create } from "zustand";
 import { generateKeyPair } from '../lib/crypto';
 import { signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, signInWithCredential, GoogleAuthProvider } from "firebase/auth";
-import { Capacitor } from '@capacitor/core';
-import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 import { auth, googleProvider } from "../lib/firebase";
 import { api } from "../lib/axios";
 
@@ -225,13 +223,7 @@ export const useAuthStore = create((set, get) => ({
     loginWithGoogle: async () => {
         try {
             set({ error: null, isLoggingIn: true });
-            if (Capacitor.isNativePlatform()) {
-                const result = await FirebaseAuthentication.signInWithGoogle();
-                const credential = GoogleAuthProvider.credential(result.credential?.idToken);
-                await signInWithCredential(auth, credential);
-            } else {
-                await signInWithRedirect(auth, googleProvider);
-            }
+            await signInWithRedirect(auth, googleProvider);
         } catch (error) {
             console.error("Login failed:", error);
             set({ error: error.message });
@@ -243,13 +235,6 @@ export const useAuthStore = create((set, get) => ({
     },
 
     logout: async () => {
-        if (Capacitor.isNativePlatform()) {
-            try {
-                await FirebaseAuthentication.signOut();
-            } catch (err) {
-                console.error("Native logout failed:", err);
-            }
-        }
         await signOut(auth);
         // ⚡ PWA OFFLINE MIRROR: clear the cached profile so it can't resurrect a stale session.
         localStorage.removeItem("zync_user_cache");

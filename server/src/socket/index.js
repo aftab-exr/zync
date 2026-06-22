@@ -5,10 +5,78 @@ import Redis from "ioredis";
 import admin from "firebase-admin";
 import User from "../models/user.model.js";
 import Message from "../models/message.model.js";
+import CallLog from "../models/callLog.model.js";
+import Conversation from "../models/conversation.model.js";
 
 let io;
 let pubClient;
 let subClient;
+const activeCalls = new Map();
+
+const logCallAndEmit = async (session, duration) => {
+    try {
+        const callerId = session.callerId;
+        const receiverId = session.receiverId;
+        const callType = session.callType;
+        const status = session.status;
+
+        // 1. Create CallLog
+        await CallLog.create({
+            caller: callerId,
+            receiver: receiverId,
+            callType,
+            duration,
+            status,
+            timestamp: new Date()
+        });
+
+        // 2. Find or create 1-to-1 conversation
+        let conversation = await Conversation.findOne({
+            isGroup: false,
+            participants: { $all: [callerId, receiverId] }
+        });
+
+        if (!conversation) {
+            conversation = await Conversation.create({
+                isGroup: false,
+                participants: [callerId, receiverId]
+            });
+        }
+
+        // 3. Format message text
+        let text = "";
+        if (status === "missed") {
+            text = `Missed ${callType} call`;
+        } else {
+            const mins = Math.max(1, Math.round(duration / 60));
+            text = `📞 ${callType.charAt(0).toUpperCase() + callType.slice(1)} call - ${mins} mins`;
+        }
+
+        // 4. Create Message
+        const newMessage = await Message.create({
+            conversationId: conversation._id,
+            senderId: callerId,
+            text
+        });
+
+        conversation.lastMessageAt = new Date();
+        conversation.lastMessageId = newMessage._id;
+        await conversation.save();
+
+        // 5. Emit standard newMessage to both users so the chat UI updates
+        if (io) {
+            const payload = {
+                ...newMessage.toObject(),
+                conversationId: newMessage.conversationId.toString(),
+                senderId: newMessage.senderId.toString()
+            };
+            io.to(callerId).emit("newMessage", payload);
+            io.to(receiverId).emit("newMessage", payload);
+        }
+    } catch (err) {
+        console.error("🔴 Error logging call and emitting message:", err);
+    }
+};
 
 export const initializeSocket = (httpServer) => {
     // 1. Initialize Socket.io with strict CORS
@@ -140,6 +208,19 @@ export const initializeSocket = (httpServer) => {
 
             socket.on("disconnect", async () => {
                 try {
+                    // Check if user is in an active call
+                    const session = activeCalls.get(userId);
+                    if (session) {
+                        activeCalls.delete(session.callerId);
+                        activeCalls.delete(session.receiverId);
+                        const duration = session.startTime ? Math.round((Date.now() - session.startTime) / 1000) : 0;
+                        await logCallAndEmit(session, duration);
+
+                        // Notify peer that call ended
+                        const peerId = session.callerId === userId ? session.receiverId : session.callerId;
+                        io.to(peerId).emit("webrtc:call-ended");
+                    }
+
                     await User.findByIdAndUpdate(userId, {
                         $set: { "status.online": false, "status.lastSeen": new Date() }
                     });
@@ -155,9 +236,19 @@ export const initializeSocket = (httpServer) => {
 
             // 1. User A initiates a call to User B
             socket.on("webrtc:call-user", ({ userToCall, signalData, callerData, callType }) => {
+                // Track active call
+                const session = {
+                    callerId: userId,
+                    receiverId: userToCall.toString(),
+                    callType: callType === "audio" ? "audio" : "video",
+                    status: "missed",
+                    startTime: null,
+                    createdAt: Date.now()
+                };
+                activeCalls.set(userId, session);
+                activeCalls.set(userToCall.toString(), session);
+
                 // Route the incoming call alert and the SDP offer to User B.
-                // ⚡ PHASE 4: forward callType so the callee answers in the same
-                // mode (audio-only vs video). Defaults to 'video' for legacy callers.
                 io.to(userToCall.toString()).emit("webrtc:incoming-call", {
                     signal: signalData,
                     callType: callType === "audio" ? "audio" : "video",
@@ -170,6 +261,11 @@ export const initializeSocket = (httpServer) => {
 
             // 2. User B answers the call
             socket.on("webrtc:answer-call", ({ to, signalData }) => {
+                const session = activeCalls.get(userId); // Callee
+                if (session) {
+                    session.startTime = Date.now();
+                    session.status = "answered";
+                }
                 // Route the SDP answer back to User A to finalize the handshake
                 io.to(to.toString()).emit("webrtc:call-accepted", signalData);
             });
@@ -184,11 +280,24 @@ export const initializeSocket = (httpServer) => {
 
             // 4. Call Rejection or Cancellation
             socket.on("webrtc:reject-call", ({ to }) => {
+                const session = activeCalls.get(userId);
+                if (session) {
+                    activeCalls.delete(session.callerId);
+                    activeCalls.delete(session.receiverId);
+                    logCallAndEmit(session, 0);
+                }
                 io.to(to.toString()).emit("webrtc:call-rejected");
             });
 
             // 5. Ending an active call
             socket.on("webrtc:end-call", ({ to }) => {
+                const session = activeCalls.get(userId);
+                if (session) {
+                    activeCalls.delete(session.callerId);
+                    activeCalls.delete(session.receiverId);
+                    const duration = session.startTime ? Math.round((Date.now() - session.startTime) / 1000) : 0;
+                    logCallAndEmit(session, duration);
+                }
                 io.to(to.toString()).emit("webrtc:call-ended");
             });
         } catch (err) {

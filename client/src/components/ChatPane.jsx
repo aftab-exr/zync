@@ -280,11 +280,26 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
   }, [text, isSending, sendMessage, conversationId, displayUser?._id]);
 
   useEffect(() => {
-    if (conversationId) {
-      fetchMessages(conversationId);
-      subscribeToMessages(conversationId);
-    }
-    return () => unsubscribeFromMessages();
+    if (!conversationId) return;
+
+    let isMounted = true;
+
+    const loadChat = async () => {
+      // 1. Fetch historical messages and hydrate the Zustand/React state
+      await fetchMessages(conversationId);
+
+      // 2. Start Socket.io live-listeners once historical state is hydrated
+      if (isMounted) {
+        subscribeToMessages(conversationId);
+      }
+    };
+
+    loadChat();
+
+    return () => {
+      isMounted = false;
+      unsubscribeFromMessages();
+    };
   }, [conversationId, fetchMessages, subscribeToMessages, unsubscribeFromMessages]);
 
   useEffect(() => {
@@ -435,42 +450,50 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                     : 'bg-surface text-tx-primary'
                 } ${msg.status === 'pending' ? 'opacity-70' : ''}`}>
                   
-                  {msg.attachmentUrl && (
-                    <div className="relative rounded-lg overflow-hidden mb-2 min-w-[180px]">
-                      <EncryptedMedia
-                        url={msg.attachmentUrl}
-                        type={msg.attachmentType}
-                        mime={msg.attachmentMime}
-                        convKey={convKey}
-                      />
+                  {msg.deletedForEveryone ? (
+                    <div className="px-2 py-1 text-sm italic text-tx-secondary flex items-center gap-1.5 font-bold">
+                      <span>🚫 Message deleted</span>
                     </div>
-                  )}
+                  ) : (
+                    <>
+                      {msg.attachmentUrl && (
+                        <div className="relative rounded-lg overflow-hidden mb-2 min-w-[180px]">
+                          <EncryptedMedia
+                            url={msg.attachmentUrl}
+                            type={msg.attachmentType}
+                            mime={msg.attachmentMime}
+                            convKey={convKey}
+                          />
+                        </div>
+                      )}
 
-                  {msg.imageUrl && (
-                    <div className="relative rounded-lg overflow-hidden mb-2 border-3 border-border shadow-brutal-sm bg-base">
-                      <img
-                        src={msg.imageUrl}
-                        alt="Attachment"
-                        className="w-full h-auto max-h-[300px] object-cover"
-                        loading="lazy"
-                      />
-                    </div>
-                  )}
+                      {msg.imageUrl && (
+                        <div className="relative rounded-lg overflow-hidden mb-2 border-3 border-border shadow-brutal-sm bg-base">
+                          <img
+                            src={msg.imageUrl}
+                            alt="Attachment"
+                            className="w-full h-auto max-h-[300px] object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                      )}
 
-                  {msg.text && (
-                    <div className="px-2 pb-1 prose prose-sm max-w-none break-words prose-p:text-tx-primary prose-strong:font-bold prose-strong:text-tx-primary">
-                      <ReactMarkdown 
-                        remarkPlugins={[remarkGfm]} 
-                        components={{ code: CodeBlock }}
-                      >
-                        {getMessageText(msg)}
-                      </ReactMarkdown>
-                    </div>
+                      {msg.text && (
+                        <div className="px-2 pb-1 prose prose-sm max-w-none break-words prose-p:text-tx-primary prose-strong:font-bold prose-strong:text-tx-primary">
+                          <ReactMarkdown 
+                            remarkPlugins={[remarkGfm]} 
+                            components={{ code: CodeBlock }}
+                          >
+                            {getMessageText(msg)}
+                          </ReactMarkdown>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
                 
                 <div className="flex items-center gap-1 mt-1 text-[11px] text-tx-secondary font-mono font-bold">
-                  {msg.text && (msg.text.length > 80 || msg.text.includes('```')) && (
+                  {msg.text && !msg.deletedForEveryone && (msg.text.length > 80 || msg.text.includes('```')) && (
                     <button
                       onClick={() => useAIStore.getState().forwardToAi(msg.text)}
                       title="Forward to AI Sidecar"
@@ -479,6 +502,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                       <Bot className="w-3.5 h-3.5" />
                     </button>
                   )}
+                  {msg.isEdited && <span className="text-[10px] mr-1 opacity-70">(edited)</span>}
                   {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   {msg.isMine && (
                     msg.status === 'pending' ? (

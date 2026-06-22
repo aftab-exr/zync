@@ -58,6 +58,7 @@ export const getMessages = asyncHandler(async (req, res, next) => {
     // already holds everything up to that point in its local IndexedDB cache, so
     // return only strictly-newer messages. No `after` → full history (cold cache).
     const filter = { conversationId };
+    filter.deletedForMe = { $ne: userId };
     const { after } = req.query;
     if (after) {
         const afterDate = new Date(after);
@@ -299,4 +300,145 @@ export const sendMessage = asyncHandler(async (req, res, next) => {
     }
 
     res.status(201).json(new apiResponse(201, "Message sent successfully", newMessage));
+});
+
+export const editMessage = asyncHandler(async (req, res, next) => {
+    const { messageId } = req.params;
+    const { text } = req.body;
+    const userId = req.user?._id;
+
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+        throw new apiError(401, "Unauthorized");
+    }
+
+    if (!messageId || !mongoose.Types.ObjectId.isValid(messageId)) {
+        throw new apiError(400, "Invalid message ID format.");
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+        throw new apiError(404, "Message not found");
+    }
+
+    if (message.senderId.toString() !== userId.toString()) {
+        throw new apiError(403, "You can only edit your own messages");
+    }
+
+    // Enforce a strict 15-minute backend check
+    const timeDiff = Date.now() - new Date(message.createdAt).getTime();
+    if (timeDiff >= 900000) {
+        throw new apiError(403, "Message cannot be edited after 15 minutes");
+    }
+
+    message.text = text ? text.trim() : "";
+    message.isEdited = true;
+    await message.save();
+
+    const conversation = await Conversation.findById(message.conversationId);
+    if (conversation) {
+        const io = socketModule.io || (socketModule.getIO && socketModule.getIO());
+        if (io) {
+            conversation.participants.forEach((pId) => {
+                io.to(pId.toString()).emit("message:edited", {
+                    _id: message._id.toString(),
+                    conversationId: message.conversationId.toString(),
+                    text: message.text,
+                    isEdited: true,
+                    updatedAt: message.updatedAt
+                });
+            });
+        }
+    }
+
+    return res.status(200).json(new apiResponse(200, "Message edited successfully", message));
+});
+
+export const deleteMessageForEveryone = asyncHandler(async (req, res, next) => {
+    const { messageId } = req.params;
+    const userId = req.user?._id;
+
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+        throw new apiError(401, "Unauthorized");
+    }
+
+    if (!messageId || !mongoose.Types.ObjectId.isValid(messageId)) {
+        throw new apiError(400, "Invalid message ID format.");
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+        throw new apiError(404, "Message not found");
+    }
+
+    if (message.senderId.toString() !== userId.toString()) {
+        throw new apiError(403, "You can only delete your own messages");
+    }
+
+    message.text = "";
+    message.imageUrl = "";
+    message.attachmentUrl = "";
+    message.attachmentType = "";
+    message.attachmentMime = "";
+    message.deletedForEveryone = true;
+    await message.save();
+
+    const conversation = await Conversation.findById(message.conversationId);
+    if (conversation) {
+        const io = socketModule.io || (socketModule.getIO && socketModule.getIO());
+        if (io) {
+            conversation.participants.forEach((pId) => {
+                io.to(pId.toString()).emit("message:deletedForEveryone", {
+                    _id: message._id.toString(),
+                    conversationId: message.conversationId.toString(),
+                    deletedForEveryone: true,
+                    updatedAt: message.updatedAt
+                });
+            });
+        }
+    }
+
+    return res.status(200).json(new apiResponse(200, "Message deleted for everyone", message));
+});
+
+export const deleteMessageForMe = asyncHandler(async (req, res, next) => {
+    const { messageId } = req.params;
+    const userId = req.user?._id;
+
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+        throw new apiError(401, "Unauthorized");
+    }
+
+    if (!messageId || !mongoose.Types.ObjectId.isValid(messageId)) {
+        throw new apiError(400, "Invalid message ID format.");
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+        throw new apiError(404, "Message not found");
+    }
+
+    const conversation = await Conversation.findById(message.conversationId);
+    if (!conversation) {
+        throw new apiError(404, "Conversation not found");
+    }
+
+    const isParticipant = conversation.participants.some(p => p.toString() === userId.toString());
+    if (!isParticipant) {
+        throw new apiError(403, "You are not authorized to access this message");
+    }
+
+    if (!message.deletedForMe.includes(userId)) {
+        message.deletedForMe.push(userId);
+        await message.save();
+    }
+
+    const io = socketModule.io || (socketModule.getIO && socketModule.getIO());
+    if (io) {
+        io.to(userId.toString()).emit("message:deletedForMe", {
+            _id: message._id.toString(),
+            conversationId: message.conversationId.toString(),
+        });
+    }
+
+    return res.status(200).json(new apiResponse(200, "Message deleted for you", message));
 });

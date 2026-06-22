@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, User } from 'lucide-react';
+import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, User, RotateCw, Volume2, VolumeX } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCallStore } from '../store/useCallStore';
 import { useMotion } from '../lib/motion';
@@ -14,11 +14,14 @@ export default function CallOverlay() {
     remoteStream,
     isMicMuted,
     isCameraOff,
+    isSpeakerOn,
     answerCall,
     rejectCall,
     endCall,
     toggleMic,
     toggleCamera,
+    switchCamera,
+    toggleSpeaker,
   } = useCallStore();
 
   const localVideoRef = useRef();
@@ -26,6 +29,7 @@ export default function CallOverlay() {
   const remoteAudioRef = useRef();
 
   const isVideoCall = callType === 'video';
+  const isConnected = callState === 'CONNECTED';
 
   useEffect(() => {
     if (localVideoRef.current && localStream) {
@@ -39,9 +43,47 @@ export default function CallOverlay() {
     }
   }, [localStream, remoteStream, callState, callType]);
 
+  useEffect(() => {
+    const applyVolumeAndRouting = async () => {
+      const vol = isSpeakerOn ? 1.0 : 0.2;
+      [remoteAudioRef.current, remoteVideoRef.current].forEach(el => {
+        if (el) el.volume = vol;
+      });
+
+      // Try routing if setSinkId is supported
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const outputs = devices.filter(d => d.kind === 'audiooutput');
+        let targetDeviceId = "";
+        
+        if (isSpeakerOn) {
+          const speaker = outputs.find(d => d.label.toLowerCase().includes('speaker') || d.label.toLowerCase().includes('loudspeaker'));
+          if (speaker) targetDeviceId = speaker.deviceId;
+        } else {
+          const earpiece = outputs.find(d => d.label.toLowerCase().includes('earpiece') || d.label.toLowerCase().includes('receiver') || d.label.toLowerCase().includes('phone'));
+          if (earpiece) targetDeviceId = earpiece.deviceId;
+        }
+
+        const setSink = async (el) => {
+          if (el && typeof el.setSinkId === 'function') {
+            await el.setSinkId(targetDeviceId);
+          }
+        };
+
+        await setSink(remoteAudioRef.current);
+        await setSink(remoteVideoRef.current);
+      } catch (err) {
+        console.warn("setSinkId failed/not supported:", err);
+      }
+    };
+
+    if (isConnected) {
+      applyVolumeAndRouting();
+    }
+  }, [isConnected, isSpeakerOn]);
+
   if (callState === 'IDLE') return null;
 
-  const isConnected = callState === 'CONNECTED';
   const headerLabel =
     callState === 'RINGING'
       ? `Incoming ${isVideoCall ? 'Video' : 'Voice'} Call...`
@@ -56,47 +98,41 @@ export default function CallOverlay() {
         initial="hidden"
         animate="visible"
         exit="exit"
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+        className="fixed inset-0 z-50 flex flex-col bg-zinc-950 text-white w-screen h-screen overflow-hidden p-0"
       >
-        <motion.div
-          variants={M.modalVariants}
-          initial="hidden"
-          animate="visible"
-          exit="exit"
-          className="w-full max-w-4xl rounded-lg overflow-hidden bg-surface border-3 border-border relative flex flex-col shadow-brutal"
-        >
+        <div className="w-full h-full flex flex-col justify-between relative bg-zinc-950">
+          
+          <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
 
-          {/* Header */}
-          <div className="px-6 py-4 flex items-center justify-between border-b-3 border-border z-10 bg-base text-tx-primary font-bold">
-            <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rounded-full bg-success animate-pulse border border-border" />
-              <h3 className="font-display font-bold text-tx-primary">{headerLabel}</h3>
-            </div>
-            <p className="font-mono text-sm text-tx-secondary">@{remoteUser?.username || "unknown"}</p>
+          {/* Floating Header Overlay */}
+          <div className="absolute top-0 left-0 right-0 p-6 pt-10 flex flex-col items-center justify-center z-20 bg-gradient-to-b from-black/80 to-transparent text-white">
+            <h3 className="font-display font-bold text-lg tracking-wide drop-shadow">{headerLabel}</h3>
+            <p className="text-sm opacity-80 mt-1 font-mono drop-shadow">@{remoteUser?.username || "unknown"}</p>
           </div>
 
-          {/* Video Grid */}
-          <div className="flex-1 min-h-[40vh] md:min-h-[60vh] relative bg-base flex items-center justify-center border-b-3 border-border">
-
-            <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
-
+          {/* Main Content Area */}
+          <div className="flex-1 w-full h-full relative flex items-center justify-center">
             {(!isConnected) ? (
               // RINGING / CALLING — caller card
-              <div className="flex flex-col items-center p-8 bg-surface border-3 border-border rounded-lg shadow-brutal max-w-xs w-full">
-                <div className="w-20 h-20 rounded-lg bg-accent border-3 border-border shadow-brutal-sm mb-4 flex items-center justify-center">
-                  {isVideoCall ? <Video className="w-8 h-8 text-tx-primary" /> : <Phone className="w-8 h-8 text-tx-primary" />}
+              <div className="flex flex-col items-center p-8 rounded-lg max-w-xs w-full z-10">
+                <div className="w-24 h-24 rounded-full bg-zinc-800 border-4 border-zinc-700/80 mb-6 flex items-center justify-center overflow-hidden animate-pulse shadow-2xl">
+                  {remoteUser?.avatarUrl ? (
+                    <img src={remoteUser.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <User className="w-12 h-12 text-zinc-400" />
+                  )}
                 </div>
-                <h2 className="text-lg font-bold text-tx-primary mb-1">{remoteUser?.displayName}</h2>
-                <p className="text-xs text-tx-secondary font-mono">@{remoteUser?.username}</p>
+                <h2 className="text-xl font-bold text-white mb-2">{remoteUser?.displayName}</h2>
+                <p className="text-sm text-zinc-400 font-mono">@{remoteUser?.username}</p>
               </div>
             ) : isVideoCall ? (
               // CONNECTED — video call
-              <>
+              <div className="w-full h-full absolute inset-0 bg-black">
                 <video
                   playsInline
                   autoPlay
                   ref={remoteVideoRef}
-                  className="w-full h-full object-cover bg-black"
+                  className="w-full h-full object-cover"
                 />
 
                 {/* Local Stream (Picture-in-Picture) */}
@@ -104,69 +140,112 @@ export default function CallOverlay() {
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={M.transition}
-                  className="absolute bottom-6 right-6 w-32 md:w-48 aspect-video bg-black rounded-lg overflow-hidden border-3 border-border shadow-brutal-sm"
+                  className="absolute bottom-28 right-6 w-32 md:w-44 aspect-[3/4] bg-zinc-900 rounded-2xl overflow-hidden border-2 border-zinc-700/85 shadow-2xl z-20"
                 >
                   <video playsInline autoPlay muted ref={localVideoRef} className="w-full h-full object-cover scale-x-[-1]" />
                   {isCameraOff && (
-                    <div className="absolute inset-0 bg-base flex items-center justify-center">
-                      <VideoOff className="w-6 h-6 text-tx-secondary" />
+                    <div className="absolute inset-0 bg-zinc-900 flex items-center justify-center">
+                      <VideoOff className="w-6 h-6 text-zinc-500" />
                     </div>
                   )}
                 </motion.div>
-              </>
+              </div>
             ) : (
               // CONNECTED — audio-only call
-              <div className="flex flex-col items-center p-8 bg-surface border-3 border-border rounded-lg shadow-brutal max-w-xs w-full">
-                <div className="w-20 h-20 rounded-lg bg-primary border-3 border-border shadow-brutal-sm mb-4 flex items-center justify-center overflow-hidden">
+              <div className="flex flex-col items-center p-8 rounded-lg max-w-xs w-full z-10">
+                <div className="w-24 h-24 rounded-full bg-zinc-800 border-4 border-zinc-700/80 shadow-2xl mb-6 flex items-center justify-center overflow-hidden">
                   {remoteUser?.avatarUrl ? (
                     <img src={remoteUser.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
                   ) : (
-                    <User className="w-8 h-8 text-tx-primary" />
+                    <User className="w-12 h-12 text-zinc-400" />
                   )}
                 </div>
-                <h2 className="text-lg font-bold text-tx-primary mb-1">{remoteUser?.displayName}</h2>
-                <p className="text-xs text-tx-secondary font-mono">Voice connected</p>
+                <h2 className="text-xl font-bold text-white mb-2">{remoteUser?.displayName}</h2>
+                <p className="text-sm text-zinc-400 font-mono">Voice Connected</p>
               </div>
             )}
           </div>
 
           {/* Controls Footer */}
-          <div className="px-6 py-6 bg-base flex justify-center gap-6 z-10 shrink-0">
-
+          <div className="absolute bottom-0 left-0 right-0 p-8 pb-10 bg-gradient-to-t from-black/90 to-transparent flex justify-center items-center gap-6 z-30 shrink-0">
             {isConnected && (
               <>
+                {/* Speaker Toggle */}
+                <button
+                  onClick={toggleSpeaker}
+                  title={isSpeakerOn ? 'Switch to Earpiece' : 'Switch to Speaker'}
+                  className={`w-14 h-14 rounded-full flex items-center justify-center transition-all border border-zinc-700/60 shadow-lg ${
+                    isSpeakerOn 
+                      ? 'bg-white text-zinc-950 hover:bg-zinc-100' 
+                      : 'bg-zinc-800/80 text-white hover:bg-zinc-700'
+                  }`}
+                >
+                  {isSpeakerOn ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
+                </button>
+
+                {/* Microphone Toggle */}
                 <button
                   onClick={toggleMic}
                   title={isMicMuted ? 'Unmute microphone' : 'Mute microphone'}
-                  className={`w-14 h-14 rounded-lg border-3 border-border flex items-center justify-center transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none shadow-brutal-sm ${isMicMuted ? 'bg-secondary text-tx-primary' : 'bg-surface text-tx-primary hover:bg-base'}`}
+                  className={`w-14 h-14 rounded-full flex items-center justify-center transition-all border border-zinc-700/60 shadow-lg ${
+                    isMicMuted 
+                      ? 'bg-red-600 text-white hover:bg-red-700' 
+                      : 'bg-zinc-800/80 text-white hover:bg-zinc-700'
+                  }`}
                 >
                   {isMicMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
                 </button>
 
+                {/* Camera Toggle (Video Call Only) */}
                 {isVideoCall && (
-                  <button
-                    onClick={toggleCamera}
-                    title={isCameraOff ? 'Turn camera on' : 'Turn camera off'}
-                    className={`w-14 h-14 rounded-lg border-3 border-border flex items-center justify-center transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none shadow-brutal-sm ${isCameraOff ? 'bg-secondary text-tx-primary' : 'bg-surface text-tx-primary hover:bg-base'}`}
-                  >
-                    {isCameraOff ? <VideoOff className="w-6 h-6" /> : <Video className="w-6 h-6" />}
-                  </button>
+                  <>
+                    <button
+                      onClick={toggleCamera}
+                      title={isCameraOff ? 'Turn camera on' : 'Turn camera off'}
+                      className={`w-14 h-14 rounded-full flex items-center justify-center transition-all border border-zinc-700/60 shadow-lg ${
+                        isCameraOff 
+                          ? 'bg-red-600 text-white hover:bg-red-700' 
+                          : 'bg-zinc-800/80 text-white hover:bg-zinc-700'
+                      }`}
+                    >
+                      {isCameraOff ? <VideoOff className="w-6 h-6" /> : <Video className="w-6 h-6" />}
+                    </button>
+
+                    {/* Switch Camera (Facing Mode) */}
+                    <button
+                      onClick={switchCamera}
+                      title="Switch Camera"
+                      className="w-14 h-14 rounded-full bg-zinc-800/80 text-white hover:bg-zinc-700 flex items-center justify-center transition-all border border-zinc-700/60 shadow-lg"
+                    >
+                      <RotateCw className="w-6 h-6" />
+                    </button>
+                  </>
                 )}
               </>
             )}
 
+            {/* Answer Call Button */}
             {callState === 'RINGING' && (
-              <button onClick={answerCall} className="w-14 h-14 rounded-lg bg-success border-3 border-border text-tx-primary font-bold shadow-brutal-sm flex items-center justify-center hover:brightness-110 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all">
-                <Phone className="w-6 h-6" />
+              <button
+                onClick={answerCall}
+                title="Answer Call"
+                className="w-16 h-16 rounded-full bg-emerald-600 text-white shadow-lg flex items-center justify-center hover:bg-emerald-500 active:scale-95 transition-all"
+              >
+                <Phone className="w-7 h-7" />
               </button>
             )}
 
-            <button onClick={callState === 'RINGING' ? rejectCall : endCall} className="w-14 h-14 rounded-lg bg-secondary border-3 border-border text-tx-primary font-bold shadow-brutal-sm flex items-center justify-center hover:brightness-110 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all">
-              <PhoneOff className="w-6 h-6" />
+            {/* Decline / Hang up Button */}
+            <button
+              onClick={callState === 'RINGING' ? rejectCall : endCall}
+              title={callState === 'RINGING' ? "Decline Call" : "End Call"}
+              className="w-16 h-16 rounded-full bg-red-600 text-white shadow-lg flex items-center justify-center hover:bg-red-500 active:scale-95 transition-all"
+            >
+              <PhoneOff className="w-7 h-7" />
             </button>
           </div>
 
-        </motion.div>
+        </div>
       </motion.div>
     </AnimatePresence>
   );

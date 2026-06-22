@@ -44,14 +44,28 @@ const messageSchema = new Schema(
         isRead: {
             type: Boolean,
             default: false
-        }
+        },
+        isEdited: {
+            type: Boolean,
+            default: false
+        },
+        deletedForEveryone: {
+            type: Boolean,
+            default: false
+        },
+        deletedForMe: [
+            {
+                type: Schema.Types.ObjectId,
+                ref: 'User'
+            }
+        ]
     },
     { timestamps: true }
 );
 
 // ⚡ Modern Mongoose Validation (No 'next' callback needed)
 messageSchema.pre("save", function () {
-    if (!this.text && !this.imageUrl && !this.attachmentUrl) {
+    if (!this.deletedForEveryone && !this.text && !this.imageUrl && !this.attachmentUrl) {
         throw new Error("A message must contain text, an image, or an attachment.");
     }
 });

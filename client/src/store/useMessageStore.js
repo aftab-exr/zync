@@ -18,6 +18,9 @@ import { cacheMessage, cacheMessages, getCachedMessages, clearCachedMessages, de
 
 let messageHandler = null;
 let readReceiptHandler = null;
+let messageEditedHandler = null;
+let messageDeletedEveryoneHandler = null;
+let messageDeletedMeHandler = null;
 
 // ⚡ THE STRICT DECRYPTER — single source of truth for turning a stored `msg`
 // into displayable text. Returns a STRING, never raw ciphertext JSON.
@@ -591,6 +594,89 @@ export const useMessageStore = create((set, get) => ({
     };
 
     socket.on('message:read', readReceiptHandler);
+
+    if (messageEditedHandler) {
+      socket.off('message:edited', messageEditedHandler);
+    }
+    messageEditedHandler = async (editedMessage) => {
+      if (!sameId(editedMessage.conversationId, currentConversationId)) return;
+      let decryptedText = editedMessage.text;
+      if (editedMessage.text) {
+        const privateKeyJwk = localStorage.getItem("zync_private_key");
+        const chatStore = useChatStore.getState();
+        const conversation = chatStore.conversations.find(c => sameId(c._id, currentConversationId));
+        const currentUser = useAuthStore.getState().authUser || useAuthStore.getState().user;
+        const otherParticipant = conversation?.participants?.find(p => !sameId(p._id, currentUser?._id));
+
+        if (conversation?.isGroup) {
+          const groupKey = await deriveGroupKey(conversation, currentUser);
+          decryptedText = await safeDecryptMessage(editedMessage, groupKey);
+        } else if (conversation && !conversation.isGroup && privateKeyJwk && otherParticipant && otherParticipant.publicKey) {
+          let sharedSecretKey = null;
+          try {
+            const myPrivKeyObj = await importPrivateKey(privateKeyJwk);
+            const theirPubKeyObj = await importPublicKey(otherParticipant.publicKey);
+            sharedSecretKey = await deriveSharedSecret(myPrivKeyObj, theirPubKeyObj);
+          } catch (e) {
+            console.error("🔴 E2E: failed to derive shared secret for edited message:", e);
+          }
+          decryptedText = await safeDecryptMessage(editedMessage, sharedSecretKey);
+        }
+      }
+
+      set((state) => ({
+        messages: state.messages.map((m) =>
+          sameId(m._id, editedMessage._id) ? { ...m, text: decryptedText, isEdited: true, updatedAt: editedMessage.updatedAt } : m
+        ),
+      }));
+
+      const updatedMsg = get().messages.find(m => sameId(m._id, editedMessage._id));
+      if (updatedMsg) {
+        cacheMessage(updatedMsg);
+      }
+    };
+    socket.on('message:edited', messageEditedHandler);
+
+    if (messageDeletedEveryoneHandler) {
+      socket.off('message:deletedForEveryone', messageDeletedEveryoneHandler);
+    }
+    messageDeletedEveryoneHandler = ({ _id, conversationId, updatedAt }) => {
+      if (!sameId(conversationId, currentConversationId)) return;
+      set((state) => ({
+        messages: state.messages.map((m) =>
+          sameId(m._id, _id)
+            ? {
+                ...m,
+                text: "",
+                imageUrl: "",
+                attachmentUrl: "",
+                attachmentType: "",
+                attachmentMime: "",
+                deletedForEveryone: true,
+                updatedAt
+              }
+            : m
+        ),
+      }));
+
+      const updatedMsg = get().messages.find(m => sameId(m._id, _id));
+      if (updatedMsg) {
+        cacheMessage(updatedMsg);
+      }
+    };
+    socket.on('message:deletedForEveryone', messageDeletedEveryoneHandler);
+
+    if (messageDeletedMeHandler) {
+      socket.off('message:deletedForMe', messageDeletedMeHandler);
+    }
+    messageDeletedMeHandler = ({ _id, conversationId }) => {
+      if (!sameId(conversationId, currentConversationId)) return;
+      set((state) => ({
+        messages: state.messages.filter((m) => !sameId(m._id, _id)),
+      }));
+      deleteCachedMessage(_id);
+    };
+    socket.on('message:deletedForMe', messageDeletedMeHandler);
   },
 
   unsubscribeFromMessages: () => {
@@ -603,6 +689,129 @@ export const useMessageStore = create((set, get) => ({
     if (readReceiptHandler) {
       socket.off('message:read', readReceiptHandler);
       readReceiptHandler = null;
+    }
+    if (messageEditedHandler) {
+      socket.off('message:edited', messageEditedHandler);
+      messageEditedHandler = null;
+    }
+    if (messageDeletedEveryoneHandler) {
+      socket.off('message:deletedForEveryone', messageDeletedEveryoneHandler);
+      messageDeletedEveryoneHandler = null;
+    }
+    if (messageDeletedMeHandler) {
+      socket.off('message:deletedForMe', messageDeletedMeHandler);
+      messageDeletedMeHandler = null;
+    }
+  },
+
+  editMessage: async (messageId, newText) => {
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) return false;
+
+      const chatStore = useChatStore.getState();
+      const currentMessage = get().messages.find(m => sameId(m._id, messageId));
+      if (!currentMessage) return false;
+
+      const conversation = chatStore.conversations.find(c => sameId(c._id, currentMessage.conversationId));
+      const currentUser = useAuthStore.getState().authUser || useAuthStore.getState().user;
+      const otherParticipant = conversation?.participants?.find(p => !sameId(p._id, currentUser?._id));
+      const privateKeyJwk = localStorage.getItem("zync_private_key");
+
+      let textToSend = newText;
+      let encryptionKey = null;
+
+      if (conversation?.isGroup) {
+        const groupKey = await deriveGroupKey(conversation, currentUser);
+        if (groupKey) {
+          const encryptedPayload = await encryptText(newText, groupKey);
+          textToSend = JSON.stringify(encryptedPayload);
+        }
+      } else if (conversation && !conversation.isGroup && privateKeyJwk && otherParticipant && otherParticipant.publicKey) {
+        const myPrivKeyObj = await importPrivateKey(privateKeyJwk);
+        const theirPubKeyObj = await importPublicKey(otherParticipant.publicKey);
+        encryptionKey = await deriveSharedSecret(myPrivKeyObj, theirPubKeyObj);
+        const encryptedPayload = await encryptText(newText, encryptionKey);
+        textToSend = JSON.stringify(encryptedPayload);
+      }
+
+      await api.put(`/messages/${messageId}/edit`, { text: textToSend }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      set((state) => ({
+        messages: state.messages.map((m) =>
+          sameId(m._id, messageId) ? { ...m, text: newText, isEdited: true } : m
+        ),
+      }));
+
+      const updatedMsg = get().messages.find(m => sameId(m._id, messageId));
+      if (updatedMsg) {
+        await cacheMessage(updatedMsg);
+      }
+
+      return true;
+    } catch (err) {
+      console.error("🔴 Failed to edit message:", err.response?.data || err.message);
+      return false;
+    }
+  },
+
+  deleteMessageForEveryone: async (messageId) => {
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) return false;
+
+      await api.delete(`/messages/${messageId}/everyone`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      set((state) => ({
+        messages: state.messages.map((m) =>
+          sameId(m._id, messageId)
+            ? {
+                ...m,
+                text: "",
+                imageUrl: "",
+                attachmentUrl: "",
+                attachmentType: "",
+                attachmentMime: "",
+                deletedForEveryone: true
+              }
+            : m
+        ),
+      }));
+
+      const updatedMsg = get().messages.find(m => sameId(m._id, messageId));
+      if (updatedMsg) {
+        await cacheMessage(updatedMsg);
+      }
+
+      return true;
+    } catch (err) {
+      console.error("🔴 Failed to delete message for everyone:", err.response?.data || err.message);
+      return false;
+    }
+  },
+
+  deleteMessageForMe: async (messageId) => {
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) return false;
+
+      await api.delete(`/messages/${messageId}/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      set((state) => ({
+        messages: state.messages.filter((m) => !sameId(m._id, messageId)),
+      }));
+
+      await deleteCachedMessage(messageId);
+      return true;
+    } catch (err) {
+      console.error("🔴 Failed to delete message for me:", err.response?.data || err.message);
+      return false;
     }
   },
 }));

@@ -25,6 +25,8 @@ export const useCallStore = create((set, get) => ({
   // ⚡ PHASE 4: local track mute flags, mirrored onto the actual MediaStreamTracks.
   isMicMuted: false,
   isCameraOff: false,
+  facingMode: 'user',
+  isSpeakerOn: false,
 
   // ⚡ 1. Mount the WebRTC Socket Listeners
   initCallListeners: () => {
@@ -182,6 +184,41 @@ export const useCallStore = create((set, get) => ({
     get().cleanup();
   },
 
+  switchCamera: async () => {
+    const { localStream, facingMode, peer, callType } = get();
+    if (!localStream || callType !== 'video') return;
+
+    const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
+    try {
+      const tempStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: newFacingMode },
+        audio: false
+      });
+
+      const newVideoTrack = tempStream.getVideoTracks()[0];
+      const oldVideoTracks = localStream.getVideoTracks();
+      
+      if (oldVideoTracks.length > 0) {
+        const oldTrack = oldVideoTracks[0];
+        if (peer) {
+          peer.replaceTrack(oldTrack, newVideoTrack, localStream);
+        }
+        oldTrack.stop();
+        localStream.removeTrack(oldTrack);
+      }
+      
+      localStream.addTrack(newVideoTrack);
+      set({ facingMode: newFacingMode, localStream: new MediaStream(localStream.getTracks()) });
+    } catch (error) {
+      console.error("Failed to switch camera:", error);
+      alert("Could not switch camera: " + error.message);
+    }
+  },
+
+  toggleSpeaker: () => {
+    set({ isSpeakerOn: !get().isSpeakerOn });
+  },
+
   // ⚡ Hard Reset: Kills the camera light and destroys the P2P connection
   cleanup: () => {
     const { localStream, peer } = get();
@@ -198,6 +235,8 @@ export const useCallStore = create((set, get) => ({
       callType: 'video',
       isMicMuted: false,
       isCameraOff: false,
+      facingMode: 'user',
+      isSpeakerOn: false,
     });
   }
 }));
