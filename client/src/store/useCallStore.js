@@ -106,7 +106,6 @@ export const useCallStore = create((set, get) => ({
 
       set({ peer });
     } catch (error) {
-      console.error("Camera access failed", error);
       alert("Please allow Camera and Microphone permissions to make calls.");
       get().cleanup();
     }
@@ -144,7 +143,6 @@ export const useCallStore = create((set, get) => ({
       peer.signal(incomingSignal);
       set({ peer });
     } catch (error) {
-      console.error("Failed to answer", error);
       get().cleanup();
     }
   },
@@ -210,7 +208,6 @@ export const useCallStore = create((set, get) => ({
       localStream.addTrack(newVideoTrack);
       set({ facingMode: newFacingMode, localStream: new MediaStream(localStream.getTracks()) });
     } catch (error) {
-      console.error("Failed to switch camera:", error);
       alert("Could not switch camera: " + error.message);
     }
   },

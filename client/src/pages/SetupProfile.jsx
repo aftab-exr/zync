@@ -42,7 +42,6 @@ export default function SetupProfile() {
       navigate('/inbox');
 
     } catch (error) {
-      console.error("Setup failed:", error);
       setStatus({ 
         loading: false, 
         error: error.response?.data?.error || "Failed to create profile. Try again." 

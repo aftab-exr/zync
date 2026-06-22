@@ -1,6 +1,6 @@
 import { useCallStore } from "../store/useCallStore";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { Send, Users, Sparkles, ShieldCheck, Copy, Check, CheckCheck, ChevronLeft, Loader2, Video, Phone, Paperclip, Mic, ShieldAlert, Clock, Bot } from "lucide-react";
+import { Send, Users, Sparkles, ShieldCheck, Copy, Check, CheckCheck, ChevronLeft, Loader2, Video, Phone, Paperclip, Mic, ShieldAlert, Clock, Bot, MoreVertical, Edit2, Trash2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { motion, AnimatePresence } from "framer-motion";
@@ -10,6 +10,7 @@ import toast from "react-hot-toast";
 import { useChatStore } from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
 import { useMessageStore } from "../store/useMessageStore";
+import { useSocketStore } from "../store/useSocketStore";
 import { useAIStore } from "../store/useAIStore";
 import { useSettingsStore, resolveBackgroundStyle } from "../store/useSettingsStore";
 import { auth } from "../lib/firebase";
@@ -40,7 +41,6 @@ const EncryptedMedia = ({ url, type, mime, convKey }) => {
         }
       })
       .catch((err) => {
-        console.error("Failed to decrypt attachment:", err);
         if (active) setFailed(true);
       });
 
@@ -140,6 +140,8 @@ const CodeBlock = ({ inline, className, children, ...props }) => {
 export default function ChatPane({ conversationId, isSidecar = false }) {
   const M = useMotion();
   const [text, setText] = useState("");
+  const [activeDropdown, setActiveDropdown] = useState(null);
+  const [editingMessage, setEditingMessage] = useState(null);
 
   const getMessageText = (msg) => {
     if (msg.isDecrypted === true) return msg.text;
@@ -149,7 +151,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
         return "🔒 [Encrypted Message - Awaiting Key Sync]";
       }
     } catch (e) {
-      console.error("Failed to parse structural heuristics:", e);
+      // Failed to parse
     }
     return msg.text;
   };
@@ -174,10 +176,14 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
   );
 
   const { conversations } = useChatStore();
+  const { onlineUsers } = useSocketStore();
   const {
     messages,
     fetchMessages,
     sendMessage,
+    editMessage,
+    deleteMessageForMe,
+    deleteMessageForEveryone,
     sendAttachmentMessage,
     subscribeToMessages,
     unsubscribeFromMessages,
@@ -190,7 +196,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
   const activeConversation = conversations.find(c => c._id === conversationId);
   const displayUser = activeConversation?.otherUser || activeConversation?.participants?.find(p => p._id !== currentUser?._id);
   const isGroup = activeConversation?.isGroup;
-  const isOnline = displayUser?.status?.online;
+  const isOnline = onlineUsers.includes(String(displayUser?._id)) || displayUser?.status?.online;
   const isSomeoneTyping = typingConversations[conversationId];
 
   const processedMessages = useMemo(() => {
@@ -213,7 +219,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
     if (activeConversation && currentUser) {
       deriveConversationKey(activeConversation, currentUser)
         .then((key) => { if (active) setConvKey(key); })
-        .catch((err) => console.error("Failed to derive conversation key:", err));
+        .catch((err) => {});
     }
     return () => { active = false; };
   }, [activeConversation, currentUser]);
@@ -243,7 +249,6 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
       const ok = await sendAttachmentMessage(conversationId, { url, type, mime }, "", displayUser?._id);
       if (!ok) throw new Error("Send failed");
     } catch (err) {
-      console.error("Encrypted media send failed:", err);
       toast.error("Failed to send attachment.");
     } finally {
       setMediaStatus(null);
@@ -276,8 +281,15 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
 
     const currentText = text.trim();
     setText("");
-    await sendMessage(conversationId, currentText, null, displayUser?._id);
-  }, [text, isSending, sendMessage, conversationId, displayUser?._id]);
+
+    if (editingMessage) {
+      const msgId = editingMessage._id;
+      setEditingMessage(null);
+      await editMessage(msgId, currentText);
+    } else {
+      await sendMessage(conversationId, currentText, null, displayUser?._id);
+    }
+  }, [text, isSending, sendMessage, editMessage, editingMessage, conversationId, displayUser?._id]);
 
   useEffect(() => {
     if (!conversationId) return;
@@ -463,51 +475,114 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                   </span>
                 )}
 
-                <div className={`max-w-[85%] md:max-w-[70%] rounded-lg p-2.5 border-3 border-border shadow-brutal-sm transition-all font-semibold ${
-                  msg.isMine
-                    ? 'bg-accent text-tx-primary'
-                    : 'bg-surface text-tx-primary'
-                } ${msg.status === 'pending' ? 'opacity-70' : ''}`}>
-                  
-                  {msg.deletedForEveryone ? (
-                    <div className="px-2 py-1 text-sm italic text-tx-secondary flex items-center gap-1.5 font-bold">
-                      <span>🚫 Message deleted</span>
-                    </div>
-                  ) : (
-                    <>
-                      {msg.attachmentUrl && (
-                        <div className="relative rounded-lg overflow-hidden mb-2 min-w-[180px]">
-                          <EncryptedMedia
-                            url={msg.attachmentUrl}
-                            type={msg.attachmentType}
-                            mime={msg.attachmentMime}
-                            convKey={convKey}
-                          />
-                        </div>
-                      )}
+                <div className={`relative group flex items-center gap-2 max-w-[85%] md:max-w-[70%] ${
+                  msg.isMine ? 'flex-row' : 'flex-row-reverse'
+                }`}>
+                  <div className={`rounded-lg p-2.5 border-3 border-border shadow-brutal-sm transition-all font-semibold ${
+                    msg.isMine
+                      ? 'bg-accent text-tx-primary'
+                      : 'bg-surface text-tx-primary'
+                  } ${msg.status === 'pending' ? 'opacity-70' : ''}`}>
+                    
+                    {msg.deletedForEveryone ? (
+                      <div className="px-2 py-1 text-sm italic text-tx-secondary flex items-center gap-1.5 font-bold">
+                        <span>🚫 Message deleted</span>
+                      </div>
+                    ) : (
+                      <>
+                        {msg.attachmentUrl && (
+                          <div className="relative rounded-lg overflow-hidden mb-2 min-w-[180px]">
+                            <EncryptedMedia
+                              url={msg.attachmentUrl}
+                              type={msg.attachmentType}
+                              mime={msg.attachmentMime}
+                              convKey={convKey}
+                            />
+                          </div>
+                        )}
 
-                      {msg.imageUrl && (
-                        <div className="relative rounded-lg overflow-hidden mb-2 border-3 border-border shadow-brutal-sm bg-base">
-                          <img
-                            src={msg.imageUrl}
-                            alt="Attachment"
-                            className="w-full h-auto max-h-[300px] object-cover"
-                            loading="lazy"
-                          />
-                        </div>
-                      )}
+                        {msg.imageUrl && (
+                          <div className="relative rounded-lg overflow-hidden mb-2 border-3 border-border shadow-brutal-sm bg-base">
+                            <img
+                              src={msg.imageUrl}
+                              alt="Attachment"
+                              className="w-full h-auto max-h-[300px] object-cover"
+                              loading="lazy"
+                            />
+                          </div>
+                        )}
 
-                      {msg.text && (
-                        <div className="px-2 pb-1 prose prose-sm max-w-none break-words prose-p:text-tx-primary prose-strong:font-bold prose-strong:text-tx-primary">
-                          <ReactMarkdown 
-                            remarkPlugins={[remarkGfm]} 
-                            components={{ code: CodeBlock }}
+                        {msg.text && (
+                          <div className="px-2 pb-1 prose prose-sm max-w-none break-words prose-p:text-tx-primary prose-strong:font-bold prose-strong:text-tx-primary">
+                            <ReactMarkdown 
+                              remarkPlugins={[remarkGfm]} 
+                              components={{ code: CodeBlock }}
+                            >
+                              {getMessageText(msg)}
+                            </ReactMarkdown>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {!msg.deletedForEveryone && (
+                    <div className="relative shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveDropdown(activeDropdown === msg._id ? null : msg._id);
+                        }}
+                        className="p-1.5 rounded-lg border-2 border-transparent hover:border-border hover:bg-surface text-tx-secondary hover:text-tx-primary transition-all active:translate-y-0.5 active:translate-x-0.5"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+
+                      {activeDropdown === msg._id && (
+                        <div className="absolute top-8 right-0 z-50 bg-surface border-3 border-border shadow-brutal p-1.5 min-w-[150px] rounded-lg">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveDropdown(null);
+                              deleteMessageForMe(msg._id);
+                            }}
+                            className="w-full text-left px-2.5 py-1.5 text-xs text-tx-primary font-bold hover:bg-base rounded flex items-center gap-1.5"
                           >
-                            {getMessageText(msg)}
-                          </ReactMarkdown>
+                            <Trash2 className="w-3.5 h-3.5 text-error" />
+                            <span>Delete for Me</span>
+                          </button>
+
+                          {msg.isMine && (Date.now() - new Date(msg.createdAt).getTime() < 900000) && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveDropdown(null);
+                                  setEditingMessage(msg);
+                                  setText(msg.text);
+                                }}
+                                className="w-full text-left px-2.5 py-1.5 text-xs text-tx-primary font-bold hover:bg-base rounded flex items-center gap-1.5"
+                              >
+                                <Edit2 className="w-3.5 h-3.5 text-accent" />
+                                <span>Edit</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveDropdown(null);
+                                  deleteMessageForEveryone(msg._id);
+                                }}
+                                className="w-full text-left px-2.5 py-1.5 text-xs text-error font-bold hover:bg-base rounded flex items-center gap-1.5"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-error" />
+                                <span>Delete for Everyone</span>
+                              </button>
+                            </>
+                          )}
                         </div>
                       )}
-                    </>
+                    </div>
                   )}
                 </div>
                 
@@ -575,6 +650,29 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                 <ShieldCheck className="w-4 h-4 text-success ml-auto" />
               </motion.div>
             )}
+            {editingMessage && (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 6 }}
+                className="w-full flex items-center justify-between bg-base border-3 border-border rounded-lg px-4 py-2 text-xs font-bold shadow-brutal-sm"
+              >
+                <div className="flex items-center gap-1.5">
+                  <Edit2 className="w-3.5 h-3.5 text-accent" />
+                  <span>Editing Message</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingMessage(null);
+                    setText("");
+                  }}
+                  className="text-error hover:underline font-bold"
+                >
+                  Cancel
+                </button>
+              </motion.div>
+            )}
           </AnimatePresence>
 
           {isRecording ? (
@@ -613,7 +711,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                     handleSend(e);
                   }
                 }}
-                placeholder={isGroup ? `Message ${displayUser?.displayName}...` : `Message @${displayUser?.username || ''}...`}
+                placeholder={editingMessage ? "Edit message..." : (isGroup ? `Message ${displayUser?.displayName}...` : `Message @${displayUser?.username || ''}...`)}
                 className="w-full max-h-32 min-h-[44px] bg-transparent text-sm text-tx-primary placeholder-tx-secondary resize-none focus:outline-none py-3 px-2 font-body font-semibold"
                 rows={1}
               />

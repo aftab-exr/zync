@@ -207,10 +207,8 @@ export const useMessageStore = create((set, get) => ({
         throw new Error('No active session token found');
       }
 
-      const since = cached.length ? cached[cached.length - 1].createdAt : null;
-      const res = await api.get(`/messages/${conversationId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params: since ? { after: since } : undefined,
+      const res = await api.get('/messages/' + conversationId, {
+        headers: { Authorization: 'Bearer ' + token }
       });
 
       let decryptedMessages = res.data.data;
@@ -246,20 +244,9 @@ export const useMessageStore = create((set, get) => ({
         }
       }
 
+      set({ messages: decryptedMessages, isFetching: false });
       await cacheMessages(decryptedMessages);
-
-      set((state) => {
-        const byId = new Map();
-        for (const m of state.messages) byId.set(String(m._id), m);
-        for (const m of decryptedMessages) byId.set(String(m._id), m);
-        const merged = [...byId.values()].sort(
-          (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
-        );
-        return { messages: merged };
-      });
     } catch (error) {
-      // Handled silently
-    } {
       set({ isFetching: false });
     }
   },

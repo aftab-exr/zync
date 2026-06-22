@@ -56,7 +56,6 @@ export default function Sidecar() {
             setErrorMsg("AI agent user not found.");
           }
         } catch (error) {
-          console.error("Failed to find/create AI conversation:", error);
           setErrorMsg("Error searching for AI agent.");
         } finally {
           setLoadingAI(false);

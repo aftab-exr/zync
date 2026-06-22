@@ -16,15 +16,13 @@ export default function AuthGuard() {
           try {
             const idToken = await auth.currentUser?.getIdToken();
             if (!idToken) {
-              console.error("No auth token available to update FCM token.");
               return;
             }
             await api.patch('/users/update-fcm', { fcmToken: token }, {
               headers: { Authorization: `Bearer ${idToken}` }
             });
-            console.log("FCM Token saved to database.");
           } catch (error) {
-            console.error("Failed to save token to DB:", error);
+            // Failed to save token
           }
         }
       };

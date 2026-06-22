@@ -15,7 +15,6 @@ export const compressIfImage = async (file) => {
       useWebWorker: true,
     });
   } catch (err) {
-    console.error("Image compression failed; using original:", err);
     return file;
   }
 };

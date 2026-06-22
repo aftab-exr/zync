@@ -9,6 +9,7 @@ import Sidecar from './pages/Sidecar';
 import Settings from './pages/Settings';
 import AuthGuard from './components/AuthGuard';
 import GuestGuard from './components/GuestGuard';
+import PushManager from './components/PushManager';
 
 function App() {
   const { checkAuth, isCheckingAuth } = useAuthStore();
@@ -45,6 +46,7 @@ function App() {
           error: { iconTheme: { primary: 'var(--error)', secondary: 'var(--bg-surface)' } },
         }}
       />
+      <PushManager />
       <Routes>
         {/* Redirect root to login */}
         <Route path="/" element={<Navigate to="/login" replace />} />
@@ -59,6 +61,7 @@ function App() {
         <Route element={<AuthGuard />}>
           {/* Inbox maintains socket connection by rendering at the root path or with an optional conversation ID */}
           <Route path="/inbox/:conversationId?" element={<Inbox />} />
+          <Route path="/chat/:conversationId?" element={<Inbox />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/sidecar" element={<Sidecar />} />
         </Route>

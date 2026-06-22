@@ -13,13 +13,14 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { MESSAGE_EDIT_WINDOW_MS } from "../constants/constants.js";
 
 // Send silent push notification using FCM
-const sendSilentPush = async (token, senderName, ciphertext) => {
+const sendSilentPush = async (token, senderName, ciphertext, conversationId) => {
     if (!token) return;
     try {
         const payload = {
             data: {
                 senderName,
-                ciphertext: ciphertext || ""
+                ciphertext: ciphertext || "",
+                conversationId: conversationId || ""
             },
             token
         };
@@ -246,7 +247,8 @@ export const sendMessage = asyncHandler(async (req, res, next) => {
                 await sendSilentPush(
                     req.user.fcmToken,
                     receiver.displayName || receiver.username || "AI Assistant",
-                    aiMessage.text
+                    aiMessage.text,
+                    conversation._id.toString()
                 );
             }
         } else {
@@ -263,7 +265,8 @@ export const sendMessage = asyncHandler(async (req, res, next) => {
                 await sendSilentPush(
                     receiver.fcmToken,
                     req.user.displayName || req.user.username || "Someone",
-                    newMessage.text
+                    newMessage.text,
+                    conversation._id.toString()
                 );
             }
         }

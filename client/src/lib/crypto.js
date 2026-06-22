@@ -83,7 +83,6 @@ export const decryptText = async (encryptedPayload, sharedSecretKey) => {
         const decoder = new TextDecoder();
         return decoder.decode(decryptedBuffer);
     } catch (error) {
-        console.error("Decryption failed. Keys may not match.", error);
         return "[Encrypted Message - Unreadable]";
     }
 };

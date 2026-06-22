@@ -1,8 +1,7 @@
-// client/public/firebase-messaging-sw.js
+// Firebase Messaging Service Worker
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js');
 
-// TODO: Replace these with your actual Firebase config variables from client/src/lib/firebase.js
 const firebaseConfig = {
   apiKey: "AIzaSyANfY46JKcZolz5mBccLR0qV_F6h0-r6Dw",
   authDomain: "zync-2a0c4.firebaseapp.com",
@@ -12,47 +11,44 @@ const firebaseConfig = {
   appId: "1:534738604794:web:d6388ea2108032d848ef43"
 };
 
-// Initialize the Firebase app in the service worker
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
-// The Zero-Knowledge Silent Intercept
 messaging.onBackgroundMessage(async (payload) => {
-  console.log('[Firebase SW] Received silent data payload: ', payload);
+  if (!payload || !payload.data) return;
 
-  // 1. Extract the encrypted data from the silent push
-  const { senderName, ciphertext } = payload.data;
-
-  // 2. TODO: In Phase 1.5, we will import your Dexie DB and Crypto logic here 
-  // to decrypt the 'ciphertext' using the local Private Key.
-  
-  // For now, we will show a secure placeholder to prove the background wake-up works
-  const notificationTitle = `New Secure Message`;
+  const { senderName, conversationId } = payload.data;
+  const notificationTitle = 'New Message';
   const notificationOptions = {
-    body: `Encrypted payload received from ${senderName}`,
+    body: senderName ? `${senderName} sent you a message` : 'You have a new message',
     icon: '/pwa-192x192.png',
-    badge: '/pwa-192x192.png', // Small monochrome icon for Android status bar
+    badge: '/pwa-192x192.png',
     vibrate: [200, 100, 200],
     data: {
-      url: '/' // Clicking the notification opens the Zync PWA
+      conversationId: conversationId
     }
   };
 
   return self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-// Handle user clicking the notification
-self.addEventListener('notificationclick', (event) => {
+self.addEventListener('notificationclick', function(event) {
   event.notification.close();
+  const conversationId = event.notification.data?.conversationId;
+  const targetUrl = conversationId ? '/chat/' + conversationId : '/inbox';
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      if (windowClients.length > 0) {
-        // App is already open, focus it
-        return windowClients[0].focus();
-      } else {
-        // App is closed, open it
-        return clients.openWindow(event.notification.data.url);
+      for (let i = 0; i < windowClients.length; i++) {
+        const client = windowClients[i];
+        if (client.url.includes('/inbox') || client.url.includes('/chat')) {
+          if (conversationId && 'navigate' in client) {
+            return client.navigate(targetUrl).then(() => client.focus());
+          }
+          return client.focus();
+        }
       }
+      return clients.openWindow(targetUrl);
     })
   );
 });

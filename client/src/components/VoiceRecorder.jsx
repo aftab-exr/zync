@@ -57,7 +57,6 @@ export default function VoiceRecorder({ onSend, onCancel, busy = false }) {
         recorder.start();
         timerRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
       } catch (err) {
-        console.error("🔴 Microphone access failed:", err);
         setError(true);
       }
     })();

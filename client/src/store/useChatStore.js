@@ -49,7 +49,7 @@ export const useChatStore = create((set) => ({
         }));
       }
     } catch (error) {
-      console.error('Failed to fetch conversations:', error.stack || error);
+      // Failed to fetch conversations
     } finally {
       set({ isFetchingConversations: false });
     }
@@ -76,7 +76,6 @@ export const useChatStore = create((set) => ({
 
       return conversation;
     } catch (error) {
-      console.error('Failed to create conversation:', error.stack || error);
       return null;
     }
   },
@@ -124,12 +123,11 @@ export const useChatStore = create((set) => ({
                 encryptedKeyPayload: JSON.stringify(encryptedKeyPayload),
               });
             } catch (memberErr) {
-              console.error(`Failed to wrap group key for member ${member._id}:`, memberErr);
+              // Gracefully handle individual member E2E sync error
             }
           }
         }
       } catch (keyErr) {
-        console.error('Group key generation failed; falling back to plaintext group:', keyErr);
         encryptedGroupKeys = [];
       }
 
@@ -148,7 +146,6 @@ export const useChatStore = create((set) => ({
 
       return group;
     } catch (error) {
-      console.error('Failed to create group:', error.stack || error);
       return null;
     } finally {
       set({ isCreatingGroup: false });

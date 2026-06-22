@@ -39,7 +39,6 @@ export const deriveConversationKey = async (conversation, currentUser) => {
 
       return await importSymmetricKey(rawGroupKeyStr);
     } catch (err) {
-      console.error("Media: group key derivation failed:", err);
       return null;
     }
   }
@@ -53,7 +52,6 @@ export const deriveConversationKey = async (conversation, currentUser) => {
     const theirPub = await importPublicKey(other.publicKey);
     return await deriveSharedSecret(myPriv, theirPub);
   } catch (err) {
-    console.error("Media: 1-on-1 key derivation failed:", err);
     return null;
   }
 };

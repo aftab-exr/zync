@@ -20,7 +20,6 @@ export const cacheMessages = async (messages) => {
     const records = (messages || []).filter((m) => m?._id).map(toRecord);
     if (records.length) await db.messages.bulkPut(records);
   } catch (err) {
-    console.error("Dexie cache write failed:", err);
   }
 };
 
@@ -32,7 +31,6 @@ export const getCachedMessages = async (conversationId) => {
   try {
     return await db.messages.where({ conversationId }).sortBy("createdAt");
   } catch (err) {
-    console.error("Dexie cache read failed:", err);
     return [];
   }
 };
@@ -42,7 +40,6 @@ export const deleteCachedMessage = async (id) => {
   try {
     if (id != null) await db.messages.delete(id);
   } catch (err) {
-    console.error("Dexie cache delete failed:", err);
   }
 };
 
@@ -53,7 +50,6 @@ export const getPendingMessages = async () => {
       .filter((m) => m?.status === "pending")
       .sortBy("createdAt");
   } catch (err) {
-    console.error("Dexie pending-read failed:", err);
     return [];
   }
 };
@@ -63,6 +59,5 @@ export const clearCachedMessages = async () => {
   try {
     await db.messages.clear();
   } catch (err) {
-    console.error("Dexie cache wipe failed:", err);
   }
 };

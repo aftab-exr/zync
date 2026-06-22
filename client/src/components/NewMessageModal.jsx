@@ -38,7 +38,6 @@ export default function NewMessageModal({ isOpen, onClose, onSelectConversation 
         });
         setSearchResults(res.data.data);
       } catch (error) {
-        console.error("Search failed", error);
       } finally {
         setIsSearching(false);
       }

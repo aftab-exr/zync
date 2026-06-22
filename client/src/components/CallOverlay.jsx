@@ -73,7 +73,6 @@ export default function CallOverlay() {
         await setSink(remoteAudioRef.current);
         await setSink(remoteVideoRef.current);
       } catch (err) {
-        console.warn("setSinkId failed/not supported:", err);
       }
     };
 
