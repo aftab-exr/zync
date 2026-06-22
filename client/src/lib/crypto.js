@@ -1,20 +1,18 @@
 /**
- * ⚡ ZYNC ZERO-KNOWLEDGE ENGINE
- * Elliptic Curve Diffie-Hellman (ECDH) + AES-GCM
+ * Cryptography helpers for Elliptic Curve Diffie-Hellman (ECDH) and AES-GCM.
+ * Handles key generation, public/private key importing/exporting, secret derivation,
+ * and text encryption/decryption.
  */
 
-// 1. Generate an unbreakable P-256 Key Pair
+// Generate an ECDH P-256 key pair
 export const generateKeyPair = async () => {
     const keyPair = await window.crypto.subtle.generateKey(
         { name: "ECDH", namedCurve: "P-256" },
-        true, // extractable
+        true,
         ["deriveKey", "deriveBits"]
     );
     
-    // Convert Public Key to a string to save to MongoDB
     const exportedPublicKey = await window.crypto.subtle.exportKey("jwk", keyPair.publicKey);
-    
-    // Convert Private Key to a string to save to LocalStorage (Never leaves device!)
     const exportedPrivateKey = await window.crypto.subtle.exportKey("jwk", keyPair.privateKey);
     
     return { 
@@ -24,7 +22,7 @@ export const generateKeyPair = async () => {
     };
 };
 
-// 2. Import stringified keys back into the Crypto Engine
+// Import a stringified public JWK key
 export const importPublicKey = async (jwkString) => {
     const jwk = JSON.parse(jwkString);
     return await window.crypto.subtle.importKey(
@@ -32,6 +30,7 @@ export const importPublicKey = async (jwkString) => {
     );
 };
 
+// Import a stringified private JWK key
 export const importPrivateKey = async (jwkString) => {
     const jwk = JSON.parse(jwkString);
     return await window.crypto.subtle.importKey(
@@ -39,7 +38,7 @@ export const importPrivateKey = async (jwkString) => {
     );
 };
 
-// 3. The Math: Combine My Private Key + Their Public Key = Shared Secret
+// Derive a symmetric AES-GCM 256-bit shared key from a private key and public key
 export const deriveSharedSecret = async (myPrivateKey, theirPublicKey) => {
     return await window.crypto.subtle.deriveKey(
         { name: "ECDH", public: theirPublicKey },
@@ -50,12 +49,11 @@ export const deriveSharedSecret = async (myPrivateKey, theirPublicKey) => {
     );
 };
 
-// 4. Encrypt the Message
+// Encrypt plaintext using a derived AES-GCM shared key
 export const encryptText = async (text, sharedSecretKey) => {
     const encoder = new TextEncoder();
     const encodedText = encoder.encode(text);
     
-    // Create a random initialization vector for perfect forward secrecy
     const iv = window.crypto.getRandomValues(new Uint8Array(12));
     
     const ciphertext = await window.crypto.subtle.encrypt(
@@ -64,14 +62,13 @@ export const encryptText = async (text, sharedSecretKey) => {
         encodedText
     );
     
-    // Package the IV and the Ciphertext together as Base64 strings
     return {
         iv: btoa(String.fromCharCode(...iv)),
         ciphertext: btoa(String.fromCharCode(...new Uint8Array(ciphertext)))
     };
 };
 
-// 5. Decrypt the Message
+// Decrypt a base64 payload using a derived AES-GCM shared key
 export const decryptText = async (encryptedPayload, sharedSecretKey) => {
     try {
         const iv = new Uint8Array(atob(encryptedPayload.iv).split("").map(c => c.charCodeAt(0)));
@@ -86,34 +83,27 @@ export const decryptText = async (encryptedPayload, sharedSecretKey) => {
         const decoder = new TextDecoder();
         return decoder.decode(decryptedBuffer);
     } catch (error) {
-        console.error("🔴 Decryption failed. Keys may not match.", error);
+        console.error("Decryption failed. Keys may not match.", error);
         return "[Encrypted Message - Unreadable]";
     }
 };
 
-/**
- * ⚡ VECTOR 2: MULTI-CAST GROUP SYMMETRIC KEY
- * One AES-GCM master key per group. It is wrapped (encrypted) individually for
- * each member using the standard ECDH shared secret (encryptText/decryptText),
- * so the server only ever stores ciphertext — true Zero-Knowledge group E2EE.
- */
-
-// 6. Generate a raw AES-GCM 256-bit group key (extractable so it can be wrapped per-member)
+// Generate a raw AES-GCM 256-bit group key
 export const generateGroupSymmetricKey = async () => {
     return await window.crypto.subtle.generateKey(
         { name: "AES-GCM", length: 256 },
-        true, // extractable
+        true,
         ["encrypt", "decrypt"]
     );
 };
 
-// 7. Export the AES key to a raw Base64 string so it can be wrapped via encryptText
+// Export an AES key to a raw Base64 string
 export const exportSymmetricKey = async (key) => {
     const rawBuffer = await window.crypto.subtle.exportKey("raw", key);
     return btoa(String.fromCharCode(...new Uint8Array(rawBuffer)));
 };
 
-// 8. Import a Base64 string back into an AES-GCM CryptoKey
+// Import a Base64 string back into an AES-GCM CryptoKey
 export const importSymmetricKey = async (base64String) => {
     const raw = new Uint8Array(atob(base64String).split("").map(c => c.charCodeAt(0)));
     return await window.crypto.subtle.importKey(

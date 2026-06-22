@@ -4,10 +4,10 @@ import { createRequire } from "module";
 let serviceAccount;
 
 if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-  // ☁️ CLOUD DEPLOYMENT: Read the JSON directly from Render's memory
+  // Production deployment: load configuration from env variable
   serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 } else {
-  // 💻 LOCAL DEVELOPMENT: Read from the local, securely git-ignored file
+  // Local development: load from serviceAccountKey.json
   const require = createRequire(import.meta.url);
   serviceAccount = require("./serviceAccountKey.json");
 }

@@ -2,152 +2,112 @@ import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// 1. MUST BE FIRST: Load environment variables before importing other local files
+// Load env before any other local imports
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, "config", ".env") });
 
-dotenv.config({
-  path: path.resolve(__dirname, "config", ".env")
-});
-
-// 2. NOW import the rest of the application
 import app from "./app.js";
 import { PORT } from "./constants/constants.js";
 import { connectDB } from "../database/connection.js";
 import http from "http";
 import mongoose from "mongoose";
-import { initializeSocket, closeSocket } from "./socket/index.js"; 
-import "./config/firebase.js"; 
+import { initializeSocket, closeSocket } from "./socket/index.js";
+import "./config/firebase.js";
 
-// ⚡ Vector 3: AI Bootloader Imports
 import User from "./models/user.model.js";
-import Conversation from "./models/conversation.model.js";
-import Message from "./models/message.model.js";
 import { generateServerKeyPair } from "./lib/serverCrypto.js";
 
-// 3. Create the HTTP server wrapping Express
 const httpServer = http.createServer(app);
-
-// 4. Attach the Socket.io engine to the HTTP server
 initializeSocket(httpServer);
 
-// ⚡ VECTOR 3 + AUTO-HEALER: The AI Identity Bootloader
-// Provisions the Zync Intelligence profile and guarantees the AI's public key in
-// the DB is always paired with a live AI_PRIVATE_KEY in the environment. If that
-// pairing is broken (a "ghost key": DB has a publicKey but the matching private key
-// was lost from .env), we force a full key reset so the gateway can never desync.
-// ⚡ THE GOD-MODE AUTO-HEALER
+// Ensures the AI user profile exists and its keys match the environment.
+// If the env private key is missing or doesn't match the DB public key,
+// we either provision a new AI identity or re-derive the public key.
 const bootstrapAI = async () => {
-    try {
-        const provisionFreshAI = async () => {
-            await User.deleteMany({ isAI: true }); // Kill all ghosts
-            const aiUser = new User({
-                username: "zync_ai",
-                displayName: "Zync Intelligence",
-                email: "ai@zync.dev",
-                firebaseUid: "zync_internal_ai_identity_" + Date.now(),
-                isAI: true
-            });
-            const keys = await generateServerKeyPair();
-            aiUser.publicKey = keys.publicKey;
-            await aiUser.save();
-
-            console.error("\n=======================================================");
-            console.error("🚨 CRITICAL ACTION REQUIRED: AI PRIVATE KEY GENERATED");
-            console.error("Add this exactly to your Render Environment Variables:");
-            console.error(`AI_PRIVATE_KEY='${keys.privateKey}'`);
-            console.error("=======================================================\n");
-            return aiUser;
-        };
-
-        let aiUser = await User.findOne({ isAI: true });
-
-        // 1. If no key is in the env, burn everything and restart.
-        if (!process.env.AI_PRIVATE_KEY) {
-            await provisionFreshAI();
-            return;
-        }
-
-        // 2. If env key exists, but no AI in DB, burn and restart.
-        if (!aiUser) {
-            await provisionFreshAI();
-            return;
-        }
-
-        // 3. ⚡ THE MATHEMATICAL SYNC CHECKER (The Magic Fix)
-        // This guarantees the DB and the .env perfectly match on every boot.
-        let isMathBroken = false;
-        try {
-            const envKey = JSON.parse(process.env.AI_PRIVATE_KEY);
-            const dbKey = JSON.parse(aiUser.publicKey);
-            // In ECDH, the public coordinates (x, y) must match exactly.
-            if (envKey.x !== dbKey.x || envKey.y !== dbKey.y) {
-                isMathBroken = true;
-            }
-        } catch (e) {
-            isMathBroken = true;
-        }
-
-        if (isMathBroken) {
-            console.error("🚨 KEY DESYNC DETECTED: DB Public Key != Env Private Key");
-            console.error("🧹 Auto-healing... Forcing database to match environment.");
-            
-            // Reconstruct the exact matching Public Key from the Env Private Key
-            const envKey = JSON.parse(process.env.AI_PRIVATE_KEY);
-            const derivedPublicKey = {
-                kty: "EC", crv: "P-256", ext: true,
-                key_ops: [], // Public keys don't have derive operations
-                x: envKey.x, y: envKey.y
-            };
-            
-            aiUser.publicKey = JSON.stringify(derivedPublicKey);
-            await aiUser.save();
-            console.error("✅ Zync AI Keys perfectly synchronized. Gateway Open.");
-        } else {
-            console.log("✅ Zync AI Gateway is fully synced and ready.");
-        }
-
-    } catch (error) {
-        console.error("🔴 Failed to bootstrap AI:", error);
+  try {
+    if (!process.env.AI_PRIVATE_KEY) {
+      await provisionFreshAI();
+      return;
     }
+
+    let aiUser = await User.findOne({ isAI: true });
+    if (!aiUser) {
+      await provisionFreshAI();
+      return;
+    }
+
+    // Compare env private key coords with DB public key coords
+    let keysMatch = false;
+    try {
+      const envKey = JSON.parse(process.env.AI_PRIVATE_KEY);
+      const dbKey = JSON.parse(aiUser.publicKey);
+      keysMatch = envKey.x === dbKey.x && envKey.y === dbKey.y;
+    } catch {
+      keysMatch = false;
+    }
+
+    if (!keysMatch) {
+      console.log("AI key mismatch — re-syncing public key from env.");
+      const envKey = JSON.parse(process.env.AI_PRIVATE_KEY);
+      aiUser.publicKey = JSON.stringify({
+        kty: "EC", crv: "P-256", ext: true, key_ops: [],
+        x: envKey.x, y: envKey.y,
+      });
+      await aiUser.save();
+      console.log("AI keys synced.");
+    }
+  } catch (error) {
+    console.error("Failed to bootstrap AI:", error);
+  }
 };
 
-// 5. Connect to DB and Start Listening
+async function provisionFreshAI() {
+  await User.deleteMany({ isAI: true });
+  const keys = await generateServerKeyPair();
+  await new User({
+    username: "zync_ai",
+    displayName: "Zync Intelligence",
+    email: "ai@zync.dev",
+    firebaseUid: "zync_internal_ai_" + Date.now(),
+    isAI: true,
+    publicKey: keys.publicKey,
+  }).save();
+
+  console.log("\n=== AI PRIVATE KEY GENERATED ===");
+  console.log(`Add to your env: AI_PRIVATE_KEY='${keys.privateKey}'`);
+  console.log("================================\n");
+}
+
+// Boot
 connectDB().then(async () => {
-  
-  // ⚡ Ensure AI exists before accepting traffic
   await bootstrapAI();
+  const server = httpServer.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
 
-  const server = httpServer.listen(PORT);
-
-  // 🛡️ Graceful Shutdown Protocol
-  const exitHandler = async (reason = 'shutdown', err) => {
-    if (err) {
-      console.error('Exit triggered by error:', err);
-    }
-
+  // Graceful shutdown
+  const shutdown = async (signal) => {
+    console.log(`${signal} received, shutting down...`);
     try {
-      if (server) {
-        await new Promise((resolve) => server.close(resolve));
-      }
+      if (server) await new Promise((r) => server.close(r));
       await closeSocket();
       await mongoose.connection.close();
-      const isError = reason === 'uncaughtException' || reason === 'unhandledRejection';
-      process.exit(isError ? 1 : 0);
-    } catch (shutdownErr) {
-      console.error('Error during graceful shutdown:', shutdownErr);
+      process.exit(0);
+    } catch (err) {
+      console.error("Shutdown error:", err);
       process.exit(1);
     }
   };
 
-  process.on('SIGINT', () => { exitHandler('SIGINT'); });
-  process.on('SIGTERM', () => { exitHandler('SIGTERM'); });
-  process.on('uncaughtException', (error) => {
-    console.error('💥 Uncaught Exception:', error);
-    exitHandler('uncaughtException', error);
+  process.on("SIGINT", () => shutdown("SIGINT"));
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("uncaughtException", (err) => {
+    console.error("Uncaught Exception:", err);
+    shutdown("uncaughtException");
   });
-  process.on('unhandledRejection', (reason, promise) => {
-    console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
-    exitHandler('unhandledRejection', reason);
+  process.on("unhandledRejection", (reason) => {
+    console.error("Unhandled Rejection:", reason);
+    shutdown("unhandledRejection");
   });
 });

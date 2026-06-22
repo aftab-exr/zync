@@ -40,7 +40,7 @@ const EncryptedMedia = ({ url, type, mime, convKey }) => {
         }
       })
       .catch((err) => {
-        console.error("🔴 Failed to decrypt attachment:", err);
+        console.error("Failed to decrypt attachment:", err);
         if (active) setFailed(true);
       });
 
@@ -149,7 +149,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
         return "🔒 [Encrypted Message - Awaiting Key Sync]";
       }
     } catch (e) {
-      console.error("Defensive Guard: Failed to parse structural heuristics:", e);
+      console.error("Failed to parse structural heuristics:", e);
     }
     return msg.text;
   };
@@ -213,7 +213,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
     if (activeConversation && currentUser) {
       deriveConversationKey(activeConversation, currentUser)
         .then((key) => { if (active) setConvKey(key); })
-        .catch((err) => console.error("🔴 Failed to derive conversation key:", err));
+        .catch((err) => console.error("Failed to derive conversation key:", err));
     }
     return () => { active = false; };
   }, [activeConversation, currentUser]);
@@ -243,7 +243,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
       const ok = await sendAttachmentMessage(conversationId, { url, type, mime }, "", displayUser?._id);
       if (!ok) throw new Error("Send failed");
     } catch (err) {
-      console.error("🔴 Encrypted media send failed:", err);
+      console.error("Encrypted media send failed:", err);
       toast.error("Failed to send attachment.");
     } finally {
       setMediaStatus(null);
@@ -285,10 +285,8 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
     let isMounted = true;
 
     const loadChat = async () => {
-      // 1. Fetch historical messages and hydrate the Zustand/React state
       await fetchMessages(conversationId);
 
-      // 2. Start Socket.io live-listeners once historical state is hydrated
       if (isMounted) {
         subscribeToMessages(conversationId);
       }
@@ -351,7 +349,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
   return (
     <div className="flex-1 flex flex-col h-full bg-base overflow-hidden" style={backgroundStyle}>
 
-      {/* ⚡ HEADER */}
+      {/* Header */}
       <div className="h-14 flex items-center justify-between px-4 md:px-6 border-b-3 border-border bg-surface shrink-0 z-10 relative">
         <div className="flex items-center gap-3">
           {!isSidecar && (
@@ -422,7 +420,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
         )}
       </div>
 
-      {/* ⚡ MESSAGE FEED */}
+      {/* Message Feed */}
       <div ref={feedRef} className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 overflow-x-hidden relative">
         <AnimatePresence initial={false}>
           {processedMessages.map((msg, index) => {
@@ -538,7 +536,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* ⚡ COMPOSER */}
+      {/* Composer */}
       <div className="p-3 md:p-4 bg-surface border-t-3 border-border shrink-0 relative z-20 shadow-brutal-lg">
         <form onSubmit={handleSend} className="flex flex-col gap-2 max-w-4xl mx-auto relative">
 

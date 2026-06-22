@@ -3,9 +3,9 @@ import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
 
-// ⚡ V2 HORIZON: Boot the Service Worker
 import { registerSW } from 'virtual:pwa-register'
-// 🛡️ THE FIX: Boot the web Service Worker.
+
+// Register the PWA service worker
 registerSW({
   onNeedRefresh() {},
   onOfflineReady() {},

@@ -1,73 +1,39 @@
 import mongoose, { Schema } from "mongoose";
 
 const messageSchema = new Schema(
-    {
-        conversationId: { 
-            type: mongoose.Schema.Types.ObjectId, 
-            ref: 'Conversation', 
-            required: true,
-            index: true 
-        },
-        senderId: { 
-            type: mongoose.Schema.Types.ObjectId, 
-            ref: 'User', 
-            required: true 
-        },
-        // ⚡ FIX: Default to empty string instead of requiring text
-        text: { 
-            type: String, 
-            default: "" 
-        },
-        // ⚡ PHASE 2.1: The Media Expansion (legacy plaintext image path)
-        imageUrl: {
-            type: String,
-            default: ""
-        },
-        // ⚡ PHASE 2: Zero-Knowledge Encrypted Media.
-        // `attachmentUrl` points at a Cloudinary *raw* asset that is an encrypted
-        // AES-GCM blob (IV + ciphertext) — the server never sees the plaintext.
-        // `attachmentType` drives which element the client renders; `attachmentMime`
-        // lets the recipient rebuild the decrypted Blob with the right content-type.
-        attachmentUrl: {
-            type: String,
-            default: ""
-        },
-        attachmentType: {
-            type: String,
-            enum: ["image", "video", "audio", ""],
-            default: ""
-        },
-        attachmentMime: {
-            type: String,
-            default: ""
-        },
-        isRead: {
-            type: Boolean,
-            default: false
-        },
-        isEdited: {
-            type: Boolean,
-            default: false
-        },
-        deletedForEveryone: {
-            type: Boolean,
-            default: false
-        },
-        deletedForMe: [
-            {
-                type: Schema.Types.ObjectId,
-                ref: 'User'
-            }
-        ]
+  {
+    conversationId: {
+      type: Schema.Types.ObjectId,
+      ref: "Conversation",
+      required: true,
+      index: true,
     },
-    { timestamps: true }
+    senderId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    text: { type: String, default: "" },
+    imageUrl: { type: String, default: "" },
+
+    // Encrypted media — stored as Cloudinary raw asset (server never sees plaintext)
+    attachmentUrl: { type: String, default: "" },
+    attachmentType: { type: String, enum: ["image", "video", "audio", ""], default: "" },
+    attachmentMime: { type: String, default: "" },
+
+    isRead: { type: Boolean, default: false },
+    isEdited: { type: Boolean, default: false },
+    deletedForEveryone: { type: Boolean, default: false },
+    deletedForMe: [{ type: Schema.Types.ObjectId, ref: "User" }],
+  },
+  { timestamps: true }
 );
 
-// ⚡ Modern Mongoose Validation (No 'next' callback needed)
+// Every message must have at least some content (unless it was deleted for everyone)
 messageSchema.pre("save", function () {
-    if (!this.deletedForEveryone && !this.text && !this.imageUrl && !this.attachmentUrl) {
-        throw new Error("A message must contain text, an image, or an attachment.");
-    }
+  if (!this.deletedForEveryone && !this.text && !this.imageUrl && !this.attachmentUrl) {
+    throw new Error("A message must contain text, an image, or an attachment.");
+  }
 });
 
 export default mongoose.model("Message", messageSchema);

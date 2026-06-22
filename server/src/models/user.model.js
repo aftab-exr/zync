@@ -1,61 +1,56 @@
-import mongoose, {Schema} from "mongoose";
+import mongoose, { Schema } from "mongoose";
 
-const userSchema = new Schema({
-    // --- Auth Identity (Sensitive - Never expose to client) ---
-  firebaseUid: { type: String, required: true, unique: true, index: true },
-  email: { type: String, required: true, unique: true, sparse: true },
-  emailVerified: { type: Boolean, default: false },
-  isAI: { type: Boolean, default: false },
-  provider: { type: String, enum: ['google', 'email'], default: 'google' },
+const userSchema = new Schema(
+  {
+    // Auth identity
+    firebaseUid: { type: String, required: true, unique: true, index: true },
+    email: { type: String, required: true, unique: true, sparse: true },
+    emailVerified: { type: Boolean, default: false },
+    isAI: { type: Boolean, default: false },
+    provider: { type: String, enum: ["google", "email"], default: "google" },
 
-  // --- Public Profile ---
-  username: { 
-    type: String, 
-    required: true, 
-    unique: true, 
-    lowercase: true,
-    match: [/^[a-z0-9_]+$/, 'Username can only contain alphanumeric characters, hyphens, periods and underscores'],
-    minlength: 3,
-    maxlength: 30
+    // Public profile
+    username: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      match: [/^[a-z0-9_]+$/, "Username can only contain letters, numbers, and underscores"],
+      minlength: 3,
+      maxlength: 30,
+    },
+    displayName: { type: String, required: true, maxlength: 50 },
+    avatarUrl: { type: String, default: "" },
+    avatarPublicId: { type: String, default: "" },
+
+    // E2E encryption keys
+    publicKey: { type: String, default: "" },
+    identityKeyPublic: { type: String, default: "" },
+
+    // Preferences
+    settings: {
+      notifications: { type: Boolean, default: true },
+      soundEnabled: { type: Boolean, default: true },
+      theme: { type: String, enum: ["dark", "light", "system"], default: "dark" },
+    },
+    status: {
+      online: { type: Boolean, default: false },
+      lastSeen: { type: Date, default: Date.now },
+    },
+
+    // Profile change rate-limiting timestamps
+    lastDisplayNameChangeAt: { type: Date, default: null },
+    lastUsernameChangeAt: { type: Date, default: null },
+
+    // Security
+    lastIp: { type: String },
+    deletedAt: { type: Date, default: null },
+    fcmToken: { type: String, default: null },
   },
-  displayName: { type: String, required: true, maxlength: 50 },
-  avatarUrl: { type: String, default: '' },
-  avatarPublicId: { type: String, default: '' }, 
+  { timestamps: true }
+);
 
-  // --- WebRTC Public Keys (V1) ---
-  publicKey: { type: String, default: "" },
-  // --- Cryptography (V1) ---
-  identityKeyPublic: { type: String, default: '' }, // Signal Identity Key (Base64)
+userSchema.index({ "status.lastSeen": 1 });
+userSchema.index({ deletedAt: 1 });
 
-  // --- Preferences & State ---
-  settings: {
-    notifications: { type: Boolean, default: true },
-    soundEnabled: { type: Boolean, default: true },
-    theme: { type: String, enum: ['dark', 'light', 'system'], default: 'dark' },
-  },
-  status: {
-    online: { type: Boolean, default: false },
-    lastSeen: { type: Date, default: Date.now },
-  },
-
-  // --- Profile Change Rate-Limiting (anti-spam) ---
-  // Timestamps of the last successful mutation. `null` means "never changed",
-  // so the very first edit is always allowed. Compared against the lockout
-  // windows enforced in user.controller.js (14d displayName, 60d username).
-  lastDisplayNameChangeAt: { type: Date, default: null },
-  lastUsernameChangeAt: { type: Date, default: null },
-
-  // --- Security & Audit ---
-  lastIp: { type: String }, // 30-day TTL index applied later
-  deletedAt: { type: Date, default: null }, // Soft delete flag
-  fcmToken: { type: String, default: null },
-},{
-    timestamps:true
-});
-
-userSchema.index({ 'status.lastSeen': 1 });
-userSchema.index({ deletedAt: 1 }); // Sparse index for soft-delete filtering
-
-const User = mongoose.model("User", userSchema);
-
-export default User;
+export default mongoose.model("User", userSchema);

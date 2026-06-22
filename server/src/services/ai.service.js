@@ -1,7 +1,9 @@
+import { AI_MODEL, AI_SYSTEM_PROMPT } from "../constants/constants.js";
+
 export const generateAIResponse = async (prompt) => {
     try {
         if (!process.env.GROQ_API_KEY) {
-            console.warn("⚠️ GROQ_API_KEY is missing. AI will not respond.");
+            console.warn("GROQ_API_KEY is missing. AI will not respond.");
             return "System Warning: Neural link offline. Please configure GROQ_API_KEY in the server environment.";
         }
 
@@ -12,11 +14,11 @@ export const generateAIResponse = async (prompt) => {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                model: "llama-3.3-70b-versatile",
+                model: AI_MODEL,
                 messages: [
                     { 
                         role: "system", 
-                        content: "You are Zync Intelligence, a highly advanced, concise, and helpful AI embedded directly into an encrypted PWA focus station. Keep answers clean, code well-formatted, and do not use generic AI intro phrases." 
+                        content: AI_SYSTEM_PROMPT 
                     },
                     { 
                         role: "user", 
@@ -33,7 +35,7 @@ export const generateAIResponse = async (prompt) => {
         const data = await response.json();
         return data.choices[0].message.content;
     } catch (error) {
-        console.error("🔴 Groq Inference Error:", error);
+        console.error("Groq Inference Error:", error);
         return "System Warning: Neural link to Groq LPUs severed. Please check the network or API keys.";
     }
 };

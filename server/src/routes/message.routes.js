@@ -1,23 +1,28 @@
 import { Router } from "express";
 import multer from "multer";
 import authenticateUser from "../middlewares/auth.middleware.js";
-import { sendMessage, getMessages, clearMessages, uploadAttachment, editMessage, deleteMessageForEveryone, deleteMessageForMe } from "../controllers/message.controller.js";
+import { UPLOAD_MAX_BYTES } from "../constants/constants.js";
+import {
+  sendMessage,
+  getMessages,
+  clearMessages,
+  uploadAttachment,
+  editMessage,
+  deleteMessageForEveryone,
+  deleteMessageForMe,
+} from "../controllers/message.controller.js";
 
 const router = Router();
 
-// ⚡ PHASE 2: In-memory upload (we forward the buffer straight to Cloudinary).
-// 50MB ceiling comfortably covers a 20MB compressed image plus AES-GCM overhead,
-// short videos, and voice notes.
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 },
+  limits: { fileSize: UPLOAD_MAX_BYTES },
 });
 
-// ⚡ PHASE 2: Encrypted media upload (raw Cloudinary asset).
+// Encrypted media upload
 router.post("/upload", authenticateUser, upload.single("file"), uploadAttachment);
 
-// ⚡ PHASE 1: Clear all chats. Declared before the "/:conversationId" params so
-// the literal path is never shadowed by the dynamic segment.
+// Clear all chats — declared before /:conversationId so the literal path isn't shadowed
 router.delete("/clear", authenticateUser, clearMessages);
 
 router.get("/:conversationId", authenticateUser, getMessages);

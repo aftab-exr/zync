@@ -1,11 +1,6 @@
 /**
- * ⚡ Conversation key resolver for media E2E.
- * Returns the SAME AES-GCM CryptoKey used for text in a conversation:
- *   • 1-on-1 → ECDH(myPrivate, theirPublic)
- *   • group  → the wrapped group symmetric key, unwrapped for me
- *
- * Kept standalone (rather than reaching into useMessageStore's private helpers)
- * so the text-decryption pipeline stays untouched.
+ * Conversation key resolver for media encryption/decryption.
+ * Resolves the AES-GCM CryptoKey for both 1-on-1 (via ECDH) and group chats.
  */
 import {
   importPrivateKey,
@@ -22,7 +17,7 @@ export const deriveConversationKey = async (conversation, currentUser) => {
   const privateKeyJwk = localStorage.getItem("zync_private_key");
   if (!privateKeyJwk) return null;
 
-  // ── Group: unwrap the shared AES-GCM group key ──
+  // Group: unwrap the shared AES-GCM group key
   if (conversation.isGroup) {
     const groupKeys = conversation.encryptedGroupKeys;
     if (!Array.isArray(groupKeys) || groupKeys.length === 0) return null;
@@ -44,12 +39,12 @@ export const deriveConversationKey = async (conversation, currentUser) => {
 
       return await importSymmetricKey(rawGroupKeyStr);
     } catch (err) {
-      console.error("🔴 Media: group key derivation failed:", err);
+      console.error("Media: group key derivation failed:", err);
       return null;
     }
   }
 
-  // ── 1-on-1: ECDH shared secret with the other participant ──
+  // 1-on-1: ECDH shared secret with the other participant
   const other = conversation.participants?.find((p) => !sameId(p._id, currentUser._id));
   if (!other?.publicKey) return null;
 
@@ -58,7 +53,7 @@ export const deriveConversationKey = async (conversation, currentUser) => {
     const theirPub = await importPublicKey(other.publicKey);
     return await deriveSharedSecret(myPriv, theirPub);
   } catch (err) {
-    console.error("🔴 Media: 1-on-1 key derivation failed:", err);
+    console.error("Media: 1-on-1 key derivation failed:", err);
     return null;
   }
 };

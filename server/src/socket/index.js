@@ -1,4 +1,3 @@
-// server/socket/index.js
 import { Server } from "socket.io";
 import { createAdapter } from "@socket.io/redis-adapter";
 import Redis from "ioredis";
@@ -13,6 +12,7 @@ let pubClient;
 let subClient;
 const activeCalls = new Map();
 
+// Helper to log a WebRTC call to the database and emit a status message to the chat
 const logCallAndEmit = async (session, duration) => {
     try {
         const callerId = session.callerId;
@@ -20,7 +20,7 @@ const logCallAndEmit = async (session, duration) => {
         const callType = session.callType;
         const status = session.status;
 
-        // 1. Create CallLog
+        // 1. Create CallLog entry
         await CallLog.create({
             caller: callerId,
             receiver: receiverId,
@@ -30,7 +30,7 @@ const logCallAndEmit = async (session, duration) => {
             timestamp: new Date()
         });
 
-        // 2. Find or create 1-to-1 conversation
+        // 2. Find or create 1-to-1 conversation for call status message routing
         let conversation = await Conversation.findOne({
             isGroup: false,
             participants: { $all: [callerId, receiverId] }
@@ -43,7 +43,7 @@ const logCallAndEmit = async (session, duration) => {
             });
         }
 
-        // 3. Format message text
+        // 3. Format message text representation of call status
         let text = "";
         if (status === "missed") {
             text = `Missed ${callType} call`;
@@ -63,7 +63,7 @@ const logCallAndEmit = async (session, duration) => {
         conversation.lastMessageId = newMessage._id;
         await conversation.save();
 
-        // 5. Emit standard newMessage to both users so the chat UI updates
+        // 5. Emit newMessage to both users to update chat UI
         if (io) {
             const payload = {
                 ...newMessage.toObject(),
@@ -74,12 +74,11 @@ const logCallAndEmit = async (session, duration) => {
             io.to(receiverId).emit("newMessage", payload);
         }
     } catch (err) {
-        console.error("🔴 Error logging call and emitting message:", err);
+        console.error("Error logging call and emitting message:", err);
     }
 };
 
 export const initializeSocket = (httpServer) => {
-    // 1. Initialize Socket.io with strict CORS
     const sanitizeOrigin = (url) => url ? url.replace(/['"]/g, "").trim() : "";
     const CLIENT_ORIGIN = sanitizeOrigin(process.env.CLIENT_ORIGIN) || "http://localhost:5173";
     const PRODUCTION_ORIGIN = sanitizeOrigin(process.env.PRODUCTION_ORIGIN) || "https://zync-znty.onrender.com";
@@ -97,46 +96,40 @@ export const initializeSocket = (httpServer) => {
         }
     });
 
-    // 2. Connect to Upstash Redis only when configured
-    // Forcing family: 4 (IPv4) resolves DNS resolution timeouts on Node 20+
+    // Connect to Upstash Redis if configured
     if (process.env.REDIS_URL) {
         pubClient = new Redis(process.env.REDIS_URL, { family: 4 });
         subClient = pubClient.duplicate();
 
-        pubClient.on("error", (err) => console.error("🔴 Redis PubClient Error:", err.message));
-        subClient.on("error", (err) => console.error("🔴 Redis SubClient Error:", err.message));
+        pubClient.on("error", (err) => console.error("Redis PubClient Error:", err.message));
+        subClient.on("error", (err) => console.error("Redis SubClient Error:", err.message));
 
         io.adapter(createAdapter(pubClient, subClient));
     } else {
-        console.error("🔴 REDIS_URL is not configured. Socket.io will run without a Redis adapter in single-instance mode.");
+        console.error("REDIS_URL is not configured. Socket.io will run without a Redis adapter in single-instance mode.");
     }
 
-    // 3. The Authentication Handshake (Zero-Trust Socket)
+    // Authenticate socket connection with Firebase ID token
     io.use(async (socket, next) => {
         try {
             const token = socket.handshake.auth.token;
             if (!token) return next(new Error("Authentication error: No token provided"));
 
-            // 🚧 DEVELOPMENT BYPASS (Match our Express bypass for testing)
+            // Development bypass for unit tests / local prototyping
             if (token === "DEV_TEST_TOKEN") {
                 socket.user = await User.findOne({ firebaseUid: "firebase_mock_uid_123" });
                 return next();
             }
 
-            // Verify Firebase JWT
             const decodedToken = await admin.auth().verifyIdToken(token);
 
-            // 🛡️ ZERO-COST EMAIL GATE: mirror the Express middleware — an unverified
-            // email never reaches the real-time pipeline (presence, messaging, WebRTC).
             if (decodedToken.email && decodedToken.email_verified === false) {
                 return next(new Error("Email not verified"));
             }
 
             const user = await User.findOne({ firebaseUid: decodedToken.uid });
-
             if (!user) return next(new Error("User profile not found"));
 
-            // Attach user data to the socket session
             socket.user = user;
             next();
         } catch (error) {
@@ -145,15 +138,12 @@ export const initializeSocket = (httpServer) => {
         }
     });
 
-    // 4. Connection & Event Listeners
     io.on("connection", async (socket) => {
         try {
             const userId = socket.user._id.toString();
-
             socket.join(userId);
 
-            // ⚡ TRANSIENT STATE RELAY: Typing Indicators
-            // Direct event piping via Redis. Zero disk write overhead.
+            // Typing indicators
             socket.on("typing_start", ({ receiverId, conversationId }) => {
                 socket.to(receiverId).emit("user_typing", { conversationId });
             });
@@ -162,16 +152,13 @@ export const initializeSocket = (httpServer) => {
                 socket.to(receiverId).emit("user_stopped_typing", { conversationId });
             });
 
-            // ✅ BLUE TICK PROTOCOL: Real-Time Read Receipts
-            // The reader marks the OTHER user's messages as read, then we notify
-            // the original sender so their bubbles flip to a double blue checkmark.
+            // Mark messages as read and notify sender
             socket.on("message:mark-read", async ({ conversationId, messageIds }) => {
                 try {
                     if (!conversationId || !Array.isArray(messageIds) || messageIds.length === 0) return;
 
-                    const readerId = userId; // socket.user._id (zero-trust: derived from the session, never the client)
+                    const readerId = userId;
 
-                    // Only flip messages NOT authored by the reader, and only if currently unread.
                     await Message.updateMany(
                         {
                             _id: { $in: messageIds },
@@ -182,8 +169,6 @@ export const initializeSocket = (httpServer) => {
                         { $set: { isRead: true } }
                     );
 
-                    // Derive the broadcast targets from the messages' own senderId.
-                    // We never trust a client-supplied receiverId for routing.
                     const affected = await Message.find({ _id: { $in: messageIds } })
                         .select("senderId")
                         .lean();
@@ -204,17 +189,16 @@ export const initializeSocket = (httpServer) => {
                         });
                     });
                 } catch (err) {
-                    console.error("🔴 Error in message:mark-read:", err.stack || err);
+                    console.error("Error in message:mark-read:", err.stack || err);
                 }
             });
 
-            // ⚡ User Presence Engine
+            // Update presence status to online
             await User.findByIdAndUpdate(userId, { $set: { "status.online": true } });
             socket.broadcast.emit("presence:update", { userId, online: true });
 
             socket.on("disconnect", async () => {
                 try {
-                    // Check if user is in an active call
                     const session = activeCalls.get(userId);
                     if (session) {
                         activeCalls.delete(session.callerId);
@@ -222,7 +206,6 @@ export const initializeSocket = (httpServer) => {
                         const duration = session.startTime ? Math.round((Date.now() - session.startTime) / 1000) : 0;
                         await logCallAndEmit(session, duration);
 
-                        // Notify peer that call ended
                         const peerId = session.callerId === userId ? session.receiverId : session.callerId;
                         io.to(peerId).emit("webrtc:call-ended");
                     }
@@ -232,17 +215,14 @@ export const initializeSocket = (httpServer) => {
                     });
                     socket.broadcast.emit("presence:update", { userId, online: false, lastSeen: new Date() });
                 } catch (err) {
-                    console.error("🔴 Error in Socket disconnect presence update:", err.stack || err);
+                    console.error("Error in Socket disconnect presence update:", err.stack || err);
                 }
             });
 
-            // ==========================================
-            // ⚡ PHASE 2.2: WEBRTC SIGNALING SWITCHBOARD
-            // ==========================================
+            // WebRTC Signaling Switchboard
 
-            // 1. User A initiates a call to User B
+            // 1. User initiates a call
             socket.on("webrtc:call-user", ({ userToCall, signalData, callerData, callType }) => {
-                // Track active call
                 const session = {
                     callerId: userId,
                     receiverId: userToCall.toString(),
@@ -254,29 +234,27 @@ export const initializeSocket = (httpServer) => {
                 activeCalls.set(userId, session);
                 activeCalls.set(userToCall.toString(), session);
 
-                // Route the incoming call alert and the SDP offer to User B.
                 io.to(userToCall.toString()).emit("webrtc:incoming-call", {
                     signal: signalData,
                     callType: callType === "audio" ? "audio" : "video",
                     caller: {
-                        _id: userId, // The person making the call
+                        _id: userId,
                         ...callerData
                     }
                 });
             });
 
-            // 2. User B answers the call
+            // 2. User answers a call
             socket.on("webrtc:answer-call", ({ to, signalData }) => {
-                const session = activeCalls.get(userId); // Callee
+                const session = activeCalls.get(userId);
                 if (session) {
                     session.startTime = Date.now();
                     session.status = "answered";
                 }
-                // Route the SDP answer back to User A to finalize the handshake
                 io.to(to.toString()).emit("webrtc:call-accepted", signalData);
             });
 
-            // 3. Routing ICE Candidates (Finding the best network path)
+            // 3. Exchange ICE candidates
             socket.on("webrtc:ice-candidate", ({ to, candidate }) => {
                 io.to(to.toString()).emit("webrtc:ice-candidate", {
                     senderId: userId,
@@ -284,7 +262,7 @@ export const initializeSocket = (httpServer) => {
                 });
             });
 
-            // 4. Call Rejection or Cancellation
+            // 4. Reject call
             socket.on("webrtc:reject-call", ({ to }) => {
                 const session = activeCalls.get(userId);
                 if (session) {
@@ -295,7 +273,7 @@ export const initializeSocket = (httpServer) => {
                 io.to(to.toString()).emit("webrtc:call-rejected");
             });
 
-            // 5. Ending an active call
+            // 5. End active call
             socket.on("webrtc:end-call", ({ to }) => {
                 const session = activeCalls.get(userId);
                 if (session) {
@@ -307,7 +285,7 @@ export const initializeSocket = (httpServer) => {
                 io.to(to.toString()).emit("webrtc:call-ended");
             });
         } catch (err) {
-            console.error("🔴 Error in Socket connection handler:", err.stack || err);
+            console.error("Error in Socket connection handler:", err.stack || err);
         }
     });
     return io;

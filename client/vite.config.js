@@ -46,7 +46,9 @@ export default defineConfig({
       }
     })
   ],
-  // ⚡ THE FIX: Force Vite to compile the JavaScript for older mobile WebViews
+  esbuild: {
+    drop: ['console', 'debugger'],
+  },
   build: {
     target: 'es2015',
     chunkSizeWarningLimit: 1500,

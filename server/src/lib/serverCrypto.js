@@ -1,7 +1,9 @@
 /**
- * ⚡ ZYNC SERVER-SIDE ZERO-KNOWLEDGE ENGINE
- * Node 24 native WebCrypto implementation for the AI Gateway.
+ * Server-side cryptography helpers for the AI Gateway.
+ * Utilizes native Node.js WebCrypto (globalThis.crypto.subtle) with ECDH P-256 and AES-GCM 256.
  */
+
+// Generate a fresh ECDH P-256 key pair for server identities
 export const generateServerKeyPair = async () => {
     const keyPair = await globalThis.crypto.subtle.generateKey(
         { name: "ECDH", namedCurve: "P-256" },
@@ -16,6 +18,7 @@ export const generateServerKeyPair = async () => {
     };
 };
 
+// Import a public JWK key string
 export const importPublicKey = async (jwkString) => {
     const jwk = JSON.parse(jwkString);
     return await globalThis.crypto.subtle.importKey(
@@ -23,6 +26,7 @@ export const importPublicKey = async (jwkString) => {
     );
 };
 
+// Import a private JWK key string
 export const importPrivateKey = async (jwkString) => {
     const jwk = JSON.parse(jwkString);
     return await globalThis.crypto.subtle.importKey(
@@ -30,6 +34,7 @@ export const importPrivateKey = async (jwkString) => {
     );
 };
 
+// Derive a symmetric AES-GCM shared key from local private key and remote public key
 export const deriveSharedSecret = async (myPrivateKey, theirPublicKey) => {
     return await globalThis.crypto.subtle.deriveKey(
         { name: "ECDH", public: theirPublicKey },
@@ -40,6 +45,7 @@ export const deriveSharedSecret = async (myPrivateKey, theirPublicKey) => {
     );
 };
 
+// Encrypt plaintext with derived AES-GCM shared key, returning base64 fields
 export const encryptText = async (text, sharedSecretKey) => {
     const encoder = new TextEncoder();
     const encodedText = encoder.encode(text);
@@ -55,6 +61,7 @@ export const encryptText = async (text, sharedSecretKey) => {
     };
 };
 
+// Decrypt base64 payload with derived AES-GCM shared key
 export const decryptText = async (encryptedPayload, sharedSecretKey) => {
     try {
         const iv = new Uint8Array(Buffer.from(encryptedPayload.iv, 'base64'));
@@ -67,7 +74,7 @@ export const decryptText = async (encryptedPayload, sharedSecretKey) => {
         const decoder = new TextDecoder();
         return decoder.decode(decryptedBuffer);
     } catch (error) {
-        console.error("🔴 AI Gateway Decryption failed:", error);
+        console.error("AI Gateway Decryption failed:", error);
         return "[AI Gateway: Encrypted Message Unreadable]";
     }
 };
