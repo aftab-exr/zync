@@ -32,10 +32,24 @@ jobs:
       - name: 🏗️ Build Web App
         working-directory: ./client
         run: |
+          # 1. Nuke ghost workspace files at the root and client level
+          rm -f ../pnpm-workspace.yaml
+          rm -f pnpm-workspace.yaml
+          
+          # 2. Write environment variables
           echo "${{ secrets.FRONTEND_ENV }}" > .env
-          pnpm install
+          
+          # 3. Brutal force install (ignores workspace rules completely)
+          pnpm install --ignore-workspace --no-frozen-lockfile
+          
+          # 4. Build Vite App
           pnpm run build
+          
+          # 5. Ensure folder exists, then inject native Google Auth bridge
+          mkdir -p android/app
           echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 --decode > android/app/google-services.json
+          
+          # 6. Sync Capacitor
           npx cap sync android
 
       - name: 🤖 Compile Native Android APK
