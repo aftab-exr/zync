@@ -21,6 +21,13 @@ const messageSchema = new Schema(
     attachmentType: { type: String, enum: ["image", "video", "audio", ""], default: "" },
     attachmentMime: { type: String, default: "" },
 
+    // Message categorization
+    messageType: {
+      type: String,
+      enum: ["text", "image", "audio", "video", "call_log"],
+      default: "text",
+    },
+
     isRead: { type: Boolean, default: false },
     isEdited: { type: Boolean, default: false },
     deletedForEveryone: { type: Boolean, default: false },

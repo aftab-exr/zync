@@ -424,6 +424,27 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
       <div ref={feedRef} className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 overflow-x-hidden relative">
         <AnimatePresence initial={false}>
           {processedMessages.map((msg, index) => {
+            if (msg.messageType === "call_log") {
+              return (
+                <motion.div
+                  variants={M.messageBubbleVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                  key={msg._id || index}
+                  data-message-id={msg._id}
+                  className="w-full flex justify-center py-2"
+                >
+                  <div className="bg-surface border-3 border-border px-4 py-2 rounded-lg text-xs font-bold text-tx-secondary shadow-brutal-sm flex items-center gap-2 max-w-[85%] sm:max-w-[70%]">
+                    <span>{msg.text}</span>
+                    <span className="text-[10px] opacity-70 font-mono">
+                      {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                </motion.div>
+              );
+            }
+
             return (
               <motion.div
                 variants={M.messageBubbleVariants}

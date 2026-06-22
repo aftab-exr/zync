@@ -7,9 +7,6 @@ import { sameId } from '../lib/conversation.js';
 
 const SOCKET_URL = import.meta.env.MODE === 'development' ? 'http://localhost:4000' : '/';
 
-// ⚡ SOCKET LIFECYCLE HARDENING: native connectivity handlers held at module
-// scope so they can be detached on teardown — prevents duplicate listeners and
-// stale-socket references across connect/disconnect cycles.
 let onlineHandler = null;
 let offlineHandler = null;
 
@@ -38,7 +35,6 @@ export const useSocketStore = create((set, get) => ({
           const token = await currentUser.getIdToken();
           cb({ token });
         } catch (error) {
-          console.error('Failed to fetch socket token:', error.stack || error);
           cb({ token: null });
         }
       },
@@ -47,13 +43,8 @@ export const useSocketStore = create((set, get) => ({
     socket.on('connect', () => {
       set({ isConnected: true, isReconnecting: false });
 
-      // ⚡ PHASE 3.5 — OUTBOX REPLAY: connectivity is back, so flush any messages
-      // composed while offline (status: 'pending') before anything else. Each
-      // confirmed send swaps its temp bubble for the real server message.
       useMessageStore.getState().resendPendingMessages();
 
-      // ⚡ OFFLINE CATCH-UP: If the user comes back online while looking at a chat,
-      // refetch to pull any messages missed during the disconnect.
       const activeConv = useChatStore.getState().selectedConversation;
       if (activeConv?._id) {
         useMessageStore.getState().fetchMessages(activeConv._id);
@@ -62,18 +53,15 @@ export const useSocketStore = create((set, get) => ({
 
     socket.on('disconnect', (reason) => {
       set({ isConnected: false, isReconnecting: reason !== 'io client disconnect' });
-      // If server disconnected, manually reconnect
       if (reason === 'io server disconnect') {
         socket.connect();
       }
     });
 
     socket.on('connect_error', (err) => {
-      console.error('Socket connection error:', err.message);
       set({ isConnected: false, isReconnecting: socket.active });
     });
 
-    // Bind reconnection events from socket.io manager
     socket.io.on('reconnect_attempt', () => {
       set({ isReconnecting: true });
     });
@@ -118,11 +106,6 @@ export const useSocketStore = create((set, get) => ({
       }
     });
 
-    // ⚡ SOCKET LIFECYCLE HARDENING: mirror the browser's connectivity state onto
-    // the socket. When the tab goes offline, proactively disconnect so socket.io
-    // stops retry-polling and spamming net::ERR_INTERNET_DISCONNECTED; reconnect
-    // the instant we're back online. Detach any handlers bound to a prior socket
-    // first, so re-running connect() never stacks duplicates.
     if (onlineHandler) window.removeEventListener('online', onlineHandler);
     if (offlineHandler) window.removeEventListener('offline', offlineHandler);
 
@@ -146,7 +129,6 @@ export const useSocketStore = create((set, get) => ({
       socket.off('user_typing');
       socket.off('user_stopped_typing');
       socket.off('newMessage');
-      // Clean up manager events
       socket.io.off('reconnect_attempt');
       socket.io.off('reconnect');
       socket.io.off('reconnect_failed');
@@ -154,8 +136,6 @@ export const useSocketStore = create((set, get) => ({
       set({ socket: null, isConnected: false, isReconnecting: false, onlineUsers: [] });
     }
 
-    // ⚡ SOCKET LIFECYCLE HARDENING: detach the connectivity listeners so the now-
-    // destroyed socket can't be revived by a stale 'online'/'offline' event.
     if (onlineHandler) {
       window.removeEventListener('online', onlineHandler);
       onlineHandler = null;

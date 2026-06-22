@@ -46,7 +46,7 @@ const logCallAndEmit = async (session, duration) => {
         // 3. Format message text representation of call status
         let text = "";
         if (status === "missed") {
-            text = `Missed ${callType} call`;
+            text = `🔴 Missed ${callType} call`;
         } else {
             const mins = Math.max(1, Math.round(duration / 60));
             text = `📞 ${callType.charAt(0).toUpperCase() + callType.slice(1)} call - ${mins} mins`;
@@ -56,7 +56,8 @@ const logCallAndEmit = async (session, duration) => {
         const newMessage = await Message.create({
             conversationId: conversation._id,
             senderId: callerId,
-            text
+            text,
+            messageType: "call_log"
         });
 
         conversation.lastMessageAt = new Date();
