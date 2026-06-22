@@ -80,9 +80,15 @@ const logCallAndEmit = async (session, duration) => {
 
 export const initializeSocket = (httpServer) => {
     // 1. Initialize Socket.io with strict CORS
-    const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
-    const PRODUCTION_ORIGIN = "https://zync-znty.onrender.com";
+    const sanitizeOrigin = (url) => url ? url.replace(/['"]/g, "").trim() : "";
+    const CLIENT_ORIGIN = sanitizeOrigin(process.env.CLIENT_ORIGIN) || "http://localhost:5173";
+    const PRODUCTION_ORIGIN = sanitizeOrigin(process.env.PRODUCTION_ORIGIN) || "https://zync-znty.onrender.com";
     const socketOrigins = [CLIENT_ORIGIN, PRODUCTION_ORIGIN].filter(Boolean);
+
+    if (CLIENT_ORIGIN.includes("localhost")) {
+        const localIpOrigin = CLIENT_ORIGIN.replace("localhost", "127.0.0.1");
+        socketOrigins.push(localIpOrigin);
+    }
 
     io = new Server(httpServer, {
         cors: {

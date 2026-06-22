@@ -13,6 +13,17 @@ import aiRoutes from "./routes/ai.routes.js";
 
 const app = express();
 
+// Custom lightweight logging middleware
+app.use((req, res, next) => {
+  console.log(`📡 [${req.method}] ${req.originalUrl} - Origin: ${req.headers.origin || 'N/A'}`);
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log(`   └─ Status: ${res.statusCode} (${duration}ms)`);
+  });
+  next();
+});
+
 app.use(
   helmet({
     // ⚡ THE FIX: Allow the main window to receive tokens from the Firebase popup
@@ -47,9 +58,18 @@ app.use(compression());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
-const PRODUCTION_ORIGIN = "https://zync-znty.onrender.com";
+const sanitizeOrigin = (url) => url ? url.replace(/['"]/g, "").trim() : "";
+
+const CLIENT_ORIGIN = sanitizeOrigin(process.env.CLIENT_ORIGIN) || "http://localhost:5173";
+const PRODUCTION_ORIGIN = sanitizeOrigin(process.env.PRODUCTION_ORIGIN) || "https://zync-znty.onrender.com";
+
 const allowedOrigins = [CLIENT_ORIGIN, PRODUCTION_ORIGIN].filter(Boolean);
+
+// Automatically support both localhost and 127.0.0.1 loopbacks for local development
+if (CLIENT_ORIGIN.includes("localhost")) {
+  const localIpOrigin = CLIENT_ORIGIN.replace("localhost", "127.0.0.1");
+  allowedOrigins.push(localIpOrigin);
+}
 
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(cookieparser());

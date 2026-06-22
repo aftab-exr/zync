@@ -210,6 +210,13 @@ export const useAuthStore = create((set, get) => ({
                 await get().initializeE2E(token, profileData.publicKey);
 
             } catch (error) {
+                console.error("🔴 Auth check failed inside catch block:", {
+                    message: error.message,
+                    code: error.code,
+                    status: error.response?.status,
+                    data: error.response?.data,
+                    url: error.config?.url
+                });
                 if (error.response?.status === 404 || error.response?.status === 403) {
                     set({ user: null, isAuthenticated: true, isCheckingAuth: false });
                 } else {
