@@ -2,6 +2,12 @@
   "appId": "com.zync.app",
   "appName": "Zync",
   "webDir": "dist",
+  "plugins": {
+    "FirebaseAuthentication": {
+      "skipNativeAuth": false,
+      "providers": ["google.com"]
+    }
+  },
   "server": {
     "allowNavigation": [
       "*.firebaseapp.com",
