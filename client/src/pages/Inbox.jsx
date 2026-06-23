@@ -29,7 +29,7 @@ export default function Inbox() {
 
   const { 
     conversations, 
-    fetchConversations, // Synchronized with global store
+    getConversations, // FIXED: Was fetchConversations
     isFetchingConversations,
     subscribeToPresence,      
     unsubscribeFromPresence
@@ -43,8 +43,8 @@ export default function Inbox() {
 
   useEffect(() => {
     if (!currentUser?._id) return;
-    if (fetchConversations) fetchConversations();
-  }, [fetchConversations, currentUser?._id]);
+    if (getConversations) getConversations();
+  }, [getConversations, currentUser?._id]);
 
   useEffect(() => {
     if (!socket) return;

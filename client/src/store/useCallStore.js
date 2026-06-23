@@ -79,6 +79,8 @@ export const useCallStore = create((set, get) => ({
         callType,
         isMicMuted: false,
         isCameraOff: false,
+        isSpeakerOn: callType === 'video',
+        facingMode: 'user', // Ensure default mirror mode
       });
 
       const socket = useSocketStore.getState().socket;
@@ -120,7 +122,14 @@ export const useCallStore = create((set, get) => ({
         video: callType === 'video' ? { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' } : false,
         audio: true,
       });
-      set({ localStream: stream, callState: 'CONNECTED', isMicMuted: false, isCameraOff: false });
+      set({
+        localStream: stream,
+        callState: 'CONNECTED',
+        isMicMuted: false,
+        isCameraOff: false,
+        isSpeakerOn: callType === 'video',
+        facingMode: 'user',
+      });
 
       const socket = useSocketStore.getState().socket;
       const { incomingSignal, remoteUser } = get();

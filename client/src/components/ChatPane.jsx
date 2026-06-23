@@ -18,7 +18,7 @@ import { compressIfImage, encryptFile, uploadEncryptedBlob, fetchAndDecrypt } fr
 import { deriveConversationKey } from "../lib/mediaKeys";
 import VoiceRecorder from "./VoiceRecorder";
 import { useMotion } from "../lib/motion";
-import { ChatFeedSkeleton } from "./Skeletons";
+import { ChatFeedSkeleton } from "../components/Skeletons";
 
 const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024; // 50MB
 
@@ -176,7 +176,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
     [chatBackground]
   );
 
-  const { conversations } = useChatStore();
+  const { conversations, isFetchingConversations } = useChatStore();
   const { onlineUsers } = useSocketStore();
   const {
     messages,
@@ -350,6 +350,24 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
 
     return () => observer.disconnect();
   }, [conversationId, messages, markMessagesAsRead, displayUser?._id]);
+
+  // 1. Wait for the conversation list to hydrate before mapping users
+  if (isFetchingConversations || (!activeConversation && conversations.length === 0)) {
+    return (
+      <div className="flex-1 flex flex-col h-full bg-base overflow-hidden">
+         <ChatFeedSkeleton />
+      </div>
+    );
+  }
+
+  // 2. If fetching is done and conversation STILL doesn't exist, block access
+  if (!activeConversation) {
+    return (
+      <div className="flex-1 flex flex-col h-full bg-base items-center justify-center text-tx-secondary font-bold">
+         Conversation not found.
+      </div>
+    );
+  }
 
   if (isFetching && messages.length === 0) {
     return <ChatFeedSkeleton />;
