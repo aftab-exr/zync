@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { api } from '../lib/axios';
-import { auth } from '../lib/firebase';
+import { auth, getAuthToken } from '../lib/firebase';
 import { useSocketStore } from './useSocketStore';
 import { useAuthStore } from './useAuthStore';
 import { sameId } from '../lib/conversation';
@@ -26,7 +26,7 @@ export const useChatStore = create((set) => ({
   getConversations: async () => {
     set({ isFetchingConversations: true });
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const token = await getAuthToken();
       if (!token) {
         throw new Error('No active session token found');
       }

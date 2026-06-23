@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, onAuthStateChanged } from "firebase/auth";
 import { getMessaging, getToken, onMessage, isSupported } from "firebase/messaging";
 
 const firebaseConfig = {
@@ -57,4 +57,18 @@ export const onForegroundMessage = (callback) => {
   return onMessage(messagingInstance, (payload) => {
     callback(payload);
   });
+};
+
+export const getAuthToken = async () => {
+  let user = auth.currentUser;
+  if (!user) {
+    await new Promise(resolve => {
+      const unsub = onAuthStateChanged(auth, u => {
+        unsub();
+        resolve(u);
+      });
+    });
+    user = auth.currentUser;
+  }
+  return user ? await user.getIdToken() : null;
 };

@@ -196,7 +196,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
   const activeConversation = conversations.find(c => c._id === conversationId);
   const displayUser = activeConversation?.otherUser || activeConversation?.participants?.find(p => p._id !== currentUser?._id);
   const isGroup = activeConversation?.isGroup;
-  const isOnline = onlineUsers.includes(String(displayUser?._id)) || displayUser?.status?.online;
+  const isOnline = onlineUsers.includes(String(displayUser?._id));
   const isSomeoneTyping = typingConversations[conversationId];
 
   const processedMessages = useMemo(() => {
@@ -475,8 +475,8 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                   </span>
                 )}
 
-                <div className={`relative group flex items-center gap-2 max-w-[85%] md:max-w-[70%] ${
-                  msg.isMine ? 'flex-row' : 'flex-row-reverse'
+                <div className={`flex items-center gap-2 group relative max-w-[85%] md:max-w-[70%] ${
+                  msg.isMine ? 'flex-row-reverse' : 'flex-row'
                 }`}>
                   <div className={`rounded-lg p-2.5 border-3 border-border shadow-brutal-sm transition-all font-semibold ${
                     msg.isMine
@@ -527,7 +527,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                   </div>
 
                   {!msg.deletedForEveryone && (
-                    <div className="relative shrink-0">
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity relative">
                       <button
                         type="button"
                         onClick={(e) => {
@@ -540,7 +540,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
                       </button>
 
                       {activeDropdown === msg._id && (
-                        <div className="absolute top-8 right-0 z-50 bg-surface border-3 border-border shadow-brutal p-1.5 min-w-[150px] rounded-lg">
+                        <div className={`absolute top-6 ${msg.isMine ? 'right-0' : 'left-0'} z-50 bg-surface border-3 border-border shadow-brutal p-1.5 min-w-[150px] rounded-lg`}>
                           <button
                             type="button"
                             onClick={() => {
