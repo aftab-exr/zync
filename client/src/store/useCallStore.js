@@ -69,7 +69,7 @@ export const useCallStore = create((set, get) => ({
     try {
       // Audio calls skip the camera entirely so no webcam light comes on.
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: callType === 'video',
+        video: callType === 'video' ? { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' } : false,
         audio: true,
       });
       set({
@@ -117,7 +117,7 @@ export const useCallStore = create((set, get) => ({
       // ⚡ PHASE 4: mirror the caller's media mode (audio-only ↔ video).
       const { callType } = get();
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: callType === 'video',
+        video: callType === 'video' ? { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' } : false,
         audio: true,
       });
       set({ localStream: stream, callState: 'CONNECTED', isMicMuted: false, isCameraOff: false });
@@ -188,27 +188,32 @@ export const useCallStore = create((set, get) => ({
 
     const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
     try {
+      // MUST stop old track first to unlock mobile hardware
+      const oldTrack = localStream.getVideoTracks()[0];
+      if (oldTrack) oldTrack.stop();
+
       const tempStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: newFacingMode },
+        video: {
+          facingMode: newFacingMode,
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
         audio: false
       });
 
       const newVideoTrack = tempStream.getVideoTracks()[0];
-      const oldVideoTracks = localStream.getVideoTracks();
-      
-      if (oldVideoTracks.length > 0) {
-        const oldTrack = oldVideoTracks[0];
-        if (peer) {
-          peer.replaceTrack(oldTrack, newVideoTrack, localStream);
-        }
-        oldTrack.stop();
-        localStream.removeTrack(oldTrack);
+
+      if (peer && oldTrack) {
+        peer.replaceTrack(oldTrack, newVideoTrack, localStream);
       }
-      
+
+      if (oldTrack) localStream.removeTrack(oldTrack);
       localStream.addTrack(newVideoTrack);
+
       set({ facingMode: newFacingMode, localStream: new MediaStream(localStream.getTracks()) });
     } catch (error) {
-      alert("Could not switch camera: " + error.message);
+      console.error("Could not switch camera:", error);
+      alert("Camera switch failed. Check permissions.");
     }
   },
 

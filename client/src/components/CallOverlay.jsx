@@ -14,6 +14,7 @@ export default function CallOverlay() {
     remoteStream,
     isMicMuted,
     isCameraOff,
+    facingMode,
     isSpeakerOn,
     answerCall,
     rejectCall,
@@ -141,7 +142,13 @@ export default function CallOverlay() {
                   transition={M.transition}
                   className="absolute bottom-28 right-6 w-32 md:w-44 aspect-[3/4] bg-zinc-900 rounded-2xl overflow-hidden border-2 border-zinc-700/85 shadow-2xl z-20"
                 >
-                  <video playsInline autoPlay muted ref={localVideoRef} className="w-full h-full object-cover scale-x-[-1]" />
+                  <video
+                    playsInline
+                    autoPlay
+                    muted
+                    ref={localVideoRef}
+                    className={`w-full h-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
+                  />
                   {isCameraOff && (
                     <div className="absolute inset-0 bg-zinc-900 flex items-center justify-center">
                       <VideoOff className="w-6 h-6 text-zinc-500" />
