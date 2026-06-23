@@ -61,7 +61,8 @@ export default function CallOverlay() {
           const speaker = outputs.find(d => d.label.toLowerCase().includes('speaker') || d.label.toLowerCase().includes('loudspeaker'));
           if (speaker) targetDeviceId = speaker.deviceId;
         } else {
-          const earpiece = outputs.find(d => d.label.toLowerCase().includes('earpiece') || d.label.toLowerCase().includes('receiver') || d.label.toLowerCase().includes('phone'));
+          // Enforce earpiece audio routing for standard voice call mode
+          const earpiece = outputs.find(d => d.label.toLowerCase().includes('earpiece') || d.label.toLowerCase().includes('receiver') || d.label.toLowerCase().includes('phone') || d.label.toLowerCase().includes('telephony'));
           if (earpiece) targetDeviceId = earpiece.deviceId;
         }
 

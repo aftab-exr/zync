@@ -197,13 +197,17 @@ export const useCallStore = create((set, get) => ({
 
     const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
     try {
-      // MUST stop old track first to unlock mobile hardware
-      const oldTrack = localStream.getVideoTracks()[0];
-      if (oldTrack) oldTrack.stop();
+      // 1. Explicitly stop and detach all old video tracks to unlock hardware
+      const oldTracks = localStream.getVideoTracks();
+      oldTracks.forEach(track => {
+        track.stop();
+        localStream.removeTrack(track);
+      });
 
+      // 2. Request new hardware stream with high quality constraints
       const tempStream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: newFacingMode,
+          facingMode: { exact: newFacingMode === 'user' ? 'user' : 'environment' },
           width: { ideal: 1280 },
           height: { ideal: 720 }
         },
@@ -212,17 +216,35 @@ export const useCallStore = create((set, get) => ({
 
       const newVideoTrack = tempStream.getVideoTracks()[0];
 
-      if (peer && oldTrack) {
-        peer.replaceTrack(oldTrack, newVideoTrack, localStream);
+      // 3. Hot-swap the track inside the Simple-Peer wrapper
+      if (peer && oldTracks[0]) {
+        peer.replaceTrack(oldTracks[0], newVideoTrack, localStream);
       }
 
-      if (oldTrack) localStream.removeTrack(oldTrack);
+      // 4. Attach new track back to our tracking MediaStream object
       localStream.addTrack(newVideoTrack);
 
-      set({ facingMode: newFacingMode, localStream: new MediaStream(localStream.getTracks()) });
+      set({ 
+        facingMode: newFacingMode, 
+        localStream: new MediaStream(localStream.getTracks()) 
+      });
     } catch (error) {
-      console.error("Could not switch camera:", error);
-      alert("Camera switch failed. Check permissions.");
+      console.error("Hardware fallback switching camera:", error);
+      // Fallback if 'exact' constraints are strict on some mobile browsers
+      try {
+        const fallbackStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: newFacingMode },
+          audio: false
+        });
+        const newVideoTrack = fallbackStream.getVideoTracks()[0];
+        const oldTrack = localStream.getVideoTracks()[0];
+        if (peer && oldTrack) peer.replaceTrack(oldTrack, newVideoTrack, localStream);
+        if (oldTrack) { oldTrack.stop(); localStream.removeTrack(oldTrack); }
+        localStream.addTrack(newVideoTrack);
+        set({ facingMode: newFacingMode, localStream: new MediaStream(localStream.getTracks()) });
+      } catch (err) {
+        alert("Could not access camera source: " + err.message);
+      }
     }
   },
 
