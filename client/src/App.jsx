@@ -1,15 +1,25 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from './store/useAuthStore';
-import Login from './pages/Login';
-import SetupProfile from './pages/SetupProfile';
-import Inbox from './pages/Inbox';
-import Sidecar from './pages/Sidecar';
-import Settings from './pages/Settings';
 import AuthGuard from './components/AuthGuard';
 import GuestGuard from './components/GuestGuard';
 import PushManager from './components/PushManager';
+
+// Dynamic route lazy loading
+const Login = lazy(() => import('./pages/Login'));
+const SetupProfile = lazy(() => import('./pages/SetupProfile'));
+const Inbox = lazy(() => import('./pages/Inbox'));
+const Sidecar = lazy(() => import('./pages/Sidecar'));
+const Settings = lazy(() => import('./pages/Settings'));
+
+function FullScreenLoader() {
+  return (
+    <div className="h-[100dvh] w-screen bg-base flex flex-col items-center justify-center">
+      <div className="w-12 h-12 bg-primary border-3 border-border shadow-brutal animate-spin"></div>
+    </div>
+  );
+}
 
 function App() {
   const { checkAuth, isCheckingAuth } = useAuthStore();
@@ -21,11 +31,7 @@ function App() {
 
   // Initial loading state during authentication check
   if (isCheckingAuth) {
-    return (
-      <div className="h-[100dvh] w-screen bg-base flex flex-col items-center justify-center">
-        <div className="w-12 h-12 bg-primary border-3 border-border shadow-brutal animate-spin"></div>
-      </div>
-    );
+    return <FullScreenLoader />;
   }
   return (
     <BrowserRouter>
@@ -47,26 +53,28 @@ function App() {
         }}
       />
       <PushManager />
-      <Routes>
-        {/* Redirect root to login */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        
-        {/* Guest routes: accessible only to unauthenticated users */}
-        <Route element={<GuestGuard />}>
-          <Route path="/login" element={<Login />} />
-          <Route path="/setup-profile" element={<SetupProfile />} />
-        </Route>
-        
-        {/* Protected routes: require active user session */}
-        <Route element={<AuthGuard />}>
-          {/* Inbox maintains socket connection by rendering at the root path or with an optional conversation ID */}
-          <Route path="/inbox/:conversationId?" element={<Inbox />} />
-          <Route path="/chat/:conversationId?" element={<Inbox />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/sidecar" element={<Sidecar />} />
-        </Route>
-        
-      </Routes>
+      <Suspense fallback={<FullScreenLoader />}>
+        <Routes>
+          {/* Redirect root to login */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          
+          {/* Guest routes: accessible only to unauthenticated users */}
+          <Route element={<GuestGuard />}>
+            <Route path="/login" element={<Login />} />
+            <Route path="/setup-profile" element={<SetupProfile />} />
+          </Route>
+          
+          {/* Protected routes: require active user session */}
+          <Route element={<AuthGuard />}>
+            {/* Inbox maintains socket connection by rendering at the root path or with an optional conversation ID */}
+            <Route path="/inbox/:conversationId?" element={<Inbox />} />
+            <Route path="/chat/:conversationId?" element={<Inbox />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/sidecar" element={<Sidecar />} />
+          </Route>
+          
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

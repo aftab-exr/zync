@@ -18,6 +18,7 @@ import { compressIfImage, encryptFile, uploadEncryptedBlob, fetchAndDecrypt } fr
 import { deriveConversationKey } from "../lib/mediaKeys";
 import VoiceRecorder from "./VoiceRecorder";
 import { useMotion } from "../lib/motion";
+import { ChatFeedSkeleton } from "./Skeletons";
 
 const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024; // 50MB
 
@@ -351,11 +352,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
   }, [conversationId, messages, markMessagesAsRead, displayUser?._id]);
 
   if (isFetching && messages.length === 0) {
-    return (
-      <div className="flex-1 flex flex-col h-full bg-base items-center justify-center">
-        <Loader2 className="w-8 h-8 text-accent animate-spin" />
-      </div>
-    );
+    return <ChatFeedSkeleton />;
   }
 
   return (

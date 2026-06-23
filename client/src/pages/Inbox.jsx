@@ -1,6 +1,9 @@
-import CallOverlay from '../components/CallOverlay';
 import AISidecar from '../components/AISidecar';
 import { useCallStore } from '../store/useCallStore';
+import { lazy, Suspense } from 'react';
+import { InboxSkeleton } from '../components/Skeletons';
+
+const CallOverlay = lazy(() => import('../components/CallOverlay'));
 import { useState, useEffect, useMemo } from 'react';
 import { Search, Bell, Plus, Users } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -21,6 +24,7 @@ export default function Inbox() {
 
   const { connect, disconnect, socket } = useSocketStore();
   const { user, authUser } = useAuthStore();
+  const { callState } = useCallStore();
   const currentUser = authUser || user;
 
   const { 
@@ -102,7 +106,7 @@ export default function Inbox() {
           
           <div className="flex-1 overflow-y-auto px-2 mt-2 space-y-1 overflow-x-hidden">
             {isFetchingConversations && conversations.length === 0 && (
-              <div className="flex justify-center mt-10"><div className="w-6 h-6 border-3 border-border border-t-accent rounded-none animate-spin"></div></div>
+              <InboxSkeleton />
             )}
 
             {!isFetchingConversations && conversations.length === 0 && (
@@ -172,7 +176,11 @@ export default function Inbox() {
           setIsSearchModalOpen(false);
         }} 
       />
-      <CallOverlay />
+      {callState !== 'IDLE' && (
+        <Suspense fallback={null}>
+          <CallOverlay />
+        </Suspense>
+      )}
       <AISidecar />
     </div>
   );

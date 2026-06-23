@@ -50,6 +50,7 @@ export default defineConfig({
     drop: ['console', 'debugger'],
   },
   build: {
+    minify: 'esbuild',
     target: 'es2015',
     chunkSizeWarningLimit: 1500,
   }
