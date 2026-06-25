@@ -8,7 +8,7 @@ import { fileURLToPath } from "url";
 
 import { getAllowedOrigins, PAYLOAD_LIMIT } from "./constants/constants.js";
 import logger from "./middlewares/logger.middleware.js";
-import { globalLimiter } from "./middlewares/rateLimit.middleware.js";
+import { globalLimiter, authLimiter } from "./middlewares/rateLimit.middleware.js";
 import apiResponse from "./utils/apiResponse.js";
 import userRoutes from "./routes/user.route.js";
 import conversationRoutes from "./routes/conversation.routes.js";
@@ -55,7 +55,15 @@ app.use(express.urlencoded({ extended: true, limit: PAYLOAD_LIMIT }));
 app.use(cors({ origin: getAllowedOrigins(), credentials: true }));
 app.use(cookieparser());
 
+// Explicitly set COOP and COEP headers to support Firebase auth popups
+app.use((req, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+  next();
+});
+
 // Routes
+app.use("/api/v1/auth", authLimiter);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/conversations", conversationRoutes);
 app.use("/api/v1/messages", messageRoutes);

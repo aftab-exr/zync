@@ -1,57 +1,86 @@
 # ⚡ Zync
 
-Zync is a high-performance, distributed real-time chat application. It is engineered to provide sub-100ms latency messaging across multiple client devices using a hybrid delivery protocol and a horizontally scalable backend.
-
-## 🏗 Architecture
-
-Zync solves the classic "lost message" problem found in pure WebSocket apps by utilizing a **Hybrid Delivery Protocol**:
-1. **Persistence First:** Messages are routed via an Express HTTP `POST` request to ensure cryptographic verification and permanent storage in MongoDB.
-2. **Real-Time Distribution:** The backend instantly hooks into the Socket.io engine to broadcast the message to the recipient's private room.
-3. **Horizontal Scaling:** The Socket engine is backed by a **Redis Pub/Sub Bus** (`@socket.io/redis-adapter`). This allows the application to run on multiple Node.js server instances while keeping all WebSocket connections perfectly synchronized.
-
-### Core Features
-- **Zero-Latency P2P Messaging:** Real-time delivery via WebSockets.
-- **Global Presence Engine:** Dynamic "Online/Offline" tracking across all connected clients.
-- **Secure Authentication:** Firebase JWT integration with a custom zero-trust Express middleware.
-- **Optimized Data Layer:** Mongoose queries strictly optimized with `.lean()` for pure JSON payloads, reducing Mongoose overhead by ~300%.
-- **State Synchronization:** Zustand global stores handling complex socket lifecycles and HTTP state caching.
-
-## 🛠 Tech Stack
-
-**Frontend**
-- React 18 (Vite)
-- Zustand (Global State & Socket Management)
-- Tailwind CSS & Framer Motion
-- React Router (Configured for persistent socket connections)
-- Firebase Auth (Client-side Identity)
-
-**Backend & Infrastructure**
-- Node.js & Express
-- Socket.io
-- Redis (Upstash) for Pub/Sub Adapter
-- MongoDB (Mongoose)
-- Firebase Admin SDK (Cryptographic Token Verification)
+A high-performance, distributed real-time chat application engineered for
+sub-100ms message delivery across multiple clients.
 
 ---
 
-## 🚀 Getting Started
+## The Problem I Solved
 
-### Prerequisites
-- Node.js (v18+ recommended)
-- `pnpm` package manager
-- A free [MongoDB Atlas](https://www.mongodb.com/atlas) Cluster
-- A free [Upstash Redis](https://upstash.com/) Database
-- A [Firebase Project](https://console.firebase.google.com/)
+Most WebSocket-only chat apps suffer from the "lost message" problem — if a
+socket drops at the wrong moment, the message is gone. Zync eliminates this
+with a Hybrid Delivery Protocol that separates persistence from delivery.
 
-### 1. Clone & Install
-```bash
-git clone [https://github.com/aftab-exr/zync.git](https://github.com/YOUR_GITHUB_USERNAME/zync.git)
-cd zync
+---
 
-# Install backend dependencies
-cd server
-pnpm install
+## How It Works
 
-# Install frontend dependencies
-cd ../client
-pnpm install
+### Hybrid Delivery Protocol
+1. **Persist First** — Every message hits an Express HTTP endpoint first,
+   ensuring it's cryptographically verified and written to MongoDB before
+   anything else happens.
+2. **Deliver Second** — The server immediately emits the stored message over
+   Socket.io to the recipient's private room.
+3. **Scale Horizontally** — A Redis Pub/Sub bus via `@socket.io/redis-adapter`
+   keeps all WebSocket connections in sync across multiple Node.js instances.
+
+### Presence Engine
+Online/Offline status is tracked globally across all connected clients in
+real time using socket lifecycle events tied to Zustand state.
+
+### Zero-Trust Auth
+Every HTTP request and socket connection is verified against a Firebase JWT
+before any data is touched. The middleware is stateless and fails closed.
+
+---
+
+## Case Studies
+
+**Solving the Strict Mode Double-Connect Bug**
+React 18 Strict Mode mounts components twice in development, which was
+causing two simultaneous socket connections per user. Fixed by adding a
+synchronous `isConnecting` flag in the Zustand socket store that
+short-circuits any concurrent `connect()` call.
+
+**Cursor-Based Pagination on Messages**
+Offset pagination breaks under real-time inserts. Replaced it with
+`_id`-based cursor pagination — queries use `{ _id: { $lt: cursor } }`
+sorted descending, capped at 30 messages, returning a `nextCursor` for
+the next page. Scroll-to-top in the chat pane triggers the next fetch
+without scroll jumping.
+
+**Redis Health Check on Startup**
+If Redis is misconfigured, Socket.io silently falls back to in-memory
+mode — meaning horizontal scaling breaks with no visible error. Added an
+async `pubClient.ping()` with a 5-second timeout during server init that
+aborts startup if Redis is unreachable.
+
+---
+
+## Tech Stack
+
+**Frontend**
+- React 18 + Vite
+- Zustand — global state and socket lifecycle management
+- Tailwind CSS + Framer Motion
+- Firebase Auth — client-side identity
+
+**Backend**
+- Node.js + Express
+- Socket.io + `@socket.io/redis-adapter`
+- MongoDB + Mongoose (all reads use `.lean()`)
+- Redis via Upstash — Pub/Sub bus
+- Firebase Admin SDK — JWT verification middleware
+
+---
+
+## Architecture Decisions Worth Noting
+
+- **HTTP + WebSocket hybrid** over pure WebSocket — guarantees persistence
+  even if the socket drops mid-delivery
+- **Zustand over Context** for socket state — avoids re-render cascades on
+  connection events
+- **`.lean()` on all Mongoose reads** — returns plain JS objects instead of
+  full Mongoose documents, cutting overhead significantly
+- **Zod validation on all routes** — input is rejected at the boundary
+  before touching any controller logic
