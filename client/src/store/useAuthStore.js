@@ -4,6 +4,9 @@ import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 import { auth, googleProvider } from "../lib/firebase";
 import { api } from "../lib/axios";
 
+// Track Firebase auth listener so we never register more than one
+let _authUnsub = null;
+
 // Recover public JWK key details from private key
 const derivePublicKeyFromPrivate = (privateKeyStr) => {
     const jwkPriv = JSON.parse(privateKeyStr);
@@ -112,7 +115,9 @@ export const useAuthStore = create((set, get) => ({
 
     // Check Firebase and database authentication status
     checkAuth: () => {
-        onAuthStateChanged(auth, async (firebaseUser) => {
+        // Prevent stacking multiple listeners — only register once
+        if (_authUnsub) return;
+        _authUnsub = onAuthStateChanged(auth, async (firebaseUser) => {
             if (!firebaseUser) {
                 set({ user: null, isAuthenticated: false, isCheckingAuth: false });
                 return;
@@ -183,6 +188,7 @@ export const useAuthStore = create((set, get) => ({
     },
 
     logout: async () => {
+        if (_authUnsub) { _authUnsub(); _authUnsub = null; }
         await signOut(auth);
         localStorage.removeItem("zync_user_cache");
         set({ isAuthenticated: false, user: null });

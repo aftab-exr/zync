@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { auth, requestPushPermission } from '../lib/firebase';
@@ -6,10 +6,12 @@ import { api } from '../lib/axios';
 
 export default function AuthGuard() {
   const { isAuthenticated, user } = useAuthStore();
+  const pushInitRef = useRef(false);
 
   useEffect(() => {
-    // OS prompt for push notifications triggers after successful auth
-    if (isAuthenticated && user) {
+    // OS prompt for push notifications triggers after successful auth — run once only
+    if (isAuthenticated && user && !pushInitRef.current) {
+      pushInitRef.current = true;
       const initPush = async () => {
         const token = await requestPushPermission();
         if (token) {
