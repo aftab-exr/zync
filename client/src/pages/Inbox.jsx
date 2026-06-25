@@ -40,21 +40,21 @@ export default function Inbox() {
     connect();
     useCallStore.getState().initCallListeners();
     return () => disconnect();
-  }, [connect, disconnect]);
+  }, []);
 
   useEffect(() => {
     if (!currentUser?._id) return;
-    if (getConversations) getConversations();
-  }, [getConversations, currentUser?._id]);
+    getConversations();
+  }, [currentUser?._id]);
 
   useEffect(() => {
     if (!socket) return;
-    if (subscribeToPresence) subscribeToPresence();
+    subscribeToPresence();
     
     return () => {
-      if (unsubscribeFromPresence) unsubscribeFromPresence();
+      unsubscribeFromPresence();
     };
-  }, [socket, subscribeToPresence, unsubscribeFromPresence]);
+  }, [socket]);
   
   const processedConversations = useMemo(() => {
     return conversations.map((conv) => {

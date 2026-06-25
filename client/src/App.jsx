@@ -27,7 +27,7 @@ function App() {
   // Initialize authentication state on load
   useEffect(() => {
     checkAuth();
-  }, [checkAuth]);
+  }, []);
 
   // Initial loading state during authentication check
   if (isCheckingAuth) {
