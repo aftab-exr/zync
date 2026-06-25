@@ -55,6 +55,6 @@ router.post("/chat/completions", authenticateUser, asyncHandler(async (req, res)
     console.error("AI route error:", error);
     res.status(500).end();
   }
-});
+}));
 
 export default router;
