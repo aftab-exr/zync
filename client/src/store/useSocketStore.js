@@ -49,7 +49,7 @@ export const useSocketStore = create((set, get) => ({
 
       const activeConv = useChatStore.getState().selectedConversation;
       if (activeConv?._id) {
-        useMessageStore.getState().fetchMessages(activeConv._id);
+        useMessageStore.getState().fetchMessages(activeConv._id).catch(() => {});
       }
     });
 

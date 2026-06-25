@@ -21,7 +21,7 @@ export const sendMessageSchema = z.object({
 
 export const getMessagesSchema = z.object({
   params: z.object({
-    conversationId: objectIdSchema,
+    conversationId: z.string(),
   }),
   query: z.object({
     cursor: z.string().optional(),

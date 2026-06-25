@@ -32,6 +32,7 @@ const sendSilentPush = async (token, senderName, ciphertext, conversationId) => 
 
 // Retrieve messages in a conversation, supports delta sync using after timestamp and cursor-based pagination
 export const getMessages = asyncHandler(async (req, res, next) => {
+    console.log("getMessages req.params:", req.params, "req.query:", req.query);
     const { conversationId } = req.params;
     const userId = req.user?._id;
     const { cursor, limit, after } = req.query;

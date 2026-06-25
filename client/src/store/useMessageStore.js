@@ -253,6 +253,7 @@ export const useMessageStore = create((set, get) => ({
       await cacheMessages(decryptedMessages);
     } catch (error) {
       set({ isFetching: false });
+      throw error;
     }
   },
 
@@ -334,7 +335,18 @@ export const useMessageStore = create((set, get) => ({
   },
 
   getMessages: async (conversationId) => {
-    return get().fetchMessages(conversationId);
+    let attempts = 3;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        return await get().fetchMessages(conversationId);
+      } catch (error) {
+        if (error.response?.status === 400) {
+          break;
+        }
+        if (i === attempts - 1) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 500 * (i + 1)));
+      }
+    }
   },
 
   sendMessage: async (conversationId, text, image, receiverId) => {

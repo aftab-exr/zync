@@ -303,7 +303,19 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
     let isMounted = true;
 
     const loadChat = async () => {
-      await fetchMessages(conversationId);
+      let attempts = 3;
+      for (let i = 0; i < attempts; i++) {
+        try {
+          await fetchMessages(conversationId);
+          break;
+        } catch (error) {
+          if (error.response?.status === 400) {
+            break;
+          }
+          if (i === attempts - 1) break;
+          await new Promise((resolve) => setTimeout(resolve, 500 * (i + 1)));
+        }
+      }
 
       if (isMounted) {
         subscribeToMessages(conversationId);
