@@ -2,6 +2,7 @@ import AISidecar from '../components/AISidecar';
 import { useCallStore } from '../store/useCallStore';
 import { lazy, Suspense } from 'react';
 import { InboxSkeleton } from '../components/Skeletons';
+import ConnectionStatus from '../components/ConnectionStatus';
 
 const CallOverlay = lazy(() => import('../components/CallOverlay'));
 import { useState, useEffect, useMemo } from 'react';
@@ -92,6 +93,8 @@ export default function Inbox() {
           <AvatarDropdown avatarUrl={currentUser?.avatarUrl} />
         </div>
       </header>
+
+      <ConnectionStatus />
 
       {/* Main inbox layout */}
       <div className="flex flex-1 overflow-hidden">

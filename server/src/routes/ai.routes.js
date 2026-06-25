@@ -1,11 +1,12 @@
 import express from "express";
 import authenticateUser from "../middlewares/auth.middleware.js";
 import { AI_MODEL, AI_SYSTEM_PROMPT } from "../constants/constants.js";
+import asyncHandler from "../utils/asyncHandler.js";
 
 const router = express.Router();
 
 // SSE streaming proxy to Groq
-router.post("/chat/completions", authenticateUser, async (req, res) => {
+router.post("/chat/completions", authenticateUser, asyncHandler(async (req, res) => {
   try {
     if (!process.env.GROQ_API_KEY) {
       return res.status(500).json({ error: "GROQ_API_KEY is not configured." });

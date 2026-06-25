@@ -43,4 +43,7 @@ messageSchema.pre("save", function () {
   }
 });
 
+messageSchema.index({ createdAt: 1 });
+messageSchema.index({ conversationId: 1, createdAt: 1 });
+
 export default mongoose.model("Message", messageSchema);

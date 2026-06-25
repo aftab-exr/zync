@@ -19,7 +19,6 @@ import User from "./models/user.model.js";
 import { generateServerKeyPair } from "./lib/serverCrypto.js";
 
 const httpServer = http.createServer(app);
-initializeSocket(httpServer);
 
 // Ensures the AI user profile exists and its keys match the environment.
 // If the env private key is missing or doesn't match the DB public key,
@@ -81,6 +80,7 @@ async function provisionFreshAI() {
 
 // Boot
 connectDB().then(async () => {
+  await initializeSocket(httpServer);
   await bootstrapAI();
   const server = httpServer.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

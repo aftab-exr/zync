@@ -91,6 +91,7 @@ const decryptMessagesWith = async (messages, key) => {
 export const useMessageStore = create((set, get) => ({
   messages: [],
   isFetching: false,
+  hasMore: true,
   typingConversations: {},
 
   setTypingState: (conversationId, isTyping) => {
@@ -211,7 +212,11 @@ export const useMessageStore = create((set, get) => ({
         headers: { Authorization: 'Bearer ' + token }
       });
 
-      let decryptedMessages = res.data.data;
+      const responseData = res.data.data;
+      let newMessages = Array.isArray(responseData) ? responseData : (responseData?.messages || []);
+      const nextCursor = Array.isArray(responseData) ? null : (responseData?.nextCursor || null);
+
+      let decryptedMessages = newMessages;
       const chatStore = useChatStore.getState();
       const conversation = chatStore.conversations.find(c => sameId(c._id, conversationId));
       const currentUser = useAuthStore.getState().authUser || useAuthStore.getState().user;
@@ -225,7 +230,7 @@ export const useMessageStore = create((set, get) => ({
           const sharedSecretKey = await deriveSharedSecret(myPrivKeyObj, theirPubKeyObj);
 
           decryptedMessages = await Promise.all(
-            res.data.data.map(async (message) => {
+            newMessages.map(async (message) => {
               if (message.isDecrypted === true) {
                 return message;
               }
@@ -240,14 +245,91 @@ export const useMessageStore = create((set, get) => ({
       if (conversation?.isGroup) {
         const groupKey = await deriveGroupKey(conversation, currentUser);
         if (groupKey) {
-          decryptedMessages = await decryptMessagesWith(res.data.data, groupKey);
+          decryptedMessages = await decryptMessagesWith(newMessages, groupKey);
         }
       }
 
-      set({ messages: decryptedMessages, isFetching: false });
+      set({ messages: decryptedMessages, isFetching: false, hasMore: !!nextCursor });
       await cacheMessages(decryptedMessages);
     } catch (error) {
       set({ isFetching: false });
+    }
+  },
+
+  fetchMoreMessages: async (conversationId) => {
+    const { messages, hasMore, isFetching } = get();
+    if (!conversationId || !hasMore || isFetching || messages.length === 0) return;
+
+    const oldestMessage = messages[0];
+    if (!oldestMessage || oldestMessage.status === 'pending') return;
+    const cursor = oldestMessage._id;
+
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('No active session token found');
+      }
+
+      const res = await api.get(`/messages/${conversationId}?cursor=${cursor}&limit=30`, {
+        headers: { Authorization: 'Bearer ' + token }
+      });
+
+      const responseData = res.data.data;
+      let newMessages = Array.isArray(responseData) ? responseData : (responseData?.messages || []);
+      const nextCursor = Array.isArray(responseData) ? null : (responseData?.nextCursor || null);
+
+      if (newMessages.length === 0) {
+        set({ hasMore: false });
+        return;
+      }
+
+      // Decrypt new messages
+      const chatStore = useChatStore.getState();
+      const conversation = chatStore.conversations.find(c => sameId(c._id, conversationId));
+      const currentUser = useAuthStore.getState().authUser || useAuthStore.getState().user;
+      const otherParticipant = conversation?.participants?.find(p => p._id !== currentUser?._id);
+      const privateKeyJwk = localStorage.getItem("zync_private_key");
+
+      let decryptedMessages = newMessages;
+      if (conversation && !conversation.isGroup && privateKeyJwk && otherParticipant && otherParticipant.publicKey) {
+        try {
+          const myPrivKeyObj = await importPrivateKey(privateKeyJwk);
+          const theirPubKeyObj = await importPublicKey(otherParticipant.publicKey);
+          const sharedSecretKey = await deriveSharedSecret(myPrivKeyObj, theirPubKeyObj);
+
+          decryptedMessages = await Promise.all(
+            newMessages.map(async (message) => {
+              if (message.isDecrypted === true) return message;
+              return { ...message, text: await safeDecryptMessage(message, sharedSecretKey) };
+            })
+          );
+        } catch (err) {
+          // Handled silently
+        }
+      }
+
+      if (conversation?.isGroup) {
+        const groupKey = await deriveGroupKey(conversation, currentUser);
+        if (groupKey) {
+          decryptedMessages = await decryptMessagesWith(newMessages, groupKey);
+        }
+      }
+
+      set((state) => {
+        const existingIds = new Set(state.messages.map((m) => m._id));
+        const filteredNew = decryptedMessages.filter((m) => !existingIds.has(m._id));
+        const merged = [...filteredNew, ...state.messages].sort(
+          (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+        );
+        return {
+          messages: merged,
+          hasMore: !!nextCursor
+        };
+      });
+
+      await cacheMessages(decryptedMessages);
+    } catch (error) {
+      console.error("fetchMoreMessages error:", error);
     }
   },
 

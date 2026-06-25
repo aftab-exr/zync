@@ -181,6 +181,8 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
   const {
     messages,
     fetchMessages,
+    fetchMoreMessages,
+    hasMore,
     sendMessage,
     editMessage,
     deleteMessageForMe,
@@ -312,7 +314,25 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
       unsubscribeFromMessages();
     };
   }, [conversationId, fetchMessages, subscribeToMessages, unsubscribeFromMessages]);
+  const [loadingMore, setLoadingMore] = useState(false);
 
+  const handleScroll = async (e) => {
+    const { scrollTop } = e.currentTarget;
+    if (scrollTop === 0 && !loadingMore && hasMore && messages.length > 0) {
+      setLoadingMore(true);
+      const oldScrollHeight = feedRef.current.scrollHeight;
+      try {
+        await fetchMoreMessages(conversationId);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingMore(false);
+      }
+      if (feedRef.current) {
+        feedRef.current.scrollTop = feedRef.current.scrollHeight - oldScrollHeight;
+      }
+    }
+  };
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isSomeoneTyping]);
@@ -448,7 +468,11 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
       </div>
 
       {/* Message Feed */}
-      <div ref={feedRef} className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 overflow-x-hidden relative">
+      <div 
+        ref={feedRef} 
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 overflow-x-hidden relative"
+      >
         <AnimatePresence initial={false}>
           {processedMessages.map((msg, index) => {
             if (msg.messageType === "call_log") {

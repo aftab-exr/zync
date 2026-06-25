@@ -58,7 +58,8 @@ export const searchUsers = asyncHandler(async (req, res) => {
     deletedAt: null,
   })
     .select("username displayName avatarUrl status.lastSeen identityKeyPublic publicKey")
-    .limit(10);
+    .limit(10)
+    .lean();
 
   res.status(200).json(new apiResponse(200, "Search results", users));
 });

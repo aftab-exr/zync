@@ -8,6 +8,7 @@ import { fileURLToPath } from "url";
 
 import { getAllowedOrigins, PAYLOAD_LIMIT } from "./constants/constants.js";
 import logger from "./middlewares/logger.middleware.js";
+import { globalLimiter } from "./middlewares/rateLimit.middleware.js";
 import apiResponse from "./utils/apiResponse.js";
 import userRoutes from "./routes/user.route.js";
 import conversationRoutes from "./routes/conversation.routes.js";
@@ -18,6 +19,9 @@ const app = express();
 
 // Request logging
 app.use(logger);
+
+// Rate limiting (30 requests/minute per IP)
+app.use(globalLimiter);
 
 // Security headers
 app.use(

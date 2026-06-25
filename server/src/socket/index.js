@@ -79,7 +79,7 @@ const logCallAndEmit = async (session, duration) => {
     }
 };
 
-export const initializeSocket = (httpServer) => {
+export const initializeSocket = async (httpServer) => {
     const sanitizeOrigin = (url) => url ? url.replace(/['"]/g, "").trim() : "";
     const CLIENT_ORIGIN = sanitizeOrigin(process.env.CLIENT_ORIGIN) || "http://localhost:5173";
     const PRODUCTION_ORIGIN = sanitizeOrigin(process.env.PRODUCTION_ORIGIN) || "https://zync-znty.onrender.com";
@@ -104,6 +104,26 @@ export const initializeSocket = (httpServer) => {
 
         pubClient.on("error", (err) => console.error("Redis PubClient Error:", err.message));
         subClient.on("error", (err) => console.error("Redis SubClient Error:", err.message));
+
+        // Health check: ping Redis on startup
+        try {
+            console.log("Checking Redis connection...");
+            const pingPromise = pubClient.ping();
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error("Redis connection timeout")), 5000)
+            );
+            await Promise.race([pingPromise, timeoutPromise]);
+            console.log("Redis connection health check: PASSED");
+        } catch (err) {
+            console.error("Redis connection health check: FAILED");
+            console.error("Warning: Redis is configured but unavailable. Server startup is aborted to prevent silent degradation.");
+            try {
+                pubClient.disconnect();
+                subClient.disconnect();
+            } catch (disconnectErr) {}
+            // Prevent server from starting by throwing an error
+            throw new Error(`Redis connection failed: ${err.message}`);
+        }
 
         io.adapter(createAdapter(pubClient, subClient));
     } else {

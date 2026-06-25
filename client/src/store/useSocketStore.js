@@ -14,10 +14,11 @@ export const useSocketStore = create((set, get) => ({
   socket: null,
   isConnected: false,
   isReconnecting: false,
+  isConnecting: false,
   onlineUsers: [],
 
   connect: async () => {
-    const { socket: existingSocket } = get();
+    const { socket: existingSocket, isConnecting } = get();
     if (existingSocket) {
       if (existingSocket.connected) return;
       set({ isReconnecting: true });
@@ -25,7 +26,8 @@ export const useSocketStore = create((set, get) => ({
       return;
     }
 
-    set({ isReconnecting: true });
+    if (isConnecting) return;
+    set({ isConnecting: true, isReconnecting: true });
 
     const socket = io(SOCKET_URL, {
       auth: async (cb) => {
@@ -119,7 +121,7 @@ export const useSocketStore = create((set, get) => ({
     window.addEventListener('online', onlineHandler);
     window.addEventListener('offline', offlineHandler);
 
-    set({ socket });
+    set({ socket, isConnecting: false });
   },
 
   disconnect: () => {
@@ -133,7 +135,7 @@ export const useSocketStore = create((set, get) => ({
       socket.io.off('reconnect');
       socket.io.off('reconnect_failed');
       socket.disconnect();
-      set({ socket: null, isConnected: false, isReconnecting: false, onlineUsers: [] });
+      set({ socket: null, isConnected: false, isReconnecting: false, isConnecting: false, onlineUsers: [] });
     }
 
     if (onlineHandler) {

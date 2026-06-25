@@ -15,7 +15,8 @@ export const getConversations = asyncHandler(async (req, res) => {
   const conversations = await Conversation.find({ participants: { $in: [userId] } })
     .populate("participants", "username displayName avatarUrl isAI status publicKey")
     .populate("lastMessageId")
-    .sort({ lastMessageAt: -1 });
+    .sort({ lastMessageAt: -1 })
+    .lean();
 
   res.status(200).json(new apiResponse(200, "Conversations fetched.", conversations));
 });
