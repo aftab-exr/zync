@@ -72,10 +72,7 @@ export const getMessages = asyncHandler(async (req, res, next) => {
     }
 
     // Pagination flow
-    if (cursor) {
-        if (!mongoose.Types.ObjectId.isValid(cursor)) {
-            throw new apiError(400, "Invalid cursor format.");
-        }
+    if (cursor && mongoose.Types.ObjectId.isValid(cursor)) {
         filter._id = { $lt: new mongoose.Types.ObjectId(cursor) };
     }
 

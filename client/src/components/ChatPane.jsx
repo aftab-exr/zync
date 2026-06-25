@@ -165,6 +165,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
   const messagesEndRef = useRef(null);
   const feedRef = useRef(null);
   const markedReadRef = useRef(new Set());
+  const lastFetchedIdRef = useRef(null);
   const navigate = useNavigate();
   
   const { authUser, user } = useAuthStore();
@@ -296,6 +297,8 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
 
   useEffect(() => {
     if (!conversationId) return;
+    if (conversationId === lastFetchedIdRef.current) return;
+    lastFetchedIdRef.current = conversationId;
 
     let isMounted = true;
 

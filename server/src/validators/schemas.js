@@ -24,7 +24,7 @@ export const getMessagesSchema = z.object({
     conversationId: objectIdSchema,
   }),
   query: z.object({
-    cursor: objectIdSchema.optional(),
+    cursor: z.string().optional(),
     limit: z.string().regex(/^\d+$/).transform(val => parseInt(val, 10)).optional(),
     after: z.string().refine(val => !isNaN(Date.parse(val)), { message: "Invalid ISO date format" }).optional(),
   }),
