@@ -10,7 +10,14 @@ export const validate = (schema) => (req, res, next) => {
     
     // Assign parsed values back to requests to preserve transformed inputs (e.g. limit coerced to number)
     if (parsed.body) req.body = parsed.body;
-    if (parsed.query) req.query = parsed.query;
+    if (parsed.query) {
+      Object.defineProperty(req, "query", {
+        value: parsed.query,
+        writable: true,
+        configurable: true,
+        enumerable: true,
+      });
+    }
     if (parsed.params) req.params = parsed.params;
     
     next();
