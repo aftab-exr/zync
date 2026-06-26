@@ -8,12 +8,12 @@ export const sendMessageSchema = z.object({
     conversationId: objectIdSchema,
   }),
   body: z.object({
-    text: z.string().max(2000, "Message text cannot exceed 2000 characters").optional(),
-    image: z.string().optional(),
-    attachmentUrl: z.string().optional(),
-    attachmentType: z.enum(["image", "video", "audio", ""]).optional(),
-    attachmentMime: z.string().optional(),
-    receiverId: objectIdSchema.optional(),
+    text: z.string().max(2000, "Message text cannot exceed 2000 characters").optional().nullable(),
+    image: z.string().optional().nullable(),
+    attachmentUrl: z.string().optional().nullable(),
+    attachmentType: z.enum(["image", "video", "audio", ""]).optional().nullable(),
+    attachmentMime: z.string().optional().nullable(),
+    receiverId: objectIdSchema.optional().nullable(),
   }).refine(data => data.text || data.image || data.attachmentUrl, {
     message: "Message must contain text, an image, or an attachment.",
   }),
