@@ -1,22 +1,19 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   define: {
+    global: 'window',
     'process.env': {},
+  },
+  resolve: {
+    alias: {
+      'simple-peer': 'simple-peer/simplepeer.min.js',
+    },
   },
   plugins: [
     react(),
-    nodePolyfills({
-      globals: {
-        Buffer: true,
-        global: true,
-        process: true,
-      },
-      protocolImports: true,
-    }),
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
