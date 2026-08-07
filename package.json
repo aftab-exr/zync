@@ -8,8 +8,9 @@
     "dev:client":"cd client && pnpm dev",
     "dev:server":"cd server && pnpm exec nodemon src/index.js",
     "dev":"concurrently \"pnpm run dev:client\" \"pnpm run dev:server\"",
-    "build":"pnpm --dir client install && pnpm --dir client run build",
-    "start":"pnpm --dir server exec node src/index.js"
+    "build":"pnpm install -r && pnpm --dir client run build",
+    "start":"pnpm --dir server exec node src/index.js",
+    "crypto:build":"cd packages/zync-crypto && npm run build"
   },
   "keywords": [],
   "author": "",
@@ -24,5 +25,8 @@
   "type": "module",
   "devDependencies": {
     "concurrently": "^9.2.1"
-  }
+  },
+  "workspaces": [
+    "packages/*"
+  ]
 }

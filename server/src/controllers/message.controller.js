@@ -6,7 +6,7 @@ import admin from "../config/firebase.js";
 import cloudinary from "../config/cloudinary.js"; 
 import * as socketModule from "../socket/index.js"; 
 import { generateAIResponse } from "../services/ai.service.js"; 
-import { importPublicKey, importPrivateKey, deriveSharedSecret, decryptText, encryptText } from "../lib/serverCrypto.js";
+import { importPublicKey, importPrivateKey, deriveSharedSecret, decryptText, encryptText } from '@zync/crypto';
 import apiResponse from "../utils/apiResponse.js";
 import apiError from "../utils/apiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -32,7 +32,6 @@ const sendSilentPush = async (token, senderName, ciphertext, conversationId) => 
 
 // Retrieve messages in a conversation, supports delta sync using after timestamp and cursor-based pagination
 export const getMessages = asyncHandler(async (req, res, next) => {
-    console.log("getMessages req.params:", req.params, "req.query:", req.query);
     const { conversationId } = req.params;
     const userId = req.user?._id;
     const { cursor, limit, after } = req.query;

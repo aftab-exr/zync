@@ -5,88 +5,17 @@ import { useSocketStore } from './useSocketStore';
 import { useChatStore } from './useChatStore';
 import { useAuthStore } from './useAuthStore';
 import { sameId } from '../lib/conversation';
-import {
-  importPrivateKey,
-  importPublicKey,
-  deriveSharedSecret,
-  encryptText,
-  decryptText,
-  importSymmetricKey
-} from '../lib/crypto';
-import { deriveConversationKey } from '../lib/mediaKeys';
 import { cacheMessage, cacheMessages, getCachedMessages, clearCachedMessages, deleteCachedMessage, getPendingMessages } from '../lib/db';
+import { 
+  decryptConversationMessages,
+  encryptForConversation 
+} from '../services/decryption';
 
 let messageHandler = null;
 let readReceiptHandler = null;
 let messageEditedHandler = null;
 let messageDeletedEveryoneHandler = null;
 let messageDeletedMeHandler = null;
-
-// Decrypt message helper, bypasses decryption for plain text or system call logs.
-const safeDecryptMessage = async (msg, sharedSecret) => {
-    if (!msg || !msg.text) return "";
-    if (msg.isDecrypted === true) return msg.text;
-    if (msg.messageType === "call_log") return msg.text;
-    try {
-        const parsed = JSON.parse(msg.text);
-        if (!parsed.iv || !parsed.ciphertext) return msg.text;
-
-        if (!sharedSecret) {
-            return "🔒 [Encrypted Message - Awaiting Key Sync]";
-        }
-
-        const decryptedText = await decryptText(parsed, sharedSecret);
-        if (!decryptedText || decryptedText === "[Encrypted Message - Unreadable]") {
-            return "🔒 [Encrypted Message - Mathematical Mismatch]";
-        }
-
-        return decryptedText;
-    } catch (e) {
-        if (e.name === "SyntaxError") return msg.text;
-        return "🔒 [Encrypted Message - Mathematical Mismatch]";
-    }
-};
-
-const deriveGroupKey = async (conversation, currentUser) => {
-  if (!conversation?.isGroup) return null;
-
-  const groupKeys = conversation.encryptedGroupKeys;
-  if (!Array.isArray(groupKeys) || groupKeys.length === 0) return null;
-
-  const myEntry = groupKeys.find((k) => sameId(k.userId, currentUser?._id));
-  if (!myEntry?.encryptedKeyPayload) return null;
-
-  const creatorId = conversation.groupAdmins?.[0];
-  const creator = conversation.participants?.find((p) => sameId(p._id, creatorId));
-  const privateKeyJwk = localStorage.getItem("zync_private_key");
-
-  if (!creator?.publicKey || !privateKeyJwk) return null;
-
-  try {
-    const myPriv = await importPrivateKey(privateKeyJwk);
-    const creatorPub = await importPublicKey(creator.publicKey);
-    const wrapSecret = await deriveSharedSecret(myPriv, creatorPub);
-
-    const parsedPayload = JSON.parse(myEntry.encryptedKeyPayload);
-    const rawGroupKeyStr = await decryptText(parsedPayload, wrapSecret);
-    if (!rawGroupKeyStr || rawGroupKeyStr === "[Encrypted Message - Unreadable]") return null;
-
-    return await importSymmetricKey(rawGroupKeyStr);
-  } catch (err) {
-    return null;
-  }
-};
-
-const decryptMessagesWith = async (messages, key) => {
-  return Promise.all(
-    messages.map(async (message) => {
-      if (message.isDecrypted === true) {
-        return message;
-      }
-      return { ...message, text: await safeDecryptMessage(message, key) };
-    })
-  );
-};
 
 export const useMessageStore = create((set, get) => ({
   messages: [],
@@ -115,7 +44,7 @@ export const useMessageStore = create((set, get) => ({
       await clearCachedMessages();
       set({ messages: [] });
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   },
@@ -140,20 +69,11 @@ export const useMessageStore = create((set, get) => ({
 
       const chatStore = useChatStore.getState();
       const conversation = chatStore.conversations.find((c) => sameId(c._id, conversationId));
-      const currentUser = useAuthStore.getState().authUser || useAuthStore.getState().user;
+      const currentUser = useAuthStore.getState().user;
 
       let textToSend = caption || '';
-      let encryptionKey = null;
       if (caption) {
-        encryptionKey = await deriveConversationKey(conversation, currentUser);
-        if (encryptionKey) {
-          try {
-            const encryptedPayload = await encryptText(caption, encryptionKey);
-            textToSend = JSON.stringify(encryptedPayload);
-          } catch (err) {
-            textToSend = caption;
-          }
-        }
+        textToSend = await encryptForConversation(caption, conversation, currentUser);
       }
 
       const res = await api.post(
@@ -169,16 +89,9 @@ export const useMessageStore = create((set, get) => ({
       );
 
       let savedMessage = res.data.data;
-      if (encryptionKey && savedMessage.text) {
-        try {
-          const parsed = JSON.parse(savedMessage.text);
-          if (parsed?.iv && parsed?.ciphertext) {
-            savedMessage = { ...savedMessage, text: await decryptText(parsed, encryptionKey) };
-          }
-        } catch {
-          // Plaintext fallback
-        }
-      }
+      // Decrypt the saved message for local display
+      const decryptedMessages = await decryptConversationMessages(conversationId, [savedMessage]);
+      savedMessage = decryptedMessages[0] || savedMessage;
 
       const updatedMessages = [...get().messages, savedMessage].sort(
         (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
@@ -188,7 +101,7 @@ export const useMessageStore = create((set, get) => ({
 
       cacheMessage(savedMessage);
       return true;
-    } catch (error) {
+    } catch {
       return false;
     } finally {
       set({ isSending: false });
@@ -216,38 +129,8 @@ export const useMessageStore = create((set, get) => ({
       let newMessages = Array.isArray(responseData) ? responseData : (responseData?.messages || []);
       const nextCursor = Array.isArray(responseData) ? null : (responseData?.nextCursor || null);
 
-      let decryptedMessages = newMessages;
-      const chatStore = useChatStore.getState();
-      const conversation = chatStore.conversations.find(c => sameId(c._id, conversationId));
-      const currentUser = useAuthStore.getState().authUser || useAuthStore.getState().user;
-      const otherParticipant = conversation?.participants?.find(p => p._id !== currentUser?._id);
-      const privateKeyJwk = localStorage.getItem("zync_private_key");
-
-      if (conversation && !conversation.isGroup && privateKeyJwk && otherParticipant && otherParticipant.publicKey) {
-        try {
-          const myPrivKeyObj = await importPrivateKey(privateKeyJwk);
-          const theirPubKeyObj = await importPublicKey(otherParticipant.publicKey);
-          const sharedSecretKey = await deriveSharedSecret(myPrivKeyObj, theirPubKeyObj);
-
-          decryptedMessages = await Promise.all(
-            newMessages.map(async (message) => {
-              if (message.isDecrypted === true) {
-                return message;
-              }
-              return { ...message, text: await safeDecryptMessage(message, sharedSecretKey) };
-            })
-          );
-        } catch (err) {
-          // Handled silently
-        }
-      }
-
-      if (conversation?.isGroup) {
-        const groupKey = await deriveGroupKey(conversation, currentUser);
-        if (groupKey) {
-          decryptedMessages = await decryptMessagesWith(newMessages, groupKey);
-        }
-      }
+      // Use centralized decryption service
+      const decryptedMessages = await decryptConversationMessages(conversationId, newMessages);
 
       set({ messages: decryptedMessages, isFetching: false, hasMore: !!nextCursor });
       await cacheMessages(decryptedMessages);
@@ -284,37 +167,8 @@ export const useMessageStore = create((set, get) => ({
         return;
       }
 
-      // Decrypt new messages
-      const chatStore = useChatStore.getState();
-      const conversation = chatStore.conversations.find(c => sameId(c._id, conversationId));
-      const currentUser = useAuthStore.getState().authUser || useAuthStore.getState().user;
-      const otherParticipant = conversation?.participants?.find(p => p._id !== currentUser?._id);
-      const privateKeyJwk = localStorage.getItem("zync_private_key");
-
-      let decryptedMessages = newMessages;
-      if (conversation && !conversation.isGroup && privateKeyJwk && otherParticipant && otherParticipant.publicKey) {
-        try {
-          const myPrivKeyObj = await importPrivateKey(privateKeyJwk);
-          const theirPubKeyObj = await importPublicKey(otherParticipant.publicKey);
-          const sharedSecretKey = await deriveSharedSecret(myPrivKeyObj, theirPubKeyObj);
-
-          decryptedMessages = await Promise.all(
-            newMessages.map(async (message) => {
-              if (message.isDecrypted === true) return message;
-              return { ...message, text: await safeDecryptMessage(message, sharedSecretKey) };
-            })
-          );
-        } catch (err) {
-          // Handled silently
-        }
-      }
-
-      if (conversation?.isGroup) {
-        const groupKey = await deriveGroupKey(conversation, currentUser);
-        if (groupKey) {
-          decryptedMessages = await decryptMessagesWith(newMessages, groupKey);
-        }
-      }
+      // Use centralized decryption service
+      const decryptedMessages = await decryptConversationMessages(conversationId, newMessages);
 
       set((state) => {
         const existingIds = new Set(state.messages.map((m) => m._id));
@@ -329,8 +183,8 @@ export const useMessageStore = create((set, get) => ({
       });
 
       await cacheMessages(decryptedMessages);
-    } catch (error) {
-      console.error("fetchMoreMessages error:", error);
+    } catch {
+        console.error('fetchMoreMessages error:');
     }
   },
 
@@ -352,39 +206,12 @@ export const useMessageStore = create((set, get) => ({
   sendMessage: async (conversationId, text, image, receiverId) => {
     set({ isSending: true });
 
-    let textToSend = text;
-    let encryptionKey = null;
-    const privateKeyJwk = localStorage.getItem("zync_private_key");
-
     const chatStore = useChatStore.getState();
     const conversation = chatStore.conversations.find(c => sameId(c._id, conversationId));
-    const currentUser = useAuthStore.getState().authUser || useAuthStore.getState().user;
-    const otherParticipant = conversation?.participants?.find(p => sameId(p._id, receiverId))
-      || conversation?.participants?.find(p => !sameId(p._id, currentUser?._id));
+    const currentUser = useAuthStore.getState().user;
 
-    if (conversation?.isGroup && text) {
-      const groupKey = await deriveGroupKey(conversation, currentUser);
-      if (groupKey) {
-        try {
-          const encryptedPayload = await encryptText(text, groupKey);
-          textToSend = JSON.stringify(encryptedPayload);
-          encryptionKey = groupKey;
-        } catch (err) {
-          textToSend = text;
-          encryptionKey = null;
-        }
-      }
-    } else if (conversation && !conversation.isGroup && privateKeyJwk && otherParticipant && otherParticipant.publicKey && text) {
-      try {
-        const myPrivKeyObj = await importPrivateKey(privateKeyJwk);
-        const theirPubKeyObj = await importPublicKey(otherParticipant.publicKey);
-        encryptionKey = await deriveSharedSecret(myPrivKeyObj, theirPubKeyObj);
-        const encryptedPayload = await encryptText(text, encryptionKey);
-        textToSend = JSON.stringify(encryptedPayload);
-      } catch (err) {
-        // Handled silently
-      }
-    }
+    // Encrypt using centralized service
+    const textToSend = await encryptForConversation(text, conversation, currentUser);
 
     const tempId = `temp_${Date.now()}`;
     const optimisticMessage = {
@@ -416,17 +243,9 @@ export const useMessageStore = create((set, get) => ({
       );
 
       let savedMessage = res.data.data;
-      if (encryptionKey && savedMessage.text) {
-        try {
-          const parsed = JSON.parse(savedMessage.text);
-          if (parsed && typeof parsed === 'object' && parsed.iv && parsed.ciphertext) {
-            const decryptedText = await decryptText(parsed, encryptionKey);
-            savedMessage = { ...savedMessage, text: decryptedText };
-          }
-        } catch {
-          // Handled silently
-        }
-      }
+      // Decrypt the saved message for local display
+      const decryptedMessages = await decryptConversationMessages(conversationId, [savedMessage]);
+      savedMessage = decryptedMessages[0] || savedMessage;
 
       set((state) => {
         const withoutTemp = state.messages.filter((m) => !sameId(m._id, tempId));
@@ -442,7 +261,7 @@ export const useMessageStore = create((set, get) => ({
       cacheMessage(savedMessage);
 
       return true;
-    } catch (error) {
+    } catch {
       return false;
     } finally {
       set({ isSending: false });
@@ -469,20 +288,23 @@ export const useMessageStore = create((set, get) => ({
         });
 
         const savedMessage = { ...res.data.data, text: msg.text };
+        // Decrypt for local display
+        const decryptedMessages = await decryptConversationMessages(msg.conversationId, [savedMessage]);
+        const finalMessage = decryptedMessages[0] || savedMessage;
 
         set((state) => {
           const withoutTemp = state.messages.filter((m) => !sameId(m._id, msg._id));
-          const exists = withoutTemp.some((m) => sameId(m._id, savedMessage._id));
-          const next = exists ? withoutTemp : [...withoutTemp, savedMessage];
+          const exists = withoutTemp.some((m) => sameId(m._id, finalMessage._id));
+          const next = exists ? withoutTemp : [...withoutTemp, finalMessage];
           return {
             messages: next.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)),
           };
         });
 
         await deleteCachedMessage(msg._id);
-        cacheMessage(savedMessage);
-        useChatStore.getState().updateConversationLastMessage(msg.conversationId, savedMessage);
-      } catch (error) {
+        cacheMessage(finalMessage);
+        useChatStore.getState().updateConversationLastMessage(msg.conversationId, finalMessage);
+      } catch {
         return;
       }
     }
@@ -499,29 +321,9 @@ export const useMessageStore = create((set, get) => ({
     messageHandler = async (newMessage) => {
       if (!sameId(newMessage.conversationId, currentConversationId)) return;
 
-      let decryptedMsg = newMessage;
-      if (newMessage.text && newMessage.messageType !== "call_log") {
-        const privateKeyJwk = localStorage.getItem("zync_private_key");
-        const chatStore = useChatStore.getState();
-        const conversation = chatStore.conversations.find(c => sameId(c._id, currentConversationId));
-        const currentUser = useAuthStore.getState().authUser || useAuthStore.getState().user;
-        const otherParticipant = conversation?.participants?.find(p => !sameId(p._id, currentUser?._id));
-
-        if (conversation?.isGroup) {
-          const groupKey = await deriveGroupKey(conversation, currentUser);
-          decryptedMsg = { ...newMessage, text: await safeDecryptMessage(newMessage, groupKey) };
-        } else if (conversation && !conversation.isGroup && privateKeyJwk && otherParticipant && otherParticipant.publicKey) {
-          let sharedSecretKey = null;
-          try {
-            const myPrivKeyObj = await importPrivateKey(privateKeyJwk);
-            const theirPubKeyObj = await importPublicKey(otherParticipant.publicKey);
-            sharedSecretKey = await deriveSharedSecret(myPrivKeyObj, theirPubKeyObj);
-          } catch (e) {
-            // Handled silently
-          }
-          decryptedMsg = { ...newMessage, text: await safeDecryptMessage(newMessage, sharedSecretKey) };
-        }
-      }
+      // Decrypt using centralized service
+      const decryptedMessages = await decryptConversationMessages(currentConversationId, [newMessage]);
+      const decryptedMsg = decryptedMessages[0] || newMessage;
 
       set((state) => {
         const exists = state.messages.some((m) => sameId(m._id, decryptedMsg._id));
@@ -559,29 +361,9 @@ export const useMessageStore = create((set, get) => ({
     }
     messageEditedHandler = async (editedMessage) => {
       if (!sameId(editedMessage.conversationId, currentConversationId)) return;
-      let decryptedText = editedMessage.text;
-      if (editedMessage.text && editedMessage.messageType !== "call_log") {
-        const privateKeyJwk = localStorage.getItem("zync_private_key");
-        const chatStore = useChatStore.getState();
-        const conversation = chatStore.conversations.find(c => sameId(c._id, currentConversationId));
-        const currentUser = useAuthStore.getState().authUser || useAuthStore.getState().user;
-        const otherParticipant = conversation?.participants?.find(p => !sameId(p._id, currentUser?._id));
 
-        if (conversation?.isGroup) {
-          const groupKey = await deriveGroupKey(conversation, currentUser);
-          decryptedText = await safeDecryptMessage(editedMessage, groupKey);
-        } else if (conversation && !conversation.isGroup && privateKeyJwk && otherParticipant && otherParticipant.publicKey) {
-          let sharedSecretKey = null;
-          try {
-            const myPrivKeyObj = await importPrivateKey(privateKeyJwk);
-            const theirPubKeyObj = await importPublicKey(otherParticipant.publicKey);
-            sharedSecretKey = await deriveSharedSecret(myPrivKeyObj, theirPubKeyObj);
-          } catch (e) {
-            // Handled silently
-          }
-          decryptedText = await safeDecryptMessage(editedMessage, sharedSecretKey);
-        }
-      }
+      const decryptedMessages = await decryptConversationMessages(currentConversationId, [editedMessage]);
+      const decryptedText = decryptedMessages[0]?.text || editedMessage.text;
 
       set((state) => ({
         messages: state.messages.map((m) =>
@@ -606,11 +388,11 @@ export const useMessageStore = create((set, get) => ({
           sameId(m._id, _id)
             ? {
                 ...m,
-                text: "",
-                imageUrl: "",
-                attachmentUrl: "",
-                attachmentType: "",
-                attachmentMime: "",
+                text: '',
+                imageUrl: '',
+                attachmentUrl: '',
+                attachmentType: '',
+                attachmentMime: '',
                 deletedForEveryone: true,
                 updatedAt
               }
@@ -673,26 +455,10 @@ export const useMessageStore = create((set, get) => ({
       if (!currentMessage) return false;
 
       const conversation = chatStore.conversations.find(c => sameId(c._id, currentMessage.conversationId));
-      const currentUser = useAuthStore.getState().authUser || useAuthStore.getState().user;
-      const otherParticipant = conversation?.participants?.find(p => !sameId(p._id, currentUser?._id));
-      const privateKeyJwk = localStorage.getItem("zync_private_key");
+      const currentUser = useAuthStore.getState().user;
 
-      let textToSend = newText;
-      let encryptionKey = null;
-
-      if (conversation?.isGroup) {
-        const groupKey = await deriveGroupKey(conversation, currentUser);
-        if (groupKey) {
-          const encryptedPayload = await encryptText(newText, groupKey);
-          textToSend = JSON.stringify(encryptedPayload);
-        }
-      } else if (conversation && !conversation.isGroup && privateKeyJwk && otherParticipant && otherParticipant.publicKey) {
-        const myPrivKeyObj = await importPrivateKey(privateKeyJwk);
-        const theirPubKeyObj = await importPublicKey(otherParticipant.publicKey);
-        encryptionKey = await deriveSharedSecret(myPrivKeyObj, theirPubKeyObj);
-        const encryptedPayload = await encryptText(newText, encryptionKey);
-        textToSend = JSON.stringify(encryptedPayload);
-      }
+      // Encrypt using centralized service
+      const textToSend = await encryptForConversation(newText, conversation, currentUser);
 
       await api.put(`/messages/${messageId}/edit`, { text: textToSend }, {
         headers: { Authorization: `Bearer ${token}` }
@@ -710,7 +476,7 @@ export const useMessageStore = create((set, get) => ({
       }
 
       return true;
-    } catch (err) {
+    } catch {
       return false;
     }
   },
@@ -729,11 +495,11 @@ export const useMessageStore = create((set, get) => ({
           sameId(m._id, messageId)
             ? {
                 ...m,
-                text: "",
-                imageUrl: "",
-                attachmentUrl: "",
-                attachmentType: "",
-                attachmentMime: "",
+                text: '',
+                imageUrl: '',
+                attachmentUrl: '',
+                attachmentType: '',
+                attachmentMime: '',
                 deletedForEveryone: true
               }
             : m
@@ -746,7 +512,7 @@ export const useMessageStore = create((set, get) => ({
       }
 
       return true;
-    } catch (err) {
+    } catch {
       return false;
     }
   },
@@ -766,7 +532,7 @@ export const useMessageStore = create((set, get) => ({
 
       await deleteCachedMessage(messageId);
       return true;
-    } catch (err) {
+    } catch {
       return false;
     }
   },

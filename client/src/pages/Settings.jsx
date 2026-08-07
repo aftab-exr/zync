@@ -343,8 +343,7 @@ export default function Settings() {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
-  const { user, authUser } = useAuthStore();
-  const currentUser = authUser || user;
+  const { user } = useAuthStore();
 
   const { chatBackground, updateBackground, motionProfile, setMotionProfile } = useSettingsStore();
   const previewStyle = useMemo(
@@ -405,10 +404,10 @@ export default function Settings() {
           <div className="flex flex-col items-center py-7 border-b-3 border-border bg-base">
             <div className="relative">
               <div className="w-24 h-24 rounded-lg bg-primary border-3 border-border shadow-brutal overflow-hidden flex items-center justify-center font-display font-bold text-3xl text-tx-primary">
-                {currentUser?.avatarUrl ? (
-                  <img src={currentUser.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                {user?.avatarUrl ? (
+                  <img src={user.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
                 ) : (
-                  currentUser?.displayName?.charAt(0).toUpperCase() || "Z"
+                  user?.displayName?.charAt(0).toUpperCase() || "Z"
                 )}
               </div>
 
@@ -441,7 +440,7 @@ export default function Settings() {
             <User className="w-5 h-5 text-tx-secondary flex-shrink-0" />
             <div className="flex-1 overflow-hidden">
               <p className="text-xs text-tx-secondary font-bold">Display Name</p>
-              <p className="text-sm text-tx-primary font-bold truncate">{currentUser?.displayName || "—"}</p>
+              <p className="text-sm text-tx-primary font-bold truncate">{user?.displayName || "—"}</p>
             </div>
             <Pencil className="w-4 h-4 text-tx-secondary flex-shrink-0" />
           </button>
@@ -454,7 +453,7 @@ export default function Settings() {
             <AtSign className="w-5 h-5 text-tx-secondary flex-shrink-0" />
             <div className="flex-1 overflow-hidden">
               <p className="text-xs text-tx-secondary font-bold">Username</p>
-              <p className="text-sm text-tx-primary font-bold font-mono truncate">@{currentUser?.username || "—"}</p>
+              <p className="text-sm text-tx-primary font-bold font-mono truncate">@{user?.username || "—"}</p>
             </div>
             <Pencil className="w-4 h-4 text-tx-secondary flex-shrink-0" />
           </button>
@@ -568,7 +567,7 @@ export default function Settings() {
           <EditFieldModal
             key="edit-field"
             field={editingField}
-            currentValue={currentUser?.[editingField]}
+            currentValue={user?.[editingField]}
             onClose={() => setEditingField(null)}
           />
         )}

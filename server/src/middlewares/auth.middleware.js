@@ -1,7 +1,9 @@
-import admin from "../config/firebase.js";
+import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
 
-const authenticateUser = async (req, res, next) => {
+const JWT_SECRET = process.env.JWT_SECRET;
+
+export const authenticateUser = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -17,40 +19,26 @@ const authenticateUser = async (req, res, next) => {
       return next();
     }
 
+    // Verify Zync JWT
+    let decoded;
     try {
-      const decoded = await admin.auth().verifyIdToken(token);
-      req.authContext = decoded;
-
-      // Block unverified email addresses
-      if (decoded.email && decoded.email_verified === false) {
-        return res.status(403).json({
-          success: false,
-          code: "EMAIL_NOT_VERIFIED",
-          error: "Please verify your email address before continuing.",
-        });
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      if (err.name === "TokenExpiredError") {
+        return res.status(401).json({ success: false, error: "Token expired", code: "TOKEN_EXPIRED" });
       }
-
-      req.user = await User.findOne({ firebaseUid: decoded.uid });
-
-      // Keep email verification status in sync
-      if (req.user && req.user.emailVerified !== decoded.email_verified) {
-        req.user.emailVerified = !!decoded.email_verified;
-        await req.user.save();
-      }
-
-      // Allow /setup and /me through even without a profile
-      const isSetupRoute = req.originalUrl.includes("/setup");
-      const isMeRoute = req.originalUrl.includes("/me");
-
-      if (!req.user && !isSetupRoute && !isMeRoute) {
-        return res.status(403).json({ success: false, error: "Profile not found. Please complete setup." });
-      }
-
-      next();
-    } catch (firebaseErr) {
-      console.error("Firebase token error:", firebaseErr.message);
-      return res.status(401).json({ success: false, error: "Invalid or expired token" });
+      return res.status(401).json({ success: false, error: "Invalid token" });
     }
+
+    // Fetch user from DB using sub (user ID)
+    const user = await User.findById(decoded.sub);
+    if (!user) {
+      return res.status(401).json({ success: false, error: "User not found" });
+    }
+
+    req.user = user;
+    req.authContext = { uid: decoded.firebaseUid, sub: decoded.sub };
+    next();
   } catch (error) {
     console.error("Auth middleware error:", error.message);
     res.status(500).json({ success: false, error: "Internal Server Error" });

@@ -6,6 +6,7 @@ import User from "../models/user.model.js";
 import Message from "../models/message.model.js";
 import CallLog from "../models/callLog.model.js";
 import Conversation from "../models/conversation.model.js";
+import { socketLimiters } from "../services/rateLimiter.js";
 
 let io;
 let pubClient;
@@ -130,7 +131,7 @@ export const initializeSocket = async (httpServer) => {
         console.error("REDIS_URL is not configured. Socket.io will run without a Redis adapter in single-instance mode.");
     }
 
-    // Authenticate socket connection with Firebase ID token
+    // Authenticate socket connection with Zync JWT (access token)
     io.use(async (socket, next) => {
         try {
             const token = socket.handshake.auth.token;
@@ -142,14 +143,25 @@ export const initializeSocket = async (httpServer) => {
                 return next();
             }
 
-            const decodedToken = await admin.auth().verifyIdToken(token);
-
-            if (decodedToken.email && decodedToken.email_verified === false) {
-                return next(new Error("Email not verified"));
+            // Verify Zync JWT
+            const jwt = (await import("jsonwebtoken")).default;
+            const JWT_SECRET = process.env.JWT_SECRET;
+            
+            let decoded;
+            try {
+                decoded = jwt.verify(token, JWT_SECRET);
+            } catch (err) {
+                if (err.name === "TokenExpiredError") {
+                    return next(new Error("TOKEN_EXPIRED"));
+                }
+                return next(new Error("Invalid token"));
             }
 
-            const user = await User.findOne({ firebaseUid: decodedToken.uid });
-            if (!user) return next(new Error("User profile not found"));
+            // Fetch user from DB using sub (user ID)
+            const user = await User.findById(decoded.sub);
+            if (!user) {
+                return next(new Error("User not found"));
+            }
 
             socket.user = user;
             next();
@@ -158,6 +170,11 @@ export const initializeSocket = async (httpServer) => {
             next(new Error("Authentication failed"));
         }
     });
+
+    // Apply Socket.io rate limiting middleware
+    io.use(socketLimiters.messageSend);
+    io.use(socketLimiters.typing);
+    io.use(socketLimiters.webrtc);
 
     io.on("connection", async (socket) => {
         try {

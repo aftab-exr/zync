@@ -15,7 +15,7 @@ import { useAIStore } from "../store/useAIStore";
 import { useSettingsStore, resolveBackgroundStyle } from "../store/useSettingsStore";
 import { auth } from "../lib/firebase";
 import { compressIfImage, encryptFile, uploadEncryptedBlob, fetchAndDecrypt } from "../lib/media";
-import { deriveConversationKey } from "../lib/mediaKeys";
+import { deriveConversationKey } from "@zync/crypto";
 import VoiceRecorder from "./VoiceRecorder";
 import { useMotion } from "../lib/motion";
 import { ChatFeedSkeleton } from "../components/Skeletons";
@@ -168,8 +168,8 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
   const lastFetchedIdRef = useRef(null);
   const navigate = useNavigate();
   
-  const { authUser, user } = useAuthStore();
-  const currentUser = authUser || user;
+  const { user } = useAuthStore();
+  const currentUser = user;
 
   const { chatBackground } = useSettingsStore();
   const backgroundStyle = useMemo(

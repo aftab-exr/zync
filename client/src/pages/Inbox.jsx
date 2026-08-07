@@ -24,11 +24,10 @@ export default function Inbox() {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 
   const { connect, disconnect, socket } = useSocketStore();
-  const { user, authUser } = useAuthStore();
-  const { callState } = useCallStore();
-  const currentUser = authUser || user;
+  const { user } = useAuthStore();
+  const currentUser = user;
 
-  const { 
+  const {
     conversations, 
     getConversations, // FIXED: Was fetchConversations
     isFetchingConversations,

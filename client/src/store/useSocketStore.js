@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { io } from 'socket.io-client';
 import { auth } from '../lib/firebase.js';
+import { api } from '../lib/axios.js';
+import { useAuthStore } from './useAuthStore.js';
 import { useMessageStore } from './useMessageStore.js';
 import { useChatStore } from './useChatStore.js';
 import { sameId } from '../lib/conversation.js';
@@ -32,9 +34,9 @@ export const useSocketStore = create((set, get) => ({
     const socket = io(SOCKET_URL, {
       auth: async (cb) => {
         try {
-          const currentUser = auth.currentUser;
-          if (!currentUser) return cb({ token: null });
-          const token = await currentUser.getIdToken();
+          // Use Zync access token from axios defaults (set after login/refresh)
+          // or get from the auth store if available
+          const token = api.defaults.headers.common?.Authorization?.replace('Bearer ', '') || null;
           cb({ token });
         } catch (error) {
           cb({ token: null });

@@ -1,8 +1,9 @@
 import { create } from "zustand";
-import { generateKeyPair } from '../lib/crypto';
+import { generateKeyPair } from '@zync/crypto';
 import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 import { auth, googleProvider } from "../lib/firebase";
 import { api } from "../lib/axios";
+import { logger } from "../lib/logger";
 
 // Track Firebase auth listener so we never register more than one
 let _authUnsub = null;
@@ -19,16 +20,13 @@ const derivePublicKeyFromPrivate = (privateKeyStr) => {
 };
 
 // Upload the public key with retry logic on connection failures
-const uploadPublicKeyWithRetry = async (publicKey, token, attempts = 3) => {
+const uploadPublicKeyWithRetry = async (publicKey, attempts = 3) => {
     for (let i = 0; i < attempts; i++) {
         try {
-            await api.post('/users/keys',
-                { publicKey },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            await api.post('/users/keys', { publicKey });
             localStorage.removeItem("zync_pending_key_upload");
             return true;
-        } catch (error) {
+        } catch (_error) {
             if (i < attempts - 1) {
                 await new Promise((resolve) => setTimeout(resolve, 500 * (i + 1)));
             }
@@ -51,13 +49,13 @@ export const useAuthStore = create((set, get) => ({
         try {
             localStorage.setItem("zync_user_cache", JSON.stringify(updatedUser));
         } catch (err) {
-            // Handled silently
+            logger.warn('Failed to cache user profile', err);
         }
         set({ user: updatedUser });
     },
 
     // Initialize E2E keys and verify sync with database state
-    initializeE2E: async (token, dbPublicKey) => {
+    initializeE2E: async (dbPublicKey) => {
         try {
             let privateKey = localStorage.getItem("zync_private_key");
             let isKeyDesynced = false;
@@ -70,24 +68,23 @@ export const useAuthStore = create((set, get) => ({
                     if (parsedDerived.x !== parsedDb.x || parsedDerived.y !== parsedDb.y) {
                         isKeyDesynced = true;
                     }
-                } catch (e) {
-                    isKeyDesynced = true; 
+                } catch (err) {
+                    logger.crypto('Failed to parse public key for comparison', err);
+                    isKeyDesynced = true;
                 }
             }
 
             if (privateKey && (!dbPublicKey || isKeyDesynced)) {
-                if (!get().user) {
-                    return;
-                }
+                if (!get().user) return;
 
                 try {
                     const pubKeyStr = derivePublicKeyFromPrivate(privateKey);
-                    const ok = await uploadPublicKeyWithRetry(pubKeyStr, token);
+                    const ok = await uploadPublicKeyWithRetry(pubKeyStr);
                     if (ok) {
                         set((state) => ({ user: state.user ? { ...state.user, publicKey: pubKeyStr } : state.user }));
                     }
                 } catch (err) {
-                    // Handled silently
+                    logger.crypto('Failed to upload public key after key desync', err);
                 }
                 return;
             }
@@ -96,20 +93,20 @@ export const useAuthStore = create((set, get) => ({
                 const keys = await generateKeyPair();
                 localStorage.setItem("zync_private_key", keys.privateKey);
 
-                const ok = await uploadPublicKeyWithRetry(keys.publicKey, token);
+                const ok = await uploadPublicKeyWithRetry(keys.publicKey);
                 if (ok) {
                     set((state) => ({ user: state.user ? { ...state.user, publicKey: keys.publicKey } : state.user }));
                 }
             } else if (get().user && !get().user.publicKey) {
                 try {
                     const pubKeyStr = derivePublicKeyFromPrivate(privateKey);
-                    await uploadPublicKeyWithRetry(pubKeyStr, token);
+                    await uploadPublicKeyWithRetry(pubKeyStr);
                 } catch (err) {
-                    // Handled silently
+                    logger.crypto('Failed to upload public key for existing user', err);
                 }
             }
-        } catch (error) {
-            // Handled silently
+        } catch (err) {
+            logger.warn('Failed to cache user profile', err);
         }
     },
 
@@ -135,35 +132,30 @@ export const useAuthStore = create((set, get) => ({
                         }
                         set({ user: null, isAuthenticated: false, isCheckingAuth: false });
                         return;
-                    } catch (cacheErr) {
+                    } catch {
                         set({ user: null, isAuthenticated: false, isCheckingAuth: false });
                         return;
                     }
                 }
 
-                const token = await firebaseUser.getIdToken();
-                const res = await api.get('/users/me', {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                // Get Firebase ID token and exchange for Zync JWT
+                const firebaseIdToken = await firebaseUser.getIdToken();
+                const res = await api.post('/auth/login', { firebaseIdToken });
 
-                if (res.data?.status === "REGISTRATION_REQUIRED") {
+                if (res.data?.data?.user) {
+                    const profileData = res.data.data.user;
+                    try {
+                        localStorage.setItem("zync_user_cache", JSON.stringify(profileData));
+                    } catch (err) {
+                        logger.warn('Failed to cache user profile', err);
+                    }
+
+                    set({ user: profileData, isAuthenticated: true, isCheckingAuth: false });
+                    await get().initializeE2E(profileData.publicKey);
+                } else {
+                    // Profile not set up yet
                     set({ user: null, isAuthenticated: true, isCheckingAuth: false });
-                    return;
                 }
-
-                const profileData = res.data?.data;
-                if (!res.data || typeof res.data !== 'object' || !profileData) {
-                    throw new Error("Invalid profile response format from server");
-                }
-
-                try {
-                    localStorage.setItem("zync_user_cache", JSON.stringify(profileData));
-                } catch (cacheErr) {
-                    // Handled silently
-                }
-
-                set({ user: profileData, isAuthenticated: true, isCheckingAuth: false });
-                await get().initializeE2E(token, profileData.publicKey);
 
             } catch (error) {
                 if (error.response?.status === 404 || error.response?.status === 403) {
@@ -190,6 +182,7 @@ export const useAuthStore = create((set, get) => ({
     logout: async () => {
         if (_authUnsub) { _authUnsub(); _authUnsub = null; }
         await signOut(auth);
+        await api.post('/auth/logout'); // Also revoke server-side refresh token
         localStorage.removeItem("zync_user_cache");
         set({ isAuthenticated: false, user: null });
     }

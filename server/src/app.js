@@ -8,20 +8,25 @@ import { fileURLToPath } from "url";
 
 import { getAllowedOrigins, PAYLOAD_LIMIT } from "./constants/constants.js";
 import logger from "./middlewares/logger.middleware.js";
-import { globalLimiter, authLimiter } from "./middlewares/rateLimit.middleware.js";
+import { initRedisRateLimiter, restLimiters } from "./services/rateLimiter.js";
 import apiResponse from "./utils/apiResponse.js";
 import userRoutes from "./routes/user.route.js";
 import conversationRoutes from "./routes/conversation.routes.js";
 import messageRoutes from "./routes/message.routes.js";
 import aiRoutes from "./routes/ai.routes.js";
+import keysRoutes from "./routes/keys.routes.js";
+import authRoutes from "./routes/auth.routes.js";
 
 const app = express();
 
 // Request logging
 app.use(logger);
 
-// Rate limiting (30 requests/minute per IP)
-app.use(globalLimiter);
+// Initialize Redis rate limiter
+initRedisRateLimiter(process.env.REDIS_URL);
+
+// Rate limiting using Redis sliding window
+app.use(restLimiters.global);
 
 // Security headers
 app.use(
@@ -63,11 +68,14 @@ app.use((req, res, next) => {
 });
 
 // Routes
-app.use("/api/v1/auth", authLimiter);
+app.use("/api/v1/auth", restLimiters.auth);
+app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/conversations", conversationRoutes);
+app.use("/api/v1/messages", restLimiters.messageSend);
 app.use("/api/v1/messages", messageRoutes);
 app.use("/api/v1/ai", aiRoutes);
+app.use("/api/v1/keys", keysRoutes);
 
 // Health check
 app.get("/health", (req, res) => {

@@ -4,14 +4,14 @@ import { auth, getAuthToken } from '../lib/firebase';
 import { useSocketStore } from './useSocketStore';
 import { useAuthStore } from './useAuthStore';
 import { sameId } from '../lib/conversation';
-import {
+import { 
   generateGroupSymmetricKey,
   exportSymmetricKey,
   importPrivateKey,
   importPublicKey,
   deriveSharedSecret,
-  encryptText,
-} from '../lib/crypto';
+  encryptText
+} from '@zync/crypto';
 
 let presenceHandler = null;
 
@@ -98,7 +98,7 @@ export const useChatStore = create((set) => ({
       // to a legacy plaintext group rather than blocking creation.
       let encryptedGroupKeys = [];
       try {
-        const currentUser = useAuthStore.getState().authUser || useAuthStore.getState().user;
+        const currentUser = useAuthStore.getState().user;
         const privateKeyJwk = localStorage.getItem('zync_private_key');
 
         if (currentUser?._id && currentUser?.publicKey && privateKeyJwk) {

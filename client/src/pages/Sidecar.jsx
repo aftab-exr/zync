@@ -10,8 +10,8 @@ import { Loader2, Sparkles } from 'lucide-react';
 
 export default function Sidecar() {
   const { connect, disconnect, isConnected } = useSocketStore();
-  const { user, authUser } = useAuthStore();
-  const currentUser = authUser || user;
+  const { user } = useAuthStore();
+  const currentUser = user;
 
   const { conversations, fetchConversations, createConversation, isFetchingConversations } = useChatStore();
 
@@ -55,7 +55,7 @@ export default function Sidecar() {
           } else {
             setErrorMsg("AI agent user not found.");
           }
-        } catch (error) {
+        } catch (_) {
           setErrorMsg("Error searching for AI agent.");
         } finally {
           setLoadingAI(false);

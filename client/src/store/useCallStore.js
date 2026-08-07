@@ -84,7 +84,7 @@ export const useCallStore = create((set, get) => ({
       });
 
       const socket = useSocketStore.getState().socket;
-      const currentUser = useAuthStore.getState().authUser || useAuthStore.getState().user;
+      const currentUser = useAuthStore.getState().user;
 
       const peer = new Peer({
         initiator: true,

@@ -98,3 +98,49 @@ export const updateFCMTokenSchema = z.object({
     fcmToken: z.string().nullable().optional(),
   }),
 });
+
+// Keys validation schemas
+export const registerKeyBundleSchema = z.object({
+  body: z.object({
+    identityKey: z.object({
+      publicKey: z.string().min(1, "Identity key publicKey is required"),
+    }),
+    signedPreKey: z.object({
+      keyId: z.number().int().nonnegative(),
+      publicKey: z.string().min(1, "Signed pre-key publicKey is required"),
+      signature: z.string().min(1, "Signed pre-key signature is required"),
+    }),
+    oneTimePreKeys: z.array(
+      z.object({
+        keyId: z.number().int().nonnegative(),
+        publicKey: z.string().min(1, "One-time pre-key publicKey is required"),
+      })
+    ).min(1, "At least one one-time pre-key is required"),
+  }),
+});
+
+export const replenishPreKeysSchema = z.object({
+  body: z.object({
+    preKeys: z.array(
+      z.object({
+        keyId: z.number().int().nonnegative(),
+        publicKey: z.string().min(1, "Pre-key publicKey is required"),
+      })
+    ).min(1, "At least one pre-key is required"),
+  }),
+});
+
+// Auth validation schemas
+export const loginSchema = z.object({
+  body: z.object({
+    firebaseIdToken: z.string().min(1, "Firebase ID token is required"),
+  }),
+});
+
+export const refreshSchema = z.object({
+  // No body required, uses cookie
+});
+
+export const logoutSchema = z.object({
+  // No body required, uses cookie
+});

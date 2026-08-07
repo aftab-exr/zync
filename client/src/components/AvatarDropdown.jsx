@@ -13,8 +13,8 @@ export default function AvatarDropdown({ avatarUrl }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef(null);
 
-  const { user, authUser, logout } = useAuthStore();
-  const currentUser = authUser || user;
+  const { user, logout } = useAuthStore();
+  const currentUser = user;
 
   const photo = avatarUrl || currentUser?.avatarUrl;
   const initial = currentUser?.displayName?.charAt(0).toUpperCase() || "Z";
