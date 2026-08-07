@@ -4,14 +4,18 @@ import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  define: {
+    'process.env': {},
+  },
   plugins: [
     react(),
     nodePolyfills({
       globals: {
-        // ⚡ THE FIX: We removed 'global: true' because it overwrites the native Android 'window' object and crashes Capacitor.
-        process: true,
         Buffer: true,
+        global: true,
+        process: true,
       },
+      protocolImports: true,
     }),
     VitePWA({
       registerType: 'autoUpdate',
