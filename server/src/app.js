@@ -66,7 +66,7 @@ app.use((req, res, next) => {
 });
 
 // Routes
-app.use("/api/v1/users", userRoutes);
+app.use("/api/v1/auth", userRoutes);
 app.use("/api/v1/conversations", conversationRoutes);
 app.use("/api/v1/messages", restLimiters.messageSend);
 app.use("/api/v1/messages", messageRoutes);
