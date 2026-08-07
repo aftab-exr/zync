@@ -3,6 +3,8 @@ import { api } from '../lib/axios';
 import { auth, getAuthToken } from '../lib/firebase';
 import { useSocketStore } from './useSocketStore';
 import { sameId } from '../lib/conversation';
+import { generateAndWrapGroupSenderKeys } from "../services/senderKeys";
+import { useAuthStore } from "./useAuthStore";
 
 let presenceHandler = null;
 
@@ -82,10 +84,13 @@ export const useChatStore = create((set) => ({
       }
 
       const participantIds = (participants || []).map((p) => p._id);
+      const currentUser = useAuthStore.getState().user;
+
+      const encryptedGroupKeys = await generateAndWrapGroupSenderKeys(participants, currentUser);
 
       const res = await api.post(
         '/conversations/group',
-        { name, participantIds },
+        { name, participantIds, encryptedGroupKeys },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 

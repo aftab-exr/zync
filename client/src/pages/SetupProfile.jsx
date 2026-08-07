@@ -6,6 +6,8 @@ import { auth } from '../lib/firebase';
 import { api } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
 
+import { generateAndRegisterKeyBundle } from '../services/keys';
+
 export default function SetupProfile() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ username: '', displayName: '' });
@@ -35,6 +37,13 @@ export default function SetupProfile() {
           headers: { Authorization: `Bearer ${token}` }
         }
       );
+
+      // Register Signal Protocol public key bundle
+      try {
+        await generateAndRegisterKeyBundle();
+      } catch (_err) {
+        // Non-blocking key registration fallback
+      }
 
       // Update global store and redirect to inbox
       useAuthStore.setState({ isAuthenticated: true, user: response.data.data });

@@ -12,7 +12,7 @@ export const getConversations = asyncHandler(async (req, res) => {
     throw new apiError(400, "Invalid user session.");
   }
 
-  const conversations = await Conversation.find({ participants: { $in: [userId] } })
+  const conversations = await Conversation.find({ participants: { $in: [userId] }, deletedAt: null })
     .populate("participants", "username displayName avatarUrl isAI status publicKey")
     .populate("lastMessageId")
     .sort({ lastMessageAt: -1 })

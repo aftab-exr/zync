@@ -1,10 +1,11 @@
-import { useState, useRef, useMemo, useCallback } from "react";
+import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 import {
   ChevronLeft, Camera, Pencil, AtSign, User, Palette,
   Trash2, ShieldAlert, Loader2, X, Check, Bot, Eye, EyeOff,
+  Laptop, Smartphone, ShieldCheck,
 } from "lucide-react";
 
 import { api } from "../lib/axios";
@@ -337,6 +338,89 @@ function AISidecarConfig() {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// Active Devices & Session Management
+// ──────────────────────────────────────────────────────────────────────────
+function ActiveDevicesSection() {
+  const [devices, setDevices] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [revokingId, setRevokingId] = useState(null);
+
+  const fetchDevices = useCallback(async () => {
+    try {
+      const res = await api.get("/auth/devices");
+      setDevices(res.data?.data || []);
+    } catch (_err) {
+      toast.error("Failed to load active sessions.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDevices();
+  }, [fetchDevices]);
+
+  const handleRevoke = async (deviceId) => {
+    setRevokingId(deviceId);
+    try {
+      await api.delete(`/auth/devices/${deviceId}`);
+      toast.success("Device session revoked.");
+      setDevices((prev) => prev.filter((d) => d._id !== deviceId));
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to revoke device session.");
+    } finally {
+      setRevokingId(null);
+    }
+  };
+
+  return (
+    <div className="p-4 space-y-3 bg-surface">
+      <div className="flex items-center gap-2 mb-3 text-xs text-tx-secondary bg-base rounded-lg px-3 py-2 border-2 border-border font-bold">
+        <ShieldCheck className="w-4 h-4 text-success flex-shrink-0" />
+        <span>You can manage active sessions. Revoking a session immediately logs out that device.</span>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="w-5 h-5 animate-spin text-tx-secondary" />
+        </div>
+      ) : devices.length === 0 ? (
+        <p className="text-xs text-tx-secondary font-bold py-2">No active sessions found.</p>
+      ) : (
+        devices.map((device) => (
+          <div
+            key={device._id}
+            className="flex items-center justify-between p-3 bg-base border-2 border-border rounded-lg shadow-brutal-sm"
+          >
+            <div className="flex items-center gap-3 overflow-hidden">
+              {device.deviceType === "mobile" ? (
+                <Smartphone className="w-5 h-5 text-accent flex-shrink-0" />
+              ) : (
+                <Laptop className="w-5 h-5 text-accent flex-shrink-0" />
+              )}
+              <div className="overflow-hidden">
+                <p className="text-xs font-bold text-tx-primary truncate">{device.deviceName}</p>
+                <p className="text-[10px] text-tx-secondary font-mono mt-0.5">
+                  Last active: {new Date(device.lastUsedAt).toLocaleDateString()} {new Date(device.lastUsedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => handleRevoke(device._id)}
+              disabled={revokingId === device._id}
+              className="px-3 py-1.5 text-xs font-bold bg-secondary text-tx-primary border-2 border-border rounded-md shadow-brutal-sm hover:bg-red-600 transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:opacity-50 flex-shrink-0"
+            >
+              {revokingId === device._id ? <Loader2 className="w-3 h-3 animate-spin" /> : "Revoke"}
+            </button>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // Settings Page
 // ──────────────────────────────────────────────────────────────────────────
 export default function Settings() {
@@ -540,6 +624,11 @@ export default function Settings() {
         {/* ⚡ AI SIDECAR DEVELOPER CONFIGURATION */}
         <Section title="AI Sidecar Developer Configuration">
           <AISidecarConfig />
+        </Section>
+
+        {/* ⚡ ACTIVE SESSIONS & DEVICES */}
+        <Section title="Active Sessions & Devices">
+          <ActiveDevicesSection />
         </Section>
 
         {/* ⚡ PRIVACY & DATA */}

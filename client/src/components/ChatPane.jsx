@@ -18,6 +18,7 @@ import { compressIfImage, encryptFile, uploadEncryptedBlob, fetchAndDecrypt } fr
 import VoiceRecorder from "./VoiceRecorder";
 import { useMotion } from "../lib/motion";
 import { ChatFeedSkeleton } from "../components/Skeletons";
+import { computeSafetyNumber } from "../services/safetyNumber";
 
 const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024; // 50MB
 
@@ -262,6 +263,14 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
     await processAndSend(file, "audio");
   }, [processAndSend]);
 
+  const handleOpenSafetyNumber = async () => {
+    const keyA = localStorage.getItem("zync_identity_pub_key") || user?.publicKey || "";
+    const keyB = displayUser?.identityKeyPublic || displayUser?.publicKey || "";
+    const { formattedDigits } = await computeSafetyNumber(keyA, keyB);
+    setSafetyDigits(formattedDigits);
+    setShowSafetyModal(true);
+  };
+
   const handleSend = useCallback(async (e) => {
     e.preventDefault();
     if (!text.trim() || isSending) return;
@@ -439,6 +448,15 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
         {!isGroup && !displayUser?.isAI && (
           <div className="flex items-center gap-2 md:gap-4">
             
+            {/* Safety Number Button */}
+            <button
+              onClick={handleOpenSafetyNumber}
+              className="p-2 w-9 h-9 rounded-lg bg-surface border-3 border-border text-tx-primary hover:bg-base hover:shadow-brutal-sm transition-all flex items-center justify-center active:translate-x-0.5 active:translate-y-0.5 active:shadow-none shadow-brutal-sm"
+              title="Verify Safety Number"
+            >
+              <ShieldCheck className="w-4 h-4 text-success" />
+            </button>
+
             {/* Call Voice button */}
             <button
               onClick={() => useCallStore.getState().initiateCall(displayUser, 'audio')}
@@ -778,7 +796,55 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
 
         </form>
       </div>
-      
+
+      {/* ⚡ Safety Number Verification Modal */}
+      <AnimatePresence>
+        {showSafetyModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowSafetyModal(false)}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md bg-surface border-3 border-border rounded-lg p-6 shadow-brutal text-tx-primary"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-6 h-6 text-success" />
+                  <h3 className="text-lg font-display font-bold">Safety Number</h3>
+                </div>
+                <button
+                  onClick={() => setShowSafetyModal(false)}
+                  className="p-1 rounded-lg border-2 border-transparent hover:border-border text-tx-secondary hover:text-tx-primary"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <p className="text-xs text-tx-secondary font-bold mb-4">
+                Verify this fingerprint with <span className="text-tx-primary">{displayUser?.displayName}</span> to confirm end-to-end encryption integrity.
+              </p>
+
+              <div className="bg-base border-3 border-border rounded-lg p-4 font-mono font-bold text-center text-sm tracking-widest text-tx-primary mb-5 shadow-brutal-sm">
+                {safetyDigits || "00000 00000 00000 00000 00000 00000"}
+              </div>
+
+              <button
+                onClick={() => setShowSafetyModal(false)}
+                className="w-full h-11 rounded-lg bg-accent text-tx-primary border-3 border-border font-bold text-sm shadow-brutal-sm hover:bg-accent-hover transition-all"
+              >
+                Close Verification
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

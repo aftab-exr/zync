@@ -27,11 +27,26 @@ const messageSchema = new Schema(
       enum: ["text", "image", "audio", "video", "call_log"],
       default: "text",
     },
+    ciphertextType: { type: Number, default: 1 },
 
+    // Delivery state
     isRead: { type: Boolean, default: false },
+    deliveredAt: { type: Date, default: null },
+    readAt: { type: Date, default: null },
+
+    // Edit & Deletion
     isEdited: { type: Boolean, default: false },
     deletedForEveryone: { type: Boolean, default: false },
     deletedForMe: [{ type: Schema.Types.ObjectId, ref: "User" }],
+    deletedFor: { type: String, enum: ["sender", "everyone", ""], default: "" },
+    deletedAt: { type: Date, default: null },
+
+    // Threading & Moderation
+    replyToId: { type: Schema.Types.ObjectId, ref: "Message", default: null },
+    flaggedAt: { type: Date, default: null },
+
+    // Disappearing messages
+    expiresAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
@@ -45,5 +60,7 @@ messageSchema.pre("save", function () {
 
 messageSchema.index({ createdAt: 1 });
 messageSchema.index({ conversationId: 1, createdAt: 1 });
+messageSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0, sparse: true });
+messageSchema.index({ deletedAt: 1 }, { sparse: true });
 
 export default mongoose.model("Message", messageSchema);
