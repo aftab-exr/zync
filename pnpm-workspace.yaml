@@ -1,3 +1,6 @@
+packages:
+  - 'client'
+  - 'server'
 allowBuilds:
   '@firebase/util': true
   bcrypt: true
