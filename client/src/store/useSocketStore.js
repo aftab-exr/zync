@@ -1,8 +1,6 @@
 import { create } from 'zustand';
 import { io } from 'socket.io-client';
-import { auth } from '../lib/firebase.js';
 import { api } from '../lib/axios.js';
-import { useAuthStore } from './useAuthStore.js';
 import { useMessageStore } from './useMessageStore.js';
 import { useChatStore } from './useChatStore.js';
 import { sameId } from '../lib/conversation.js';

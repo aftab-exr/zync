@@ -1,8 +1,8 @@
-import AISidecar from '../components/AISidecar';
 import { useCallStore } from '../store/useCallStore';
 import { lazy, Suspense } from 'react';
 import { InboxSkeleton } from '../components/Skeletons';
 import ConnectionStatus from '../components/ConnectionStatus';
+import AISidecar from '../components/AISidecar';
 
 const CallOverlay = lazy(() => import('../components/CallOverlay'));
 import { useState, useEffect, useMemo } from 'react';
@@ -26,6 +26,7 @@ export default function Inbox() {
   const { connect, disconnect, socket } = useSocketStore();
   const { user } = useAuthStore();
   const currentUser = user;
+  const { callState } = useCallStore();
 
   const {
     conversations, 
