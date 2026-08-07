@@ -10,7 +10,8 @@
     "dev":"concurrently \"pnpm run dev:client\" \"pnpm run dev:server\"",
     "build":"pnpm install -r && pnpm --dir client run build",
     "start":"pnpm --dir server exec node src/index.js",
-    "crypto:build":"cd packages/zync-crypto && npm run build"
+    "crypto:build":"cd packages/zync-crypto && npm run build",
+    "render:build":"pnpm install -r --no-frozen-lockfile && pnpm --dir client run build && pnpm --dir server run build"
   },
   "keywords": [],
   "author": "",

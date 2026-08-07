@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
-    "build": "npm install -g pnpm && pnpm install && cd ../client && pnpm install && pnpm run build"
+    "build": "echo 'Server build: no build step required'"
   },
   "keywords": [],
   "author": "",
