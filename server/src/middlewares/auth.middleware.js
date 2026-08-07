@@ -12,13 +12,6 @@ export const authenticateUser = async (req, res, next) => {
 
     const token = authHeader.split(" ")[1];
 
-    // Dev bypass for testing
-    if (token === "DEV_TEST_TOKEN") {
-      req.authContext = { uid: "firebase_mock_uid_123", email: "test@zync.dev" };
-      req.user = await User.findOne({ firebaseUid: "firebase_mock_uid_123" });
-      return next();
-    }
-
     // Verify Zync JWT
     let decoded;
     try {

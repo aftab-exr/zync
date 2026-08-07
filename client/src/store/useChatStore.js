@@ -2,16 +2,7 @@ import { create } from 'zustand';
 import { api } from '../lib/axios';
 import { auth, getAuthToken } from '../lib/firebase';
 import { useSocketStore } from './useSocketStore';
-import { useAuthStore } from './useAuthStore';
 import { sameId } from '../lib/conversation';
-import { 
-  generateGroupSymmetricKey,
-  exportSymmetricKey,
-  importPrivateKey,
-  importPublicKey,
-  deriveSharedSecret,
-  encryptText
-} from '@zync/crypto';
 
 let presenceHandler = null;
 
@@ -92,48 +83,9 @@ export const useChatStore = create((set) => ({
 
       const participantIds = (participants || []).map((p) => p._id);
 
-      // ⚡ VECTOR 2: Multi-Cast Zero-Knowledge group key wrapping.
-      // Generate one master AES key, then lock it for each member (incl. creator)
-      // using ECDH(creatorPrivate, memberPublic). Failure here degrades gracefully
-      // to a legacy plaintext group rather than blocking creation.
-      let encryptedGroupKeys = [];
-      try {
-        const currentUser = useAuthStore.getState().user;
-        const privateKeyJwk = localStorage.getItem('zync_private_key');
-
-        if (currentUser?._id && currentUser?.publicKey && privateKeyJwk) {
-          const groupKey = await generateGroupSymmetricKey();
-          const rawGroupKeyStr = await exportSymmetricKey(groupKey);
-          const creatorPriv = await importPrivateKey(privateKeyJwk);
-
-          // Include the creator's own key entry so they can decrypt their own group.
-          const allMembers = [
-            ...participants,
-            { _id: currentUser._id, publicKey: currentUser.publicKey },
-          ];
-
-          for (const member of allMembers) {
-            if (!member?._id || !member?.publicKey) continue;
-            try {
-              const memberPub = await importPublicKey(member.publicKey);
-              const wrapSecret = await deriveSharedSecret(creatorPriv, memberPub);
-              const encryptedKeyPayload = await encryptText(rawGroupKeyStr, wrapSecret);
-              encryptedGroupKeys.push({
-                userId: member._id,
-                encryptedKeyPayload: JSON.stringify(encryptedKeyPayload),
-              });
-            } catch (memberErr) {
-              // Gracefully handle individual member E2E sync error
-            }
-          }
-        }
-      } catch (keyErr) {
-        encryptedGroupKeys = [];
-      }
-
       const res = await api.post(
         '/conversations/group',
-        { name, participantIds, encryptedGroupKeys },
+        { name, participantIds },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 

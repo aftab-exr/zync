@@ -15,7 +15,6 @@ import { useAIStore } from "../store/useAIStore";
 import { useSettingsStore, resolveBackgroundStyle } from "../store/useSettingsStore";
 import { auth } from "../lib/firebase";
 import { compressIfImage, encryptFile, uploadEncryptedBlob, fetchAndDecrypt } from "../lib/media";
-import { deriveConversationKey } from "@zync/crypto";
 import VoiceRecorder from "./VoiceRecorder";
 import { useMotion } from "../lib/motion";
 import { ChatFeedSkeleton } from "../components/Skeletons";
@@ -145,16 +144,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
   const [editingMessage, setEditingMessage] = useState(null);
 
   const getMessageText = (msg) => {
-    if (msg.isDecrypted === true) return msg.text;
-    if (!msg.text) return "";
-    try {
-      if (msg.text.includes('"iv"') && msg.text.includes('"ciphertext"')) {
-        return "🔒 [Encrypted Message - Awaiting Key Sync]";
-      }
-    } catch (e) {
-      // Failed to parse
-    }
-    return msg.text;
+    return msg?.text || "";
   };
 
   const attachInputRef = useRef(null);
@@ -218,14 +208,7 @@ export default function ChatPane({ conversationId, isSidecar = false }) {
   }, [messages, currentUser?._id, activeConversation, isGroup]);
 
   useEffect(() => {
-    let active = true;
     setConvKey(null);
-    if (activeConversation && currentUser) {
-      deriveConversationKey(activeConversation, currentUser)
-        .then((key) => { if (active) setConvKey(key); })
-        .catch((err) => {});
-    }
-    return () => { active = false; };
   }, [activeConversation, currentUser]);
 
   const processAndSend = useCallback(async (file, type) => {

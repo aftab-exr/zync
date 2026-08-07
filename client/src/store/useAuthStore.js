@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { generateKeyPair } from '@zync/crypto';
 import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 import { auth, googleProvider } from "../lib/firebase";
 import { api } from "../lib/axios";
@@ -7,34 +6,6 @@ import { logger } from "../lib/logger";
 
 // Track Firebase auth listener so we never register more than one
 let _authUnsub = null;
-
-// Recover public JWK key details from private key
-const derivePublicKeyFromPrivate = (privateKeyStr) => {
-    const jwkPriv = JSON.parse(privateKeyStr);
-    return JSON.stringify({
-        kty: jwkPriv.kty,
-        crv: jwkPriv.crv,
-        x: jwkPriv.x,
-        y: jwkPriv.y,
-    });
-};
-
-// Upload the public key with retry logic on connection failures
-const uploadPublicKeyWithRetry = async (publicKey, attempts = 3) => {
-    for (let i = 0; i < attempts; i++) {
-        try {
-            await api.post('/users/keys', { publicKey });
-            localStorage.removeItem("zync_pending_key_upload");
-            return true;
-        } catch (_error) {
-            if (i < attempts - 1) {
-                await new Promise((resolve) => setTimeout(resolve, 500 * (i + 1)));
-            }
-        }
-    }
-    localStorage.setItem("zync_pending_key_upload", "1");
-    return false;
-};
 
 export const useAuthStore = create((set, get) => ({
     user: null,
@@ -54,61 +25,8 @@ export const useAuthStore = create((set, get) => ({
         set({ user: updatedUser });
     },
 
-    // Initialize E2E keys and verify sync with database state
-    initializeE2E: async (dbPublicKey) => {
-        try {
-            let privateKey = localStorage.getItem("zync_private_key");
-            let isKeyDesynced = false;
-
-            if (privateKey && dbPublicKey) {
-                try {
-                    const pubFromPriv = derivePublicKeyFromPrivate(privateKey);
-                    const parsedDerived = JSON.parse(pubFromPriv);
-                    const parsedDb = JSON.parse(dbPublicKey);
-                    if (parsedDerived.x !== parsedDb.x || parsedDerived.y !== parsedDb.y) {
-                        isKeyDesynced = true;
-                    }
-                } catch (err) {
-                    logger.crypto('Failed to parse public key for comparison', err);
-                    isKeyDesynced = true;
-                }
-            }
-
-            if (privateKey && (!dbPublicKey || isKeyDesynced)) {
-                if (!get().user) return;
-
-                try {
-                    const pubKeyStr = derivePublicKeyFromPrivate(privateKey);
-                    const ok = await uploadPublicKeyWithRetry(pubKeyStr);
-                    if (ok) {
-                        set((state) => ({ user: state.user ? { ...state.user, publicKey: pubKeyStr } : state.user }));
-                    }
-                } catch (err) {
-                    logger.crypto('Failed to upload public key after key desync', err);
-                }
-                return;
-            }
-
-            if (!privateKey) {
-                const keys = await generateKeyPair();
-                localStorage.setItem("zync_private_key", keys.privateKey);
-
-                const ok = await uploadPublicKeyWithRetry(keys.publicKey);
-                if (ok) {
-                    set((state) => ({ user: state.user ? { ...state.user, publicKey: keys.publicKey } : state.user }));
-                }
-            } else if (get().user && !get().user.publicKey) {
-                try {
-                    const pubKeyStr = derivePublicKeyFromPrivate(privateKey);
-                    await uploadPublicKeyWithRetry(pubKeyStr);
-                } catch (err) {
-                    logger.crypto('Failed to upload public key for existing user', err);
-                }
-            }
-        } catch (err) {
-            logger.warn('Failed to cache user profile', err);
-        }
-    },
+    // Initialize E2E keys (no-op in plain text mode)
+    initializeE2E: async () => {},
 
     // Check Firebase and database authentication status
     checkAuth: () => {

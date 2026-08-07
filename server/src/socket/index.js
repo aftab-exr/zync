@@ -4,7 +4,6 @@ import Redis from "ioredis";
 import admin from "firebase-admin";
 import User from "../models/user.model.js";
 import Message from "../models/message.model.js";
-import CallLog from "../models/callLog.model.js";
 import Conversation from "../models/conversation.model.js";
 import { socketLimiters } from "../services/rateLimiter.js";
 
@@ -20,16 +19,6 @@ const logCallAndEmit = async (session, duration) => {
         const receiverId = session.receiverId;
         const callType = session.callType;
         const status = session.status;
-
-        // 1. Create CallLog entry
-        await CallLog.create({
-            caller: callerId,
-            receiver: receiverId,
-            callType,
-            duration,
-            status,
-            timestamp: new Date()
-        });
 
         // 2. Find or create 1-to-1 conversation for call status message routing
         let conversation = await Conversation.findOne({
@@ -136,12 +125,6 @@ export const initializeSocket = async (httpServer) => {
         try {
             const token = socket.handshake.auth.token;
             if (!token) return next(new Error("Authentication error: No token provided"));
-
-            // Development bypass for unit tests / local prototyping
-            if (token === "DEV_TEST_TOKEN") {
-                socket.user = await User.findOne({ firebaseUid: "firebase_mock_uid_123" });
-                return next();
-            }
 
             // Verify Zync JWT
             const jwt = (await import("jsonwebtoken")).default;

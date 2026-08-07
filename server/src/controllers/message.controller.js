@@ -6,7 +6,6 @@ import admin from "../config/firebase.js";
 import cloudinary from "../config/cloudinary.js"; 
 import * as socketModule from "../socket/index.js"; 
 import { generateAIResponse } from "../services/ai.service.js"; 
-import { importPublicKey, importPrivateKey, deriveSharedSecret, decryptText, encryptText } from '@zync/crypto';
 import apiResponse from "../utils/apiResponse.js";
 import apiError from "../utils/apiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -178,56 +177,15 @@ export const sendMessage = asyncHandler(async (req, res, next) => {
 
     for (const receiver of receivers) {
         if (receiver.isAI) {
-            const aiPrivateKeyStr = process.env.AI_PRIVATE_KEY;
-            const user = await User.findById(senderId).select("+publicKey").lean();
-            
-            if (!user || !user.publicKey) {
-                throw new Error("Human public key missing from DB query");
-            }
-            if (typeof user.publicKey !== "string" || !user.publicKey.trim()) {
-                throw new Error("Human public key is not a valid string");
-            }
-            
-            const senderPublicKeyStr = user.publicKey;
-
-            if (!aiPrivateKeyStr || !senderPublicKeyStr) {
-                 console.error("AI Gateway keys missing. Cannot unwrap message.");
-                 continue;
-            }
-
-            let plainTextPrompt = text; 
-            let sharedSecret;
-
-            try {
-                const aiPrivateKey = await importPrivateKey(aiPrivateKeyStr);
-                const senderPublicKey = await importPublicKey(senderPublicKeyStr);
-                sharedSecret = await deriveSharedSecret(aiPrivateKey, senderPublicKey);
-
-                if (text && text.startsWith('{"iv":')) {
-                    const encryptedPayload = JSON.parse(text);
-                    plainTextPrompt = await decryptText(encryptedPayload, sharedSecret);
-                }
-            } catch (err) {
-                console.error("AI Gateway Unwrap Failed:", err);
-                plainTextPrompt = "System Warning: Failed to decrypt human prompt.";
-            }
-
+            let plainTextPrompt = text || "";
             if (image) plainTextPrompt += "\n[User also attached an image payload]";
 
             const aiResponseText = await generateAIResponse(plainTextPrompt);
 
-            let finalEncryptedResponse = aiResponseText;
-            try {
-                const encryptedObj = await encryptText(aiResponseText, sharedSecret);
-                finalEncryptedResponse = JSON.stringify(encryptedObj);
-            } catch (err) {
-                console.error("AI Gateway Re-wrap Failed:", err);
-            }
-
             const aiMessage = await Message.create({
                 senderId: receiver._id,
                 conversationId: conversation._id,
-                text: finalEncryptedResponse,
+                text: aiResponseText,
                 imageUrl: ""
             });
 

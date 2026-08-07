@@ -3,15 +3,34 @@ import authenticateUser from "../middlewares/auth.middleware.js";
 import { AI_MODEL, AI_SYSTEM_PROMPT } from "../constants/constants.js";
 import asyncHandler from "../utils/asyncHandler.js";
 
+import apiError from "../utils/apiError.js";
+
 const router = express.Router();
 
-// SSE streaming proxy to Groq
-router.post("/chat/completions", authenticateUser, asyncHandler(async (req, res) => {
-  try {
-    if (!process.env.GROQ_API_KEY) {
-      return res.status(500).json({ error: "GROQ_API_KEY is not configured." });
-    }
+const ALLOWED_MODELS = new Set([
+  "llama-3.3-70b-versatile",
+  "llama-3.1-8b-instant",
+  "llama3-70b-8192",
+  "llama3-8b-8192",
+  "mixtral-8x7b-32768",
+  "gemma2-9b-it",
+  "deepseek-r1-distill-llama-70b",
+]);
 
+// SSE streaming proxy to Groq
+router.post("/chat/completions", authenticateUser, asyncHandler(async (req, res, next) => {
+  if (!process.env.GROQ_API_KEY) {
+    throw new apiError(500, "GROQ_API_KEY is not configured.");
+  }
+
+  const { model, messages } = req.body;
+  if (!Array.isArray(messages) || messages.length === 0) {
+    throw new apiError(400, "Messages array is required.");
+  }
+
+  const selectedModel = (model && ALLOWED_MODELS.has(model)) ? model : AI_MODEL;
+
+  try {
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
@@ -23,10 +42,10 @@ router.post("/chat/completions", authenticateUser, asyncHandler(async (req, res)
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: req.body.model || AI_MODEL,
+        model: selectedModel,
         messages: [
           { role: "system", content: AI_SYSTEM_PROMPT },
-          ...req.body.messages,
+          ...messages,
         ],
         temperature: 0.7,
         stream: true,

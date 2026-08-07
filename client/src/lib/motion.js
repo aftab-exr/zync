@@ -12,7 +12,6 @@ import { DEFAULT_MOTION_PROFILE, useSettingsStore } from '../store/useSettingsSt
 
 // Transition configs matching the exact Neubrutalism specs
 const entryTransition = { type: 'tween', ease: 'easeOut', duration: 0.42 }; // 420ms ease-out
-const hoverTransition = { type: 'tween', ease: 'easeOut', duration: 0.20 }; // 200ms
 const fadeTransition = { type: 'tween', ease: 'easeOut', duration: 0.20 }; // 200ms
 
 const PROFILE_TRANSITIONS = {

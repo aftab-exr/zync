@@ -77,13 +77,6 @@ app.get("/health", (req, res) => {
   res.status(200).json(new apiResponse(200, "OK", {}));
 });
 
-// Global error handler
-app.use((err, req, res, next) => {
-  const statusCode = err.statusCode || 500;
-  const message = err.message || "Internal Server Error";
-  res.status(statusCode).json(new apiResponse(statusCode, message, err.errors || {}));
-});
-
 // Production: serve the React build
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -94,5 +87,12 @@ if (process.env.NODE_ENV === "production") {
     res.sendFile(path.resolve(__dirname, "../../client/dist", "index.html"));
   });
 }
+
+// Global error handler
+app.use((err, req, res, next) => {
+  const statusCode = err.statusCode || 500;
+  const message = err.message || "Internal Server Error";
+  res.status(statusCode).json(new apiResponse(statusCode, message, err.errors || {}));
+});
 
 export default app;
