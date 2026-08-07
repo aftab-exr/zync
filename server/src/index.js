@@ -16,7 +16,7 @@ import { initializeSocket, closeSocket } from "./socket/index.js";
 import "./config/firebase.js";
 
 import User from "./models/user.model.js";
-import { generateServerKeyPair } from '@zync/crypto';
+import { generateKeyPair } from '@zync/crypto';
 
 const httpServer = http.createServer(app);
 

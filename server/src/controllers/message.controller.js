@@ -30,11 +30,10 @@ const sendSilentPush = async (token, senderName, ciphertext, conversationId) => 
     }
 };
 
-// Retrieve messages in a conversation, supports delta sync using after timestamp and cursor-based pagination
+// Retrieve messages in a conversation — bounded to 50 most recent
 export const getMessages = asyncHandler(async (req, res, next) => {
     const { conversationId } = req.params;
     const userId = req.user?._id;
-    const { cursor, limit, after } = req.query;
 
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
         throw new apiError(401, "Unauthorized");
@@ -57,42 +56,16 @@ export const getMessages = asyncHandler(async (req, res, next) => {
     const filter = { conversationId };
     filter.deletedForMe = { $ne: userId };
 
-    if (after) {
-        const afterDate = new Date(after);
-        if (!isNaN(afterDate.getTime())) {
-            filter.createdAt = { $gt: afterDate };
-        }
-        
-        // Delta sync: fetch newer messages chronologically
-        const messages = await Message.find(filter).sort({ createdAt: 1 }).lean();
-        return res.status(200).json(new apiResponse(200, "Messages retrieved successfully", {
-            messages,
-            nextCursor: null
-        }));
-    }
-
-    // Pagination flow
-    if (cursor && mongoose.Types.ObjectId.isValid(cursor)) {
-        filter._id = { $lt: new mongoose.Types.ObjectId(cursor) };
-    }
-
-    const parsedLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 30));
-
-    // Fetch messages sorted descending to get newest preceding messages
+    // Fetch the 50 most recent messages
     const messages = await Message.find(filter)
-        .sort({ _id: -1 })
-        .limit(parsedLimit)
+        .sort({ createdAt: -1 }) // Get newest first
+        .limit(50)
         .lean();
 
-    // Reverse them to chronological order (oldest first)
-    messages.reverse();
+    // Reverse the array so the frontend receives them in chronological order (oldest to newest)
+    const chronologicalMessages = messages.reverse();
 
-    const nextCursor = messages.length === parsedLimit ? messages[0]._id : null;
-
-    res.status(200).json(new apiResponse(200, "Messages retrieved successfully", {
-        messages,
-        nextCursor
-    }));
+    res.status(200).json(new apiResponse(200, chronologicalMessages, "Messages fetched successfully"));
 });
 
 // Clear all message history for conversations the user is in

@@ -2,6 +2,7 @@ import { Router } from "express";
 import multer from "multer";
 import authenticateUser from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
+import { globalLimiter as rateLimiter } from "../middlewares/rateLimit.middleware.js";
 import {
   sendMessageSchema,
   getMessagesSchema,
@@ -33,7 +34,7 @@ router.post("/upload", authenticateUser, upload.single("file"), uploadAttachment
 router.delete("/clear", authenticateUser, clearMessages);
 
 router.get("/:conversationId", authenticateUser, validate(getMessagesSchema), getMessages);
-router.post("/:conversationId", authenticateUser, validate(sendMessageSchema), sendMessage);
+router.post("/:conversationId", authenticateUser, rateLimiter, validate(sendMessageSchema), sendMessage);
 
 router.put("/:messageId/edit", authenticateUser, validate(editMessageSchema), editMessage);
 router.delete("/:messageId/everyone", authenticateUser, validate(deleteMessageSchema), deleteMessageForEveryone);
