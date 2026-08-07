@@ -10,6 +10,7 @@ import { getAllowedOrigins, PAYLOAD_LIMIT } from "./constants/constants.js";
 import logger from "./middlewares/logger.middleware.js";
 import { initRedisRateLimiter, restLimiters } from "./services/rateLimiter.js";
 import apiResponse from "./utils/apiResponse.js";
+import authRoutes from "./routes/auth.routes.js";
 import userRoutes from "./routes/user.route.js";
 import conversationRoutes from "./routes/conversation.routes.js";
 import messageRoutes from "./routes/message.routes.js";
@@ -66,7 +67,8 @@ app.use((req, res, next) => {
 });
 
 // Routes
-app.use("/api/v1/auth", userRoutes);
+app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/conversations", conversationRoutes);
 app.use("/api/v1/messages", restLimiters.messageSend);
 app.use("/api/v1/messages", messageRoutes);

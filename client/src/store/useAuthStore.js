@@ -58,7 +58,7 @@ export const useAuthStore = create((set, get) => ({
 
                 // Get Firebase ID token and exchange for Zync JWT
                 const firebaseIdToken = await firebaseUser.getIdToken();
-                const res = await api.post('/users/login', { firebaseIdToken });
+                const res = await api.post('/auth/login', { firebaseIdToken });
 
                 if (res.data?.data?.user) {
                     const profileData = res.data.data.user;
@@ -100,7 +100,7 @@ export const useAuthStore = create((set, get) => ({
     logout: async () => {
         if (_authUnsub) { _authUnsub(); _authUnsub = null; }
         await signOut(auth);
-        await api.post('/users/logout'); // Also revoke server-side refresh token
+        await api.post('/auth/logout'); // Also revoke server-side refresh token
         localStorage.removeItem("zync_user_cache");
         set({ isAuthenticated: false, user: null });
     }

@@ -1,3 +1,5 @@
+import jwt from "jsonwebtoken";
+import admin from "../config/firebase.js";
 import User from "../models/user.model.js";
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -11,25 +13,41 @@ export const authenticateUser = async (req, res, next) => {
 
     const token = authHeader.split(" ")[1];
 
-    // Verify Zync JWT
     let decoded;
     try {
       decoded = jwt.verify(token, JWT_SECRET);
     } catch (err) {
-      if (err.name === "TokenExpiredError") {
-        return res.status(401).json({ success: false, error: "Token expired", code: "TOKEN_EXPIRED" });
+      // Fallback: Check if it's a direct Firebase ID Token (e.g. during initial profile setup)
+      try {
+        const firebaseDecoded = await admin.auth().verifyIdToken(token);
+        const user = await User.findOne({ firebaseUid: firebaseDecoded.uid });
+        req.user = user || null;
+        req.authContext = {
+          uid: firebaseDecoded.uid,
+          sub: user?._id?.toString() || null,
+          email: firebaseDecoded.email || "",
+          emailVerified: firebaseDecoded.email_verified || false,
+        };
+        return next();
+      } catch (_firebaseErr) {
+        if (err.name === "TokenExpiredError") {
+          return res.status(401).json({ success: false, error: "Token expired", code: "TOKEN_EXPIRED" });
+        }
+        return res.status(401).json({ success: false, error: "Invalid token" });
       }
-      return res.status(401).json({ success: false, error: "Invalid token" });
     }
 
-    // Fetch user from DB using sub (user ID)
-    const user = await User.findById(decoded.sub);
-    if (!user) {
-      return res.status(401).json({ success: false, error: "User not found" });
+    if (decoded.sub) {
+      const user = await User.findById(decoded.sub);
+      req.user = user || null;
     }
 
-    req.user = user;
-    req.authContext = { uid: decoded.firebaseUid, sub: decoded.sub };
+    req.authContext = {
+      uid: decoded.firebaseUid,
+      sub: decoded.sub,
+      email: decoded.email,
+      emailVerified: decoded.email_verified,
+    };
     next();
   } catch (error) {
     console.error("Auth middleware error:", error.message);
