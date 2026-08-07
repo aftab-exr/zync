@@ -3,6 +3,7 @@ import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 import { auth, googleProvider } from "../lib/firebase";
 import { api } from "../lib/axios";
 import { logger } from "../lib/logger";
+import { useSocketStore } from "./useSocketStore";
 
 // Track Firebase auth listener so we never register more than one
 let _authUnsub = null;
@@ -60,6 +61,10 @@ export const useAuthStore = create((set, get) => ({
                 const firebaseIdToken = await firebaseUser.getIdToken();
                 const res = await api.post('/auth/login', { firebaseIdToken });
 
+                if (res.data?.data?.accessToken) {
+                    api.defaults.headers.common['Authorization'] = `Bearer ${res.data.data.accessToken}`;
+                }
+
                 if (res.data?.data?.user) {
                     const profileData = res.data.data.user;
                     try {
@@ -70,6 +75,7 @@ export const useAuthStore = create((set, get) => ({
 
                     set({ user: profileData, isAuthenticated: true, isCheckingAuth: false });
                     await get().initializeE2E(profileData.publicKey);
+                    useSocketStore.getState().connect();
                 } else {
                     // Profile not set up yet
                     set({ user: null, isAuthenticated: true, isCheckingAuth: false });

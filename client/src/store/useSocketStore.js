@@ -27,18 +27,19 @@ export const useSocketStore = create((set, get) => ({
     }
 
     if (isConnecting) return;
+
+    // Guard: Do not attempt socket connection without a valid session token
+    const token = api.defaults.headers.common?.Authorization?.replace('Bearer ', '') || null;
+    if (!token) {
+      return;
+    }
+
     set({ isConnecting: true, isReconnecting: true });
 
     const socket = io(SOCKET_URL, {
-      auth: async (cb) => {
-        try {
-          // Use Zync access token from axios defaults (set after login/refresh)
-          // or get from the auth store if available
-          const token = api.defaults.headers.common?.Authorization?.replace('Bearer ', '') || null;
-          cb({ token });
-        } catch (error) {
-          cb({ token: null });
-        }
+      auth: (cb) => {
+        const currentToken = api.defaults.headers.common?.Authorization?.replace('Bearer ', '') || null;
+        cb({ token: currentToken });
       },
     });
 
