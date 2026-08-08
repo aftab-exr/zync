@@ -3,7 +3,7 @@ import axios from 'axios';
 const baseURL = import.meta.env.VITE_API_BASE_URL || (
   import.meta.env.MODE === "development"
     ? "http://localhost:4000/api/v1"
-    : "https://zync-znty.onrender.com/api/v1"
+    : "/api/v1" 
 );
 
 export const api = axios.create({
