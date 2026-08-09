@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone  # noqa: F401 — timedelta used in JWT exp
 
@@ -13,6 +14,9 @@ from firebase_admin import auth as firebase_auth
 from app.config.env import get_settings
 from app.config.firebase import get_firebase_app
 from app.config.supabase import get_supabase
+
+logger = logging.getLogger(__name__)
+
 from app.constants.constants import (
     ACCESS_TOKEN_EXPIRY,
     MAX_DEVICES_PER_USER,
@@ -38,30 +42,44 @@ def _cookie_options() -> dict:
 
 
 async def login(request: Request, response: Response, firebase_id_token: str) -> ApiResponse:
-    get_firebase_app()
+    try:
+        get_firebase_app()
+    except Exception as exc:
+        logger.exception("Firebase initialization failed during login: %s", exc)
+        raise ApiError(500, f"Firebase service unavailable: {exc}") from exc
+
     settings = get_settings()
     supabase = get_supabase()
 
     try:
         decoded = firebase_auth.verify_id_token(firebase_id_token)
     except Exception as exc:
-        raise ApiError(401, "Invalid or expired Firebase token") from exc
+        logger.warning("Firebase token verification failed: %s", exc)
+        raise ApiError(401, f"Invalid or expired Firebase token: {exc}") from exc
 
-    user_result = supabase.table("users").select("*").eq("firebase_uid", decoded["uid"]).maybe_single().execute()
-    user_row = user_result.data
-    user = serialize_user(user_row) if user_row else None
+    try:
+        user_result = supabase.table("users").select("*").eq("firebase_uid", decoded["uid"]).maybe_single().execute()
+        user_row = user_result.data
+        user = serialize_user(user_row) if user_row else None
+    except Exception as exc:
+        logger.exception("Supabase user lookup failed: %s", exc)
+        raise ApiError(500, f"Database error looking up user: {exc}") from exc
 
-    access_token = jwt.encode(
-        {
-            "sub": user["id"] if user else None,
-            "firebaseUid": decoded["uid"],
-            "email": decoded.get("email") or "",
-            "email_verified": decoded.get("email_verified") or False,
-            "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
-        },
-        settings.jwt_secret,
-        algorithm="HS256",
-    )
+    try:
+        access_token = jwt.encode(
+            {
+                "sub": user["id"] if user else None,
+                "firebaseUid": decoded["uid"],
+                "email": decoded.get("email") or "",
+                "email_verified": decoded.get("email_verified") or False,
+                "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
+            },
+            settings.jwt_secret,
+            algorithm="HS256",
+        )
+    except Exception as exc:
+        logger.exception("JWT token generation failed: %s", exc)
+        raise ApiError(500, f"Failed to generate access token: {exc}") from exc
 
     if isinstance(access_token, bytes):
         access_token = access_token.decode()
@@ -71,38 +89,45 @@ async def login(request: Request, response: Response, firebase_id_token: str) ->
     token_family = str(uuid.uuid4())
 
     if user:
-        devices_result = (
-            supabase.table("devices")
-            .select("*")
-            .eq("user_id", user["id"])
-            .eq("is_revoked", False)
-            .order("last_used_at")
-            .execute()
-        )
-        active_devices = devices_result.data or []
-        if len(active_devices) >= MAX_DEVICES_PER_USER:
-            oldest = active_devices[0]
-            supabase.table("devices").update(
-                {"is_revoked": True, "revoked_at": datetime.now(timezone.utc).isoformat()}
-            ).eq("id", oldest["id"]).execute()
+        try:
+            devices_result = (
+                supabase.table("devices")
+                .select("*")
+                .eq("user_id", user["id"])
+                .eq("is_revoked", False)
+                .order("last_used_at")
+                .execute()
+            )
+            active_devices = devices_result.data or []
+            if len(active_devices) >= MAX_DEVICES_PER_USER:
+                oldest = active_devices[0]
+                supabase.table("devices").update(
+                    {"is_revoked": True, "revoked_at": datetime.now(timezone.utc).isoformat()}
+                ).eq("id", oldest["id"]).execute()
 
-        expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_DAYS)
-        user_agent = request.headers.get("user-agent") or ""
-        supabase.table("devices").insert(
-            {
-                "user_id": user["id"],
-                "device_name": user_agent[:80] if user_agent else "Web Session",
-                "device_type": "web",
-                "refresh_token_hash": refresh_token_hash,
-                "token_family": token_family,
-                "last_used_at": datetime.now(timezone.utc).isoformat(),
-                "ip_address": get_client_ip(request),
-                "user_agent": user_agent,
-                "expires_at": expires_at.isoformat(),
-            }
-        ).execute()
+            expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_DAYS)
+            user_agent = request.headers.get("user-agent") or ""
+            supabase.table("devices").insert(
+                {
+                    "user_id": user["id"],
+                    "device_name": user_agent[:80] if user_agent else "Web Session",
+                    "device_type": "web",
+                    "refresh_token_hash": refresh_token_hash,
+                    "token_family": token_family,
+                    "last_used_at": datetime.now(timezone.utc).isoformat(),
+                    "ip_address": get_client_ip(request),
+                    "user_agent": user_agent,
+                    "expires_at": expires_at.isoformat(),
+                }
+            ).execute()
+        except Exception as exc:
+            logger.warning("Could not register device session for user %s: %s", user["id"], exc)
 
-    response.set_cookie(REFRESH_COOKIE_NAME, refresh_token, **_cookie_options())
+    try:
+        response.set_cookie(REFRESH_COOKIE_NAME, refresh_token, **_cookie_options())
+    except Exception as exc:
+        logger.warning("Could not set refresh cookie: %s", exc)
+
 
     return ApiResponse(
         200,
