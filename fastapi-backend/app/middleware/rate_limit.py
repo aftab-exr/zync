@@ -22,9 +22,13 @@ def ensure_redis() -> None:
 
 class GlobalRateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         ensure_redis()
         client_ip = request.client.host if request.client else "unknown"
         result = await check_rate_limit(key=f"ip:{client_ip}", limit=200, window_ms=60_000)
+
 
         if not result["allowed"]:
             retry_after = max(1, int((result.get("retry_after_ms") or 60_000) / 1000))

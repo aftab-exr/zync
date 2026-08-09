@@ -70,6 +70,21 @@ def create_app() -> FastAPI:
     app.add_middleware(RequestLoggerMiddleware)
     app.add_middleware(GlobalRateLimitMiddleware)
     app.add_middleware(GZipMiddleware, minimum_size=500)
+
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next):
+        try:
+            response = await call_next(request)
+        except Exception as exc:
+            logger.exception("Unhandled exception in request processing: %s", exc)
+            response = JSONResponse(
+                status_code=500,
+                content=ApiResponse(500, "Internal Server Error").model_dump(),
+            )
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
+        response.headers["Cross-Origin-Embedder-Policy"] = "unsafe-none"
+        return response
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=get_allowed_origins(),
@@ -79,12 +94,6 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    @app.middleware("http")
-    async def security_headers(request: Request, call_next):
-        response = await call_next(request)
-        response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
-        response.headers["Cross-Origin-Embedder-Policy"] = "unsafe-none"
-        return response
 
     @app.exception_handler(ApiError)
     async def api_error_handler(_: Request, exc: ApiError):

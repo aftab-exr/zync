@@ -41,8 +41,11 @@ def _strip(value: str | None) -> str:
 def get_allowed_origins() -> list[str]:
     settings = get_settings()
     client_origin = _strip(settings.client_origin) or "http://localhost:5173"
-    production_origin = _strip(settings.production_origin) or "https://zync-znty.onrender.com"
-    origins = [o for o in [client_origin, production_origin] if o]
+    production_origin = _strip(settings.production_origin) or "https://zync-app-vu95.onrender.com"
+    origins = [o for o in [client_origin, production_origin, "https://zync-app-vu95.onrender.com", "https://zync-znty.onrender.com"] if o]
+    # Remove duplicates while preserving order
+    unique_origins = list(dict.fromkeys(origins))
     if "localhost" in client_origin:
-        origins.append(client_origin.replace("localhost", "127.0.0.1"))
-    return origins
+        unique_origins.append(client_origin.replace("localhost", "127.0.0.1"))
+    return unique_origins
+
