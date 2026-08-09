@@ -1,9 +1,13 @@
 import uuid
 from datetime import datetime, timedelta, timezone  # noqa: F401 — timedelta used in JWT exp
 
+# pyrefly: ignore [missing-import]
 import bcrypt
+# pyrefly: ignore [missing-import]
 import jwt
+# pyrefly: ignore [missing-import]
 from fastapi import Request, Response
+# pyrefly: ignore [missing-import]
 from firebase_admin import auth as firebase_auth
 
 from app.config.env import get_settings
@@ -26,10 +30,11 @@ def _cookie_options() -> dict:
     return {
         "httponly": True,
         "secure": settings.is_production,
-        "samesite": "strict" if settings.is_production else "lax",
+        "samesite": "none" if settings.is_production else "lax",
         "max_age": REFRESH_TOKEN_DAYS * 24 * 60 * 60,
         "path": "/",
     }
+
 
 
 async def login(request: Request, response: Response, firebase_id_token: str) -> ApiResponse:

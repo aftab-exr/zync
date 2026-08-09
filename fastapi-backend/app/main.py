@@ -79,9 +79,9 @@ def create_app() -> FastAPI:
             logger.exception("Unhandled exception in request processing: %s", exc)
             response = JSONResponse(
                 status_code=500,
-                content=ApiResponse(500, "Internal Server Error").model_dump(),
+                content=ApiResponse(500, f"Internal Server Error: {exc}", {"error": str(exc)}).model_dump(),
             )
-        response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
+        response.headers["Cross-Origin-Opener-Policy"] = "unsafe-none"
         response.headers["Cross-Origin-Embedder-Policy"] = "unsafe-none"
         return response
 
@@ -123,8 +123,9 @@ def create_app() -> FastAPI:
         logger.exception("Unhandled error: %s", exc)
         return JSONResponse(
             status_code=500,
-            content=ApiResponse(500, "Internal Server Error").model_dump(),
+            content=ApiResponse(500, f"Internal Server Error: {exc}", {"error": str(exc)}).model_dump(),
         )
+
 
     @app.get("/health")
     async def health():
