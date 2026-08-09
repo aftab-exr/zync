@@ -31,10 +31,13 @@ export const useAuthStore = create((set, get) => ({
 
     // Check Firebase and database authentication status
     checkAuth: () => {
-        // Prevent stacking multiple listeners — only register once
+        // Prevent stacking multiple listeners — only register once globally
         if (_authUnsub) return;
+        
         _authUnsub = onAuthStateChanged(auth, async (firebaseUser) => {
             if (!firebaseUser) {
+                // Clear state and auth headers when Firebase user is null
+                delete api.defaults.headers.common['Authorization'];
                 set({ user: null, isAuthenticated: false, isCheckingAuth: false });
                 return;
             }
@@ -57,7 +60,7 @@ export const useAuthStore = create((set, get) => ({
                     }
                 }
 
-                // Get Firebase ID token and exchange for Zync JWT
+                // Get Firebase ID token and exchange for Zync FastAPI JWT
                 const firebaseIdToken = await firebaseUser.getIdToken();
                 const res = await api.post('/auth/login', { firebaseIdToken });
 
@@ -77,11 +80,12 @@ export const useAuthStore = create((set, get) => ({
                     await get().initializeE2E(profileData.publicKey);
                     useSocketStore.getState().connect();
                 } else {
-                    // Profile not set up yet
+                    // Profile setup required (new user)
                     set({ user: null, isAuthenticated: true, isCheckingAuth: false });
                 }
 
             } catch (error) {
+                delete api.defaults.headers.common['Authorization'];
                 if (error.response?.status === 404 || error.response?.status === 403) {
                     set({ user: null, isAuthenticated: true, isCheckingAuth: false });
                 } else {
@@ -104,10 +108,20 @@ export const useAuthStore = create((set, get) => ({
     },
 
     logout: async () => {
-        if (_authUnsub) { _authUnsub(); _authUnsub = null; }
-        await signOut(auth);
-        await api.post('/auth/logout'); // Also revoke server-side refresh token
-        localStorage.removeItem("zync_user_cache");
-        set({ isAuthenticated: false, user: null });
+        try {
+            // Revoke refresh token on backend first
+            await api.post('/auth/logout');
+        } catch (err) {
+            logger.warn('Failed to invalidate server session on logout', err);
+        } finally {
+            // Sign out of Firebase (triggers onAuthStateChanged automatically)
+            await signOut(auth);
+            
+            // Clean up local client state
+            delete api.defaults.headers.common['Authorization'];
+            localStorage.removeItem("zync_user_cache");
+            useSocketStore.getState().disconnect?.();
+            set({ isAuthenticated: false, user: null });
+        }
     }
 }));
