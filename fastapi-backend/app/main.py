@@ -128,8 +128,15 @@ def create_app() -> FastAPI:
 
 
     @app.get("/health")
+    @app.head("/health")
     async def health():
         return ApiResponse(200, "OK", {}).model_dump()
+
+    @app.get("/")
+    @app.head("/")
+    async def root():
+        return ApiResponse(200, "Zync API Server is running", {"status": "online", "version": "2.0.0"}).model_dump()
+
 
     app.include_router(auth.router)
     app.include_router(keys.router)

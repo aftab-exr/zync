@@ -5,7 +5,12 @@ import { useMessageStore } from './useMessageStore.js';
 import { useChatStore } from './useChatStore.js';
 import { sameId } from '../lib/conversation.js';
 
-const SOCKET_URL = import.meta.env.MODE === 'development' ? 'http://localhost:4000' : '/';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || (
+  import.meta.env.MODE === 'development'
+    ? 'http://localhost:4000'
+    : 'https://zync-v2.onrender.com'
+);
+
 
 let onlineHandler = null;
 let offlineHandler = null;

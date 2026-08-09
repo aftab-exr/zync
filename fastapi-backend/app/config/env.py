@@ -38,7 +38,7 @@ class Settings(BaseSettings):
 
     @property
     def is_production(self) -> bool:
-        return self.node_env == "production"
+        return self.node_env.lower() in ["production", "prod"] or os.getenv("RENDER") == "true"
 
 
 @lru_cache
@@ -47,7 +47,11 @@ def get_settings() -> Settings:
 
 
 def get_port() -> int:
+    port_env = os.getenv("PORT")
+    if port_env and port_env.isdigit():
+        return int(port_env)
     return get_settings().port
+
 
 
 def validate_env() -> Settings:
