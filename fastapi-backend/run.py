@@ -1,7 +1,6 @@
 import uvicorn
 
 from app.config.env import get_port, validate_env
-from app.main import app
 
 
 def main() -> None:
