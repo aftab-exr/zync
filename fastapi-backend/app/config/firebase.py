@@ -1,6 +1,6 @@
 import json
 import logging
-import re
+import base64
 from functools import lru_cache
 import firebase_admin
 from firebase_admin import credentials
@@ -16,21 +16,20 @@ def get_firebase_app():
         raise RuntimeError("FIREBASE_SERVICE_ACCOUNT is not configured")
 
     try:
-        raw_json = settings.firebase_service_account.strip()
+        raw_val = settings.firebase_service_account.strip()
         
-        # THE ULTIMATE ANTIGRAVITY FIX:
-        # 1. Convert any literal invisible newlines into escaped \n (two characters)
-        cleaned = raw_json.replace('\r', '').replace('\n', '\\n')
-        
-        # 2. Normalize any multiple backslashes followed by 'n' into a single, valid JSON '\n'
-        cleaned = re.sub(r'\\+n', r'\\n', cleaned)
-        
-        service_account = json.loads(cleaned)
+        # Base64 bypass: Decode the string back into pure JSON, ignoring environment mangling
+        if not raw_val.startswith("{"):
+            raw_json = base64.b64decode(raw_val).decode('utf-8')
+        else:
+            raw_json = raw_val  # Fallback just in case standard JSON is used
+
+        service_account = json.loads(raw_json)
         cred = credentials.Certificate(service_account)
         return firebase_admin.initialize_app(cred)
         
     except json.JSONDecodeError as e:
-        logger.error("Firebase JSON Parsing Error: %s. Check Render environment variables.", e)
+        logger.error("Firebase JSON Parsing Error: %s", e)
         raise RuntimeError(f"Invalid Firebase JSON: {e}")
     except Exception as e:
         logger.error("Firebase Initialization Error: %s", e)
