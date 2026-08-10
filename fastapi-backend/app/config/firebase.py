@@ -1,9 +1,7 @@
 import json
 import logging
 from functools import lru_cache
-# pyrefly: ignore [missing-import]
 import firebase_admin
-# pyrefly: ignore [missing-import]
 from firebase_admin import credentials
 from app.config.env import get_settings
 
@@ -17,12 +15,12 @@ def get_firebase_app():
         raise RuntimeError("FIREBASE_SERVICE_ACCOUNT is not configured")
 
     try:
-        # ANTIGRAVITY: Bulletproof JSON parsing for cloud deployment environments
         raw_json = settings.firebase_service_account.strip()
         
-        # Render sometimes escapes newlines as literal '\n'. This restores the valid private_key format.
-        if "\\n" in raw_json:
-            raw_json = raw_json.replace("\\n", "\n")
+        # ANTIGRAVITY V2: Properly reduce Render's double-escaped newlines to valid JSON newlines
+        # "\\\\n" looks for literal '\' '\' 'n', and "\\n" replaces it with a valid JSON literal '\' 'n'
+        if "\\\\n" in raw_json:
+            raw_json = raw_json.replace("\\\\n", "\\n")
 
         service_account = json.loads(raw_json)
         cred = credentials.Certificate(service_account)
