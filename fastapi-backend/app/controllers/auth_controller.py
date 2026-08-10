@@ -59,7 +59,8 @@ async def login(request: Request, response: Response, firebase_id_token: str) ->
 
     try:
         user_result = supabase.table("users").select("*").eq("firebase_uid", decoded["uid"]).maybe_single().execute()
-        user_row = user_result.data
+        # Safely extract data only if user_result is not None
+        user_row = getattr(user_result, "data", None) if user_result else None
         user = serialize_user(user_row) if user_row else None
     except Exception as exc:
         logger.exception("Supabase user lookup failed: %s", exc)
@@ -171,7 +172,7 @@ async def refresh(request: Request, response: Response) -> ApiResponse:
     supabase = get_supabase()
     settings = get_settings()
     user_result = supabase.table("users").select("*").eq("id", matched_device["user_id"]).maybe_single().execute()
-    user_row = user_result.data
+    user_row = getattr(user_result, "data", None) if user_result else None
     if not user_row:
         response.delete_cookie(REFRESH_COOKIE_NAME, path="/")
         raise ApiError(401, "User not found")
@@ -247,7 +248,9 @@ async def revoke_device(user: dict, device_id: str) -> ApiResponse:
         .maybe_single()
         .execute()
     )
-    if not result.data:
+    # Safely extract data
+    device_row = getattr(result, "data", None) if result else None
+    if not device_row:
         raise ApiError(404, "Device session not found or already revoked")
 
     supabase.table("devices").update(
