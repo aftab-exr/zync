@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from functools import lru_cache
 import firebase_admin
 from firebase_admin import credentials
@@ -17,12 +18,14 @@ def get_firebase_app():
     try:
         raw_json = settings.firebase_service_account.strip()
         
-        # ANTIGRAVITY V2: Properly reduce Render's double-escaped newlines to valid JSON newlines
-        # "\\\\n" looks for literal '\' '\' 'n', and "\\n" replaces it with a valid JSON literal '\' 'n'
-        if "\\\\n" in raw_json:
-            raw_json = raw_json.replace("\\\\n", "\\n")
-
-        service_account = json.loads(raw_json)
+        # THE ULTIMATE ANTIGRAVITY FIX:
+        # 1. Convert any literal invisible newlines into escaped \n (two characters)
+        cleaned = raw_json.replace('\r', '').replace('\n', '\\n')
+        
+        # 2. Normalize any multiple backslashes followed by 'n' into a single, valid JSON '\n'
+        cleaned = re.sub(r'\\+n', r'\\n', cleaned)
+        
+        service_account = json.loads(cleaned)
         cred = credentials.Certificate(service_account)
         return firebase_admin.initialize_app(cred)
         
