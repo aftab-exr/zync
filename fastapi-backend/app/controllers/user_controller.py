@@ -38,11 +38,13 @@ async def setup_profile(auth_context: AuthContext, body) -> ApiResponse:
     existing_user = (
         supabase.table("users").select("id").eq("firebase_uid", auth_context.uid).maybe_single().execute()
     )
-    if existing_user.data:
+    existing_user_data = getattr(existing_user, "data", None) if existing_user else None
+    if existing_user_data:
         raise ApiError(400, "Profile already exists.")
 
     existing_username = supabase.table("users").select("id").eq("username", username).maybe_single().execute()
-    if existing_username.data:
+    existing_username_data = getattr(existing_username, "data", None) if existing_username else None
+    if existing_username_data:
         raise ApiError(409, "Username already taken.")
 
     result = supabase.table("users").insert(
@@ -130,7 +132,8 @@ async def update_profile(user: dict, body) -> ApiResponse:
             .maybe_single()
             .execute()
         )
-        if taken.data:
+        taken_data = getattr(taken, "data", None) if taken else None
+        if taken_data:
             raise ApiError(409, "Username already taken.")
         updates["username"] = normalized
         updates["last_username_change_at"] = datetime.now(timezone.utc).isoformat()
