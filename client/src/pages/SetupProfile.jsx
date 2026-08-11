@@ -81,7 +81,7 @@ export default function SetupProfile() {
               type="text"
               value={formData.displayName}
               onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
-              placeholder="e.g. Aaftab"
+              placeholder="e.g. John Doe"
               maxLength={50}
               className="w-full bg-base border-3 border-border rounded-sm px-4 py-3 sm:py-4 text-tx-primary focus:outline-none focus:border-accent transition-colors"
             />
@@ -98,7 +98,7 @@ export default function SetupProfile() {
                 type="text"
                 value={formData.username}
                 onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase().replace(/\s/g, '') })}
-                placeholder="aaftab_dev"
+                placeholder="johndoe123"
                 maxLength={30}
                 className="w-full bg-base border-3 border-border rounded-sm pl-9 pr-10 py-3 sm:py-4 text-tx-primary focus:outline-none focus:border-accent transition-colors font-mono"
               />

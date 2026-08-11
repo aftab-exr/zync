@@ -26,7 +26,7 @@ class AuthContext:
 async def authenticate_user(
     request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
-) -> dict | None:
+    ) -> dict | None:
     from app.utils.api_error import ApiError
 
     if not credentials or credentials.scheme.lower() != "bearer":
@@ -51,7 +51,7 @@ async def authenticate_user(
                 .maybe_single()
                 .execute()
             )
-            user_row = result.data
+            user_row = getattr(result, "data", None) if result else None
             request.state.user = serialize_user(user_row) if user_row else None
             request.state.auth_context = AuthContext(
                 uid=firebase_decoded["uid"],
@@ -66,6 +66,7 @@ async def authenticate_user(
     user = None
     if decoded.get("sub"):
         result = supabase.table("users").select("*").eq("id", decoded["sub"]).maybe_single().execute()
+        user_row = getattr(result, "data", None) if result else None
         user = serialize_user(result.data) if result.data else None
 
     request.state.user = user
