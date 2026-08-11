@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 
 from app.controllers import user_controller
 from app.middleware.auth import authenticate_user, get_auth_context, get_current_user, require_user
@@ -17,10 +17,11 @@ router = APIRouter(prefix="/api/v1/users", tags=["users"])
 async def setup_profile(
     body: SetupProfileBody,
     request: Request,
+    response: Response,
     _=Depends(authenticate_user),
     auth_context=Depends(get_auth_context),
 ):
-    result = await user_controller.setup_profile(auth_context, body)
+    result = await user_controller.setup_profile(request , response, auth_context, body)
     return result.model_dump()
 
 

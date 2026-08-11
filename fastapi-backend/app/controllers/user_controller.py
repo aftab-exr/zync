@@ -1,12 +1,22 @@
 import math
 import re
-from datetime import datetime, timezone
+import uuid
+import bcrypt
+import jwt
+from datetime import datetime, timezone, timedelta
+from fastapi import Request, Response
 
 import cloudinary.uploader
 
+from app.config.env import get_settings
 from app.config.supabase import get_supabase
-from app.constants.constants import DISPLAY_NAME_LOCKOUT_DAYS, USERNAME_LOCKOUT_DAYS
-from app.middleware.auth import AuthContext
+from app.constants.constants import (
+    DISPLAY_NAME_LOCKOUT_DAYS, 
+    USERNAME_LOCKOUT_DAYS,
+    REFRESH_TOKEN_DAYS,
+    REFRESH_COOKIE_NAME
+)
+from app.middleware.auth import AuthContext, get_client_ip
 from app.utils.api_error import ApiError
 from app.utils.api_response import ApiResponse
 from app.utils.serializers import serialize_user
@@ -28,7 +38,7 @@ def _pluralize_days(n: int) -> str:
     return f"{n} {'day' if n == 1 else 'days'}"
 
 
-async def setup_profile(auth_context: AuthContext, body) -> ApiResponse:
+async def setup_profile(request: Request, response: Response, auth_context: AuthContext, body) -> ApiResponse:
     supabase = get_supabase()
     username = body.username.lower()
 
@@ -59,7 +69,59 @@ async def setup_profile(auth_context: AuthContext, body) -> ApiResponse:
     ).execute()
 
     new_user = serialize_user((result.data or [{}])[0])
-    return ApiResponse(201, "Profile created.", new_user)
+
+    # --- THE FIX: GENERATE FRESH TOKENS FOR THE NEW USER ---
+    settings = get_settings()
+    
+    # 1. Generate new Access Token with the actual Supabase User ID
+    access_token = jwt.encode(
+        {
+            "sub": new_user["id"],
+            "firebaseUid": auth_context.uid,
+            "email": auth_context.email,
+            "email_verified": auth_context.email_verified,
+            "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
+        },
+        settings.jwt_secret,
+        algorithm="HS256",
+    )
+    if isinstance(access_token, bytes):
+        access_token = access_token.decode()
+
+    # 2. Generate Refresh Token and register the Device Session
+    refresh_token = str(uuid.uuid4())
+    refresh_token_hash = bcrypt.hashpw(refresh_token.encode(), bcrypt.gensalt()).decode()
+    token_family = str(uuid.uuid4())
+    expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_DAYS)
+    user_agent = request.headers.get("user-agent") or ""
+
+    supabase.table("devices").insert({
+        "user_id": new_user["id"],
+        "device_name": user_agent[:80] if user_agent else "Web Session",
+        "device_type": "web",
+        "refresh_token_hash": refresh_token_hash,
+        "token_family": token_family,
+        "last_used_at": datetime.now(timezone.utc).isoformat(),
+        "ip_address": get_client_ip(request),
+        "user_agent": user_agent,
+        "expires_at": expires_at.isoformat(),
+    }).execute()
+
+    # 3. Plant the secure HTTP-only refresh cookie
+    cookie_options = {
+        "httponly": True,
+        "secure": settings.is_production,
+        "samesite": "none" if settings.is_production else "lax",
+        "max_age": REFRESH_TOKEN_DAYS * 24 * 60 * 60,
+        "path": "/",
+    }
+    response.set_cookie(REFRESH_COOKIE_NAME, refresh_token, **cookie_options)
+
+    # 4. Return the exact same payload structure as the login route
+    return ApiResponse(201, "Profile created.", {
+        "user": new_user,
+        "accessToken": access_token
+    })
 
 
 async def search_users(user: dict, q: str | None) -> ApiResponse:
