@@ -1,3 +1,4 @@
+import asyncio
 import io
 import logging
 from datetime import datetime, timezone
@@ -22,7 +23,8 @@ async def _send_silent_push(token: str | None, sender_name: str, ciphertext: str
         return
     try:
         get_firebase_app()
-        messaging.send(
+        await asyncio.to_thread(
+            messaging.send,
             messaging.Message(
                 data={
                     "senderName": sender_name,
@@ -45,7 +47,7 @@ async def get_messages(user: dict, conversation_id: str) -> ApiResponse:
 
     supabase = get_supabase()
     conversation_result = supabase.table("conversations").select("*").eq("id", conversation_id).maybe_single().execute()
-    conversation = conversation_result.data
+    conversation = getattr(conversation_result, "data", None) if conversation_result else None
     if not conversation:
         raise ApiError(404, "Conversation not found")
 
@@ -101,7 +103,8 @@ async def upload_attachment(file_bytes: bytes) -> ApiResponse:
     if not file_bytes:
         raise ApiError(400, "No file provided.")
 
-    upload_response = cloudinary.uploader.upload(
+    upload_response = await asyncio.to_thread(
+        cloudinary.uploader.upload,
         io.BytesIO(file_bytes),
         resource_type="raw",
         folder="zync_secure_media",
@@ -122,7 +125,7 @@ async def send_message(user: dict, conversation_id: str, body) -> ApiResponse:
 
     supabase = get_supabase()
     conversation_result = supabase.table("conversations").select("*").eq("id", conversation_id).maybe_single().execute()
-    conversation = conversation_result.data
+    conversation = getattr(conversation_result, "data", None) if conversation_result else None
     if not conversation:
         raise ApiError(404, "Conversation not found")
     if sender_id not in (conversation.get("participants") or []):
@@ -130,7 +133,7 @@ async def send_message(user: dict, conversation_id: str, body) -> ApiResponse:
 
     image_url = ""
     if body.image:
-        upload_response = cloudinary.uploader.upload(body.image, folder="zync_messages")
+        upload_response = await asyncio.to_thread(cloudinary.uploader.upload, body.image, folder="zync_messages")
         image_url = upload_response["secure_url"]
 
     message_result = (
@@ -218,7 +221,7 @@ async def edit_message(user: dict, message_id: str, text: str) -> ApiResponse:
 
     supabase = get_supabase()
     message_result = supabase.table("messages").select("*").eq("id", message_id).maybe_single().execute()
-    message = message_result.data
+    message = getattr(message_result, "data", None) if message_result else None
     if not message:
         raise ApiError(404, "Message not found")
     if message["sender_id"] != user_id:
@@ -239,7 +242,7 @@ async def edit_message(user: dict, message_id: str, text: str) -> ApiResponse:
     conversation_result = (
         supabase.table("conversations").select("participants").eq("id", message["conversation_id"]).maybe_single().execute()
     )
-    conversation = conversation_result.data
+    conversation = getattr(conversation_result, "data", None) if conversation_result else None
     io = get_io()
     if conversation and io:
         for participant_id in conversation.get("participants") or []:
@@ -267,7 +270,7 @@ async def delete_message_for_everyone(user: dict, message_id: str) -> ApiRespons
 
     supabase = get_supabase()
     message_result = supabase.table("messages").select("*").eq("id", message_id).maybe_single().execute()
-    message = message_result.data
+    message = getattr(message_result, "data", None) if message_result else None
     if not message:
         raise ApiError(404, "Message not found")
     if message["sender_id"] != user_id:
@@ -293,7 +296,7 @@ async def delete_message_for_everyone(user: dict, message_id: str) -> ApiRespons
     conversation_result = (
         supabase.table("conversations").select("participants").eq("id", message["conversation_id"]).maybe_single().execute()
     )
-    conversation = conversation_result.data
+    conversation = getattr(conversation_result, "data", None) if conversation_result else None
     io = get_io()
     if conversation and io:
         for participant_id in conversation.get("participants") or []:
@@ -320,14 +323,14 @@ async def delete_message_for_me(user: dict, message_id: str) -> ApiResponse:
 
     supabase = get_supabase()
     message_result = supabase.table("messages").select("*").eq("id", message_id).maybe_single().execute()
-    message = message_result.data
+    message = getattr(message_result, "data", None) if message_result else None
     if not message:
         raise ApiError(404, "Message not found")
 
     conversation_result = (
         supabase.table("conversations").select("*").eq("id", message["conversation_id"]).maybe_single().execute()
     )
-    conversation = conversation_result.data
+    conversation = getattr(conversation_result, "data", None) if conversation_result else None
     if not conversation:
         raise ApiError(404, "Conversation not found")
     if user_id not in (conversation.get("participants") or []):

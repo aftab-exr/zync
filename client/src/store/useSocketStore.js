@@ -14,6 +14,7 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || (
 
 let onlineHandler = null;
 let offlineHandler = null;
+let heartbeatInterval = null;
 
 export const useSocketStore = create((set, get) => ({
   socket: null,
@@ -51,6 +52,12 @@ export const useSocketStore = create((set, get) => ({
     socket.on('connect', () => {
       set({ isConnected: true, isReconnecting: false });
 
+      // Keep alive on Render: ping every 30s to prevent 55s idle timeout
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+      heartbeatInterval = setInterval(() => {
+        if (socket.connected) socket.volatile.emit('ping');
+      }, 30_000);
+
       useMessageStore.getState().resendPendingMessages();
 
       const activeConv = useChatStore.getState().selectedConversation;
@@ -60,6 +67,10 @@ export const useSocketStore = create((set, get) => ({
     });
 
     socket.on('disconnect', (reason) => {
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+      }
       set({ isConnected: false, isReconnecting: reason !== 'io client disconnect' });
       if (reason === 'io server disconnect') {
         socket.connect();
@@ -133,6 +144,10 @@ export const useSocketStore = create((set, get) => ({
   disconnect: () => {
     const { socket } = get();
     if (socket) {
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+      }
       socket.off('presence:update');
       socket.off('user_typing');
       socket.off('user_stopped_typing');

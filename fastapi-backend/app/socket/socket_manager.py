@@ -38,7 +38,7 @@ async def _log_call_and_emit(session: dict[str, Any], duration: int) -> None:
             .maybe_single()
             .execute()
         )
-        conversation = existing.data
+        conversation = getattr(existing, "data", None) if existing else None
         if not conversation:
             insert_result = (
                 supabase.table("conversations")
@@ -95,7 +95,7 @@ def create_socket_app() -> socketio.ASGIApp:
 
     _sio = socketio.AsyncServer(
         async_mode="asgi",
-        cors_allowed_origins="*",
+        cors_allowed_origins=[],
         client_manager=client_mgr,
     )
 
@@ -114,18 +114,19 @@ def create_socket_app() -> socketio.ASGIApp:
 
         supabase = get_supabase()
         user_result = supabase.table("users").select("*").eq("id", decoded.get("sub")).maybe_single().execute()
-        if not user_result.data:
+        user_data = getattr(user_result, "data", None) if user_result else None
+        if not user_data:
             return False
 
-        await _sio.save_session(sid, {"user": user_result.data})
-        await _sio.enter_room(sid, user_result.data["id"])
+        await _sio.save_session(sid, {"user": user_data})
+        await _sio.enter_room(sid, user_data["id"])
         await _sio.emit(
             "presence:update",
-            {"userId": user_result.data["id"], "online": True},
+            {"userId": user_data["id"], "online": True},
             skip_sid=sid,
         )
         supabase.table("users").update({"status": {"online": True, "lastSeen": None}}).eq(
-            "id", user_result.data["id"]
+            "id", user_data["id"]
         ).execute()
 
     @_sio.on("typing_start")
@@ -167,15 +168,16 @@ def create_socket_app() -> socketio.ASGIApp:
         supabase = get_supabase()
         for message_id in message_ids:
             msg_result = supabase.table("messages").select("*").eq("id", message_id).maybe_single().execute()
-            msg = msg_result.data
+            msg = getattr(msg_result, "data", None) if msg_result else None
             if msg and msg.get("sender_id") != reader_id and not msg.get("is_read"):
                 supabase.table("messages").update({"is_read": True}).eq("id", message_id).execute()
 
         sender_ids = set()
         for message_id in message_ids:
             msg_result = supabase.table("messages").select("sender_id").eq("id", message_id).maybe_single().execute()
-            if msg_result.data:
-                sender_id = msg_result.data.get("sender_id")
+            msg_data = getattr(msg_result, "data", None) if msg_result else None
+            if msg_data:
+                sender_id = msg_data.get("sender_id")
                 if sender_id and sender_id != reader_id:
                     sender_ids.add(sender_id)
 

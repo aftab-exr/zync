@@ -55,7 +55,8 @@ async def create_conversation(user: dict, receiver_id: str) -> ApiResponse:
     receiver_result = (
         supabase.table("users").select("id").eq("id", receiver_id).is_("deleted_at", "null").maybe_single().execute()
     )
-    if not receiver_result.data:
+    receiver_data = getattr(receiver_result, "data", None) if receiver_result else None
+    if not receiver_data:
         raise ApiError(404, "Receiver not found.")
 
     existing = (
@@ -68,8 +69,9 @@ async def create_conversation(user: dict, receiver_id: str) -> ApiResponse:
         .execute()
     )
 
-    if existing.data:
-        conversation = existing.data
+    existing_data = getattr(existing, "data", None) if existing else None
+    if existing_data:
+        conversation = existing_data
     else:
         insert_result = (
             supabase.table("conversations")

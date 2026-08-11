@@ -1,3 +1,4 @@
+import asyncio
 import math
 import re
 import uuid
@@ -217,7 +218,8 @@ async def update_avatar(user: dict, image: str) -> ApiResponse:
     if not image:
         raise ApiError(400, "No image provided.")
 
-    upload_response = cloudinary.uploader.upload(
+    upload_response = await asyncio.to_thread(
+        cloudinary.uploader.upload,
         image,
         folder="zync_avatars",
         transformation=[{"width": 512, "height": 512, "crop": "fill", "gravity": "auto"}],
@@ -226,7 +228,7 @@ async def update_avatar(user: dict, image: str) -> ApiResponse:
 
     if user.get("avatarPublicId"):
         try:
-            cloudinary.uploader.destroy(user["avatarPublicId"])
+            await asyncio.to_thread(cloudinary.uploader.destroy, user["avatarPublicId"])
         except Exception as exc:
             print(f"Failed to remove old avatar: {exc}")
 
